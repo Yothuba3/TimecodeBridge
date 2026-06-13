@@ -190,6 +190,19 @@ internal class StubTimecodeEngineForMain : ITimecodeEngine
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
 }
 
+internal class StubOscSenderForMain : IOscSender
+{
+    public void Send(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds) { }
+    public void SendPing(string hostId) { }
+    public Task SendIcmpPingAsync(string hostId, int framesPerSecond) => Task.CompletedTask;
+    public event EventHandler<OscSendResultEventArgs>? SendCompleted;
+}
+
+internal class StubOscTriggerDialogServiceForMain : IOscTriggerDialogService
+{
+    public OscTriggerButton? ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title) => template;
+}
+
 // --- Tests ---
 
 public class MainViewModelTests
@@ -203,12 +216,17 @@ public class MainViewModelTests
     private readonly TimecodeViewModel _timecodeViewModel;
     private readonly CueListViewModel _cueListViewModel;
     private readonly RelayViewModel _relayViewModel;
+    private readonly OscTriggerPanelManager _oscTriggerPanelManager;
+    private readonly OscTriggerPanelViewModel _oscTriggerPanelViewModel;
 
     public MainViewModelTests()
     {
         _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager);
         _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain());
         _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry);
+        _oscTriggerPanelManager = new OscTriggerPanelManager(new StubOscSenderForMain(), _hostRegistry);
+        _oscTriggerPanelViewModel = new OscTriggerPanelViewModel(
+            _oscTriggerPanelManager, new StubOscTriggerDialogServiceForMain(), _hostRegistry, _projectService);
     }
 
     private MainViewModel CreateVm() => new(
@@ -220,7 +238,9 @@ public class MainViewModelTests
         _timecodeEngine,
         _timecodeViewModel,
         _cueListViewModel,
-        _relayViewModel);
+        _relayViewModel,
+        _oscTriggerPanelManager,
+        _oscTriggerPanelViewModel);
 
     // --- Initial Title ---
 

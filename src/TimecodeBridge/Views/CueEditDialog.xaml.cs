@@ -21,7 +21,7 @@ public partial class CueEditDialog : Window
         SecondsBox.Text = cue.TriggerTime.Seconds.ToString("D2");
         FramesBox.Text = cue.TriggerTime.Frames.ToString("D2");
         OscAddressBox.Text = cue.OscAddress;
-        OscArgsBox.Text = FormatArguments(cue.Arguments);
+        OscArgsBox.Text = OscArgumentText.Format(cue.Arguments);
         MemoBox.Text = cue.Memo;
         EnabledBox.IsChecked = cue.IsEnabled;
         SendTcSecondsBox.IsChecked = cue.SendTriggerTimeAsSeconds;
@@ -52,48 +52,6 @@ public partial class CueEditDialog : Window
             IsSelected = cue.TargetHostIds.Contains(h.Id),
         }).ToList();
         HostListBox.ItemsSource = hostItems;
-    }
-
-    private static string FormatArguments(List<OscArgument> args)
-    {
-        if (args.Count == 0) return string.Empty;
-        return string.Join(" ", args.Select(a => a switch
-        {
-            OscInt32Argument i => $"i:{i.Value}",
-            OscFloat32Argument f => $"f:{f.Value}",
-            OscStringArgument s => $"s:{s.Value}",
-            _ => string.Empty,
-        }));
-    }
-
-    private static List<OscArgument> ParseArguments(string text)
-    {
-        var result = new List<OscArgument>();
-        if (string.IsNullOrWhiteSpace(text)) return result;
-
-        foreach (var token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var colonIndex = token.IndexOf(':');
-            if (colonIndex < 1 || colonIndex >= token.Length - 1) continue;
-
-            var typePrefix = token[..colonIndex];
-            var valueStr = token[(colonIndex + 1)..];
-
-            switch (typePrefix)
-            {
-                case "i" when int.TryParse(valueStr, out var iv):
-                    result.Add(new OscInt32Argument(iv));
-                    break;
-                case "f" when float.TryParse(valueStr, out var fv):
-                    result.Add(new OscFloat32Argument(fv));
-                    break;
-                case "s":
-                    result.Add(new OscStringArgument(valueStr));
-                    break;
-            }
-        }
-
-        return result;
     }
 
     private TimecodeOffset? ParseCueOffset()
@@ -151,7 +109,7 @@ public partial class CueEditDialog : Window
             Name = NameBox.Text.Trim(),
             TriggerTime = new TimecodeValue(h, m, s, f, _frameRate),
             OscAddress = oscAddress,
-            Arguments = ParseArguments(OscArgsBox.Text),
+            Arguments = OscArgumentText.Parse(OscArgsBox.Text),
             TargetHostIds = selectedHostIds,
             Memo = MemoBox.Text,
             IsEnabled = EnabledBox.IsChecked ?? true,

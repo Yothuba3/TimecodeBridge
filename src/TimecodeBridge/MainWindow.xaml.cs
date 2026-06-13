@@ -66,6 +66,9 @@ public partial class MainWindow : Window
             // Wire HostManager and RelayControl views
             HostManager.DataContext = App.Services.GetRequiredService<HostManagerViewModel>();
             RelayControl.DataContext = App.Services.GetRequiredService<RelayViewModel>();
+
+            // Wire OSC trigger panel
+            OscTriggerPanel.DataContext = App.Services.GetRequiredService<OscTriggerPanelViewModel>();
         }
     }
 

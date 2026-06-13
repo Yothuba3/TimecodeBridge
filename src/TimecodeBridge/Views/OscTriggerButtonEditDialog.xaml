@@ -1,0 +1,70 @@
+<Window x:Class="TimecodeBridge.Views.OscTriggerButtonEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ボタン編集"
+        Width="440" Height="430"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource PrimaryBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryForegroundBrush}">
+
+    <Border Margin="12" Background="{DynamicResource CardBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+            CornerRadius="8" Padding="20">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Label -->
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="ラベル" VerticalAlignment="Center" Margin="0,0,0,12"
+                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+            <TextBox Grid.Row="0" Grid.Column="1" x:Name="LabelBox" Margin="0,0,0,12" />
+
+            <!-- OSC Address -->
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="OSCアドレス" VerticalAlignment="Center" Margin="0,0,0,12"
+                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+            <TextBox Grid.Row="1" Grid.Column="1" x:Name="OscAddressBox" FontFamily="Consolas" Margin="0,0,0,12" />
+
+            <!-- OSC Arguments -->
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="OSC引数" VerticalAlignment="Center" Margin="0,0,0,12"
+                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+            <TextBox Grid.Row="2" Grid.Column="1" x:Name="OscArgsBox" FontFamily="Consolas" Margin="0,0,0,12"
+                     ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り)" />
+
+            <!-- Target Hosts -->
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="送信先ホスト" VerticalAlignment="Top" Margin="0,0,0,12"
+                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+            <ListBox Grid.Row="3" Grid.Column="1" x:Name="HostListBox"
+                     Margin="0,0,0,12" SelectionMode="Multiple"
+                     Background="{DynamicResource SecondaryBackgroundBrush}"
+                     BorderBrush="{DynamicResource BorderSubtleBrush}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
+                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                  Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                <Button Content="OK" Padding="24,8" Margin="0,0,8,0"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="OnOkClick" IsDefault="True" />
+                <Button Content="キャンセル" Padding="24,8"
+                        Click="OnCancelClick" IsCancel="True" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

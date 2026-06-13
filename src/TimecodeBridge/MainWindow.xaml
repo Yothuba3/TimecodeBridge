@@ -14,8 +14,7 @@
     <Grid Background="{DynamicResource PrimaryBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="3*" />
-            <RowDefinition Height="2*" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- Row 0: Menu Bar -->
@@ -41,83 +40,102 @@
             </MenuItem>
         </Menu>
 
-        <!-- Row 1: CueList (left) + HostManager / RelayControl (right) -->
-        <Grid Grid.Row="1" Margin="4,4,4,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+        <!-- Row 1: Tabs -->
+        <TabControl Grid.Row="1" Margin="4,4,4,4" SelectedIndex="0"
+                    Background="Transparent" BorderThickness="0">
 
-            <!-- Left: CueList -->
-            <views:CueListView Grid.Column="0" x:Name="CueList" />
-
-            <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="3"
-                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
-
-            <!-- Right: HostManager + RelayControl + Background Image -->
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Background="Transparent" Margin="4,0,0,0">
-                <StackPanel>
-                    <views:HostManagerView x:Name="HostManager" Margin="0,0,0,4" />
-                    <views:RelayControlView x:Name="RelayControl" Margin="0,0,0,4" />
-
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
-
-        <!-- Row 2: TC + Waveform (left) | Log (right) -->
-        <Grid Grid.Row="2" Margin="4,4,4,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="2*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Left: Timecode + Waveform (stretch to fill row height) -->
-            <Grid Grid.Column="0" Margin="0,0,4,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
-                <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" Height="46" />
-            </Grid>
-
-            <!-- Right: Log Panel -->
-            <Border Grid.Column="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                    CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
+            <!-- Tab 1: Timecode (existing full feature set) -->
+            <TabItem Header="タイムコード">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="3*" />
+                        <RowDefinition Height="2*" />
                     </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="12,8,12,4">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
-                                    CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
-                                       Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                        <Button Content="クリア" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                                Padding="10,4" FontSize="11"
-                                x:Name="ClearLogButton" />
-                    </DockPanel>
-                    <ListView Grid.Row="1" x:Name="LogListView"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              Margin="4,0,4,4">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+
+                    <!-- CueList (left) + HostManager / RelayControl (right) -->
+                    <Grid Grid.Row="0" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="4*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="3*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: CueList -->
+                        <views:CueListView Grid.Column="0" x:Name="CueList" />
+
+                        <!-- Splitter -->
+                        <GridSplitter Grid.Column="1" Width="3"
+                                      HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+                        <!-- Right: HostManager + RelayControl -->
+                        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Background="Transparent" Margin="4,0,0,0">
+                            <StackPanel>
+                                <views:HostManagerView x:Name="HostManager" Margin="0,0,0,4" />
+                                <views:RelayControlView x:Name="RelayControl" Margin="0,0,0,4" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- TC + Waveform (left) | Log (right) -->
+                    <Grid Grid.Row="1" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Timecode + Waveform (stretch to fill row height) -->
+                        <Grid Grid.Column="0" Margin="0,0,4,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
+                            <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" Height="46" />
+                        </Grid>
+
+                        <!-- Right: Log Panel -->
+                        <Border Grid.Column="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <DockPanel Grid.Row="0" Margin="12,8,12,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Button Content="クリア" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                            Padding="10,4" FontSize="11"
+                                            x:Name="ClearLogButton" />
+                                </DockPanel>
+                                <ListView Grid.Row="1" x:Name="LogListView"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Margin="4,0,4,4">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11"
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
-            </Border>
-        </Grid>
+            </TabItem>
+
+            <!-- Tab 2: OSC Trigger Panel (pon-out) -->
+            <TabItem Header="OSCポン出し">
+                <views:OscTriggerPanelView x:Name="OscTriggerPanel" />
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

@@ -16,6 +16,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly TimecodeViewModel _timecodeViewModel;
     private readonly CueListViewModel _cueListViewModel;
     private readonly RelayViewModel _relayViewModel;
+    private readonly IOscTriggerPanelManager _oscTriggerPanelManager;
+    private readonly OscTriggerPanelViewModel _oscTriggerPanelViewModel;
     private bool _isNewProject = true;
 
     [ObservableProperty]
@@ -36,7 +38,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ITimecodeEngine timecodeEngine,
         TimecodeViewModel timecodeViewModel,
         CueListViewModel cueListViewModel,
-        RelayViewModel relayViewModel)
+        RelayViewModel relayViewModel,
+        IOscTriggerPanelManager oscTriggerPanelManager,
+        OscTriggerPanelViewModel oscTriggerPanelViewModel)
     {
         _projectService = projectService;
         _recentProjectsService = recentProjectsService;
@@ -47,6 +51,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _timecodeViewModel = timecodeViewModel;
         _cueListViewModel = cueListViewModel;
         _relayViewModel = relayViewModel;
+        _oscTriggerPanelManager = oscTriggerPanelManager;
+        _oscTriggerPanelViewModel = oscTriggerPanelViewModel;
 
         RecentProjects = _recentProjectsService.GetRecentProjects();
         _projectService.UnsavedChangesStatusChanged += OnUnsavedChangesStatusChanged;
@@ -73,6 +79,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Sync child ViewModels
         _cueListViewModel.SyncFromService();
         _relayViewModel.SyncFromService();
+        _oscTriggerPanelViewModel.SyncFromService();
 
         _isNewProject = true;
         UpdateTitle();
@@ -128,9 +135,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Restore source settings
         _timecodeViewModel.RestoreSourceSettings(data.SourceSettings);
 
+        // Restore OSC trigger panel
+        _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
+
         // Sync child ViewModels
         _cueListViewModel.SyncFromService();
         _relayViewModel.SyncFromService();
+        _oscTriggerPanelViewModel.SyncFromService();
 
         UpdateTitle();
         RecentProjects = _recentProjectsService.GetRecentProjects();
@@ -147,6 +158,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             _hostRegistry.RemoveHost(host.Id);
         }
+
+        _oscTriggerPanelManager.Clear();
     }
 
     private void SaveToPath(string filePath)
@@ -164,6 +177,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             },
             Offset = _timecodeEngine.Offset,
             SourceSettings = _timecodeViewModel.GetSourceSettings(),
+            OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
         };
 
         _isNewProject = false;

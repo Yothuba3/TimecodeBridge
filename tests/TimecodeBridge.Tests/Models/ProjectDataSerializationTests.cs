@@ -156,6 +156,69 @@ public class ProjectDataSerializationTests
         Assert.Empty(deserialized.Hosts);
     }
 
+    [Fact]
+    public void OscTriggerPanel_RoundTrip_PreservesGridAndButtons()
+    {
+        var data = new ProjectData
+        {
+            OscTriggerPanel = new OscTriggerPanelSettings
+            {
+                Rows = 3,
+                Columns = 5,
+                Buttons =
+                [
+                    new OscTriggerButton
+                    {
+                        Id = "btn-1",
+                        Row = 1,
+                        Column = 2,
+                        Label = "GO",
+                        OscAddress = "/pon/1",
+                        Arguments =
+                        [
+                            new OscInt32Argument(1),
+                            new OscFloat32Argument(0.25f),
+                            new OscStringArgument("x"),
+                        ],
+                        TargetHostIds = ["host-1", "host-2"],
+                    },
+                ],
+            },
+        };
+
+        var json = JsonSerializer.Serialize(data, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<ProjectData>(json, JsonOptions)!;
+
+        Assert.Equal(3, deserialized.OscTriggerPanel.Rows);
+        Assert.Equal(5, deserialized.OscTriggerPanel.Columns);
+
+        var btn = Assert.Single(deserialized.OscTriggerPanel.Buttons);
+        Assert.Equal("btn-1", btn.Id);
+        Assert.Equal(1, btn.Row);
+        Assert.Equal(2, btn.Column);
+        Assert.Equal("GO", btn.Label);
+        Assert.Equal("/pon/1", btn.OscAddress);
+        Assert.Equal(3, btn.Arguments.Count);
+        Assert.IsType<OscInt32Argument>(btn.Arguments[0]);
+        Assert.IsType<OscFloat32Argument>(btn.Arguments[1]);
+        Assert.IsType<OscStringArgument>(btn.Arguments[2]);
+        Assert.Equal(2, btn.TargetHostIds.Count);
+    }
+
+    [Fact]
+    public void OscTriggerPanel_MissingSection_UsesDefaults()
+    {
+        // 旧バージョンのプロジェクトファイル（oscTriggerPanel セクションなし）
+        var json = "{\"cues\":[],\"hosts\":[]}";
+
+        var deserialized = JsonSerializer.Deserialize<ProjectData>(json, JsonOptions)!;
+
+        Assert.NotNull(deserialized.OscTriggerPanel);
+        Assert.Equal(4, deserialized.OscTriggerPanel.Rows);
+        Assert.Equal(4, deserialized.OscTriggerPanel.Columns);
+        Assert.Empty(deserialized.OscTriggerPanel.Buttons);
+    }
+
     private static ProjectData CreateSampleProjectData()
     {
         return new ProjectData

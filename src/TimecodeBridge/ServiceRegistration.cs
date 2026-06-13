@@ -19,6 +19,7 @@ public static class ServiceRegistration
         services.AddSingleton<IOscTransport, OscTransport>();
         services.AddSingleton<IOscSender, OscSender>();
         services.AddSingleton<ICueManager, CueManager>();
+        services.AddSingleton<IOscTriggerPanelManager, OscTriggerPanelManager>();
         services.AddSingleton<ITimecodeRelay, TimecodeRelay>();
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IAppSettingsService, AppSettingsService>();
@@ -28,6 +29,7 @@ public static class ServiceRegistration
         services.AddSingleton<ICueDialogService, CueDialogService>();
         services.AddSingleton<IHostDialogService, HostDialogService>();
         services.AddSingleton<IFileDialogService, FileDialogService>();
+        services.AddSingleton<IOscTriggerDialogService, OscTriggerDialogService>();
 
         // ViewModels
         services.AddSingleton<TimecodeViewModel>();
@@ -35,6 +37,7 @@ public static class ServiceRegistration
         services.AddSingleton<RelayViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<HostManagerViewModel>();
+        services.AddSingleton<OscTriggerPanelViewModel>();
         services.AddTransient<LogViewModel>();
         services.AddTransient<AudioWaveformViewModel>();
     }
