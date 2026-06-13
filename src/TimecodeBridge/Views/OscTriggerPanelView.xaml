@@ -39,12 +39,14 @@
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                     <TextBox Text="{Binding Rows, UpdateSourceTrigger=LostFocus}" Width="48"
                              TextAlignment="Center" FontFamily="Consolas"
-                             IsEnabled="{Binding IsEditMode}" />
+                             IsEnabled="{Binding IsEditMode}"
+                             KeyDown="OnSizeBoxKeyDown" />
                     <TextBlock Text="列" VerticalAlignment="Center" Margin="12,0,6,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                     <TextBox Text="{Binding Columns, UpdateSourceTrigger=LostFocus}" Width="48"
                              TextAlignment="Center" FontFamily="Consolas"
-                             IsEnabled="{Binding IsEditMode}" />
+                             IsEnabled="{Binding IsEditMode}"
+                             KeyDown="OnSizeBoxKeyDown" />
                 </StackPanel>
             </DockPanel>
 
