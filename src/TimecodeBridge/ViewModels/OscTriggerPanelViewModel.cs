@@ -22,6 +22,14 @@ public partial class OscTriggerPanelViewModel : ObservableObject
 
     [ObservableProperty] private int _rows;
     [ObservableProperty] private int _columns;
+    [ObservableProperty] private bool _isEditMode = true;
+
+    /// <summary>実行モード（編集モードの反転）。クリック送信が有効になる。</summary>
+    public bool IsPlayMode
+    {
+        get => !IsEditMode;
+        set => IsEditMode = !value;
+    }
 
     public ObservableCollection<OscTriggerCellViewModel> Cells { get; } = [];
 
@@ -65,6 +73,7 @@ public partial class OscTriggerPanelViewModel : ObservableObject
 
     partial void OnRowsChanged(int value) => ApplyGridSize();
     partial void OnColumnsChanged(int value) => ApplyGridSize();
+    partial void OnIsEditModeChanged(bool value) => OnPropertyChanged(nameof(IsPlayMode));
 
     private void ApplyGridSize()
     {
@@ -115,12 +124,9 @@ public partial class OscTriggerPanelViewModel : ObservableObject
     {
         if (cell is null) return;
 
-        // 未設定セルは押下で編集ダイアログを開く
-        if (!cell.IsConfigured)
-        {
-            EditCell(cell);
-            return;
-        }
+        // 実行モードでのみクリック送信する（編集モードでは無反応）
+        if (IsEditMode) return;
+        if (!cell.IsConfigured) return;
 
         var result = _manager.Trigger(cell.Button!.Id);
         if (result.Sent)
@@ -138,6 +144,10 @@ public partial class OscTriggerPanelViewModel : ObservableObject
     {
         if (cell is null) return;
 
+        // 編集モードでのみ編集を許可する（実行モードでは無反応）
+        if (!IsEditMode) return;
+
+        var isExisting = cell.IsConfigured;
         var template = cell.Button ?? new OscTriggerButton
         {
             Id = Guid.NewGuid().ToString(),
@@ -145,22 +155,21 @@ public partial class OscTriggerPanelViewModel : ObservableObject
             Column = cell.Column,
         };
 
-        var edited = _dialogService.ShowEditDialog(template, _hostRegistry.Hosts, "ボタン編集");
-        if (edited is null) return;
+        var result = _dialogService.ShowEditDialog(template, _hostRegistry.Hosts, "ボタン編集", isExisting);
+        switch (result.Action)
+        {
+            case OscTriggerEditAction.Save when result.Button is not null:
+                _manager.UpsertButton(result.Button);
+                _projectService.MarkAsChanged();
+                cell.SetButton(_manager.GetButtonAt(cell.Row, cell.Column));
+                break;
 
-        _manager.UpsertButton(edited);
-        _projectService.MarkAsChanged();
-        cell.SetButton(_manager.GetButtonAt(cell.Row, cell.Column));
-    }
-
-    [RelayCommand]
-    private void ClearCell(OscTriggerCellViewModel? cell)
-    {
-        if (cell is null || !cell.IsConfigured) return;
-
-        _manager.RemoveButton(cell.Button!.Id);
-        _projectService.MarkAsChanged();
-        cell.SetButton(null);
+            case OscTriggerEditAction.Delete when isExisting:
+                _manager.RemoveButton(template.Id);
+                _projectService.MarkAsChanged();
+                cell.SetButton(null);
+                break;
+        }
     }
 
     /// <summary>送信先未設定/全無効の通知。テスト時に差し替え可能。</summary>

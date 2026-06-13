@@ -7,11 +7,16 @@ namespace TimecodeBridge.Services;
 
 public class OscTriggerDialogService : IOscTriggerDialogService
 {
-    public OscTriggerButton? ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title)
+    public OscTriggerEditResult ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title, bool canDelete)
     {
-        var dialog = new OscTriggerButtonEditDialog(template, hosts) { Title = title };
+        var dialog = new OscTriggerButtonEditDialog(template, hosts, canDelete) { Title = title };
         if (Application.Current?.MainWindow is { } mainWindow)
             dialog.Owner = mainWindow;
-        return dialog.ShowDialog() == true ? dialog.ResultButton : null;
+
+        dialog.ShowDialog();
+
+        return new OscTriggerEditResult(
+            dialog.Action,
+            dialog.Action == OscTriggerEditAction.Save ? dialog.ResultButton : null);
     }
 }

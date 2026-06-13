@@ -84,3 +84,13 @@ WPF (.NET 8, net8.0-windows), MVVM (CommunityToolkit.Mvvm), DI (Microsoft.Extens
 2. The OSCポン出しパネル shall 送信先ホストの参照に既存の `HostRegistry` / `OscHost` を使用する。
 3. The OSCポン出しパネル shall 既存のダークテーマ（`DarkTheme`）と UI スタイル（カード・アクセントカラー等）に準拠する。
 4. The TimecodeBridge shall 新機能を既存の MVVM 構成（View + ViewModel、`CommunityToolkit.Mvvm`、DI 登録）に従って実装する。
+
+### Requirement 7: 実行モードと編集モード
+**Objective:** オペレーターとして、運用中の誤操作を防ぎたい。そうすることで本番中の誤編集・誤送出を避けられる。
+
+#### Acceptance Criteria
+1. The OSCポン出しパネル shall 「実行モード」と「編集モード」を切り替える手段を提供する。
+2. While 実行モードのとき, the OSCポン出しパネル shall 設定済みボタンのクリックで OSC を送出する。
+3. While 実行モードのとき, the OSCポン出しパネル shall グリッドの行数・列数の変更を受け付けない。
+4. While 編集モードのとき, the OSCポン出しパネル shall セルのダブルクリックで編集ダイアログを開く。
+5. When ユーザーが編集ダイアログで削除を実行した時, the OSCポン出しパネル shall 該当ボタンの設定を削除する。

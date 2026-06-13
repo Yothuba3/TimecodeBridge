@@ -15,7 +15,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Header: title + grid size inputs -->
+            <!-- Header: title + mode switch + grid size inputs -->
             <DockPanel Grid.Row="0" Margin="0,0,0,12">
                 <StackPanel Orientation="Horizontal">
                     <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
@@ -27,14 +27,24 @@
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
                             HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <RadioButton Content="実行" GroupName="PonMode" Margin="0,0,12,0"
+                                 VerticalAlignment="Center" FontSize="12"
+                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                 IsChecked="{Binding IsPlayMode}" />
+                    <RadioButton Content="編集" GroupName="PonMode" Margin="0,0,18,0"
+                                 VerticalAlignment="Center" FontSize="12"
+                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                 IsChecked="{Binding IsEditMode}" />
                     <TextBlock Text="行" VerticalAlignment="Center" Margin="0,0,6,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                     <TextBox Text="{Binding Rows, UpdateSourceTrigger=LostFocus}" Width="48"
-                             TextAlignment="Center" FontFamily="Consolas" />
+                             TextAlignment="Center" FontFamily="Consolas"
+                             IsEnabled="{Binding IsEditMode}" />
                     <TextBlock Text="列" VerticalAlignment="Center" Margin="12,0,6,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                     <TextBox Text="{Binding Columns, UpdateSourceTrigger=LostFocus}" Width="48"
-                             TextAlignment="Center" FontFamily="Consolas" />
+                             TextAlignment="Center" FontFamily="Consolas"
+                             IsEnabled="{Binding IsEditMode}" />
                 </StackPanel>
             </DockPanel>
 
@@ -49,42 +59,55 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Margin="3" MinHeight="56"
+                            <Button Margin="4" MinHeight="60"
                                     Command="{Binding DataContext.TriggerCellCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
-                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                    PreviewMouseLeftButtonDown="OnCellPreviewMouseLeftButtonDown">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Content" Value="{Binding DisplayText}" />
                                         <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
-                                        <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
-                                        <Setter Property="BorderThickness" Value="1" />
                                         <Setter Property="FontSize" Value="12" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                         <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="bd" CornerRadius="8" BorderThickness="1.5"
+                                                            Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            Padding="6">
+                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"
+                                                                          TextBlock.TextAlignment="Center" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="bd" Property="BorderThickness" Value="2.5" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsConfigured}" Value="False">
                                                 <Setter Property="Content" Value="＋" />
+                                                <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SecondaryForegroundBrush}" />
-                                                <Setter Property="Opacity" Value="0.45" />
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                                                <Setter Property="Opacity" Value="0.6" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsFlashing}" Value="True">
                                                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                <Setter Property="Foreground" Value="White" />
                                                 <Setter Property="Opacity" Value="1" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
-                                <Button.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="編集"
-                                                  Command="{Binding PlacementTarget.Tag.EditCellCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                        <MenuItem Header="クリア"
-                                                  Command="{Binding PlacementTarget.Tag.ClearCellCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                    </ContextMenu>
-                                </Button.ContextMenu>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

@@ -1,5 +1,6 @@
 using System.Windows;
 using TimecodeBridge.Models;
+using TimecodeBridge.Services.Interfaces;
 using TimecodeBridge.ViewModels;
 
 namespace TimecodeBridge.Views;
@@ -9,8 +10,9 @@ public partial class OscTriggerButtonEditDialog : Window
     private readonly OscTriggerButton _template;
 
     public OscTriggerButton ResultButton { get; private set; } = null!;
+    public OscTriggerEditAction Action { get; private set; } = OscTriggerEditAction.Cancel;
 
-    public OscTriggerButtonEditDialog(OscTriggerButton button, IReadOnlyList<OscHost> allHosts)
+    public OscTriggerButtonEditDialog(OscTriggerButton button, IReadOnlyList<OscHost> allHosts, bool canDelete)
     {
         InitializeComponent();
         _template = button;
@@ -26,6 +28,8 @@ public partial class OscTriggerButtonEditDialog : Window
             IsSelected = button.TargetHostIds.Contains(h.Id),
         }).ToList();
         HostListBox.ItemsSource = hostItems;
+
+        DeleteButton.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnOkClick(object sender, RoutedEventArgs e)
@@ -55,11 +59,24 @@ public partial class OscTriggerButtonEditDialog : Window
             TargetHostIds = selectedHostIds,
         };
 
+        Action = OscTriggerEditAction.Save;
+        DialogResult = true;
+    }
+
+    private void OnDeleteClick(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            "このボタンを削除しますか？", "確認",
+            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.OK) return;
+
+        Action = OscTriggerEditAction.Delete;
         DialogResult = true;
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
     {
+        Action = OscTriggerEditAction.Cancel;
         DialogResult = false;
     }
 }

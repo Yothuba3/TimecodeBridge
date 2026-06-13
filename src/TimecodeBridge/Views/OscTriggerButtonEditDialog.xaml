@@ -57,14 +57,19 @@
             </ListBox>
 
             <!-- Buttons -->
-            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                <Button Content="OK" Padding="24,8" Margin="0,0,8,0"
-                        Style="{StaticResource AccentButtonStyle}"
-                        Click="OnOkClick" IsDefault="True" />
-                <Button Content="キャンセル" Padding="24,8"
-                        Click="OnCancelClick" IsCancel="True" />
-            </StackPanel>
+            <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0">
+                <Button x:Name="DeleteButton" Content="削除" Padding="18,8"
+                        HorizontalAlignment="Left"
+                        Foreground="{DynamicResource PrimaryForegroundBrush}"
+                        Click="OnDeleteClick" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="OK" Padding="24,8" Margin="0,0,8,0"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Click="OnOkClick" IsDefault="True" />
+                    <Button Content="キャンセル" Padding="24,8"
+                            Click="OnCancelClick" IsCancel="True" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </Border>
 </Window>

@@ -113,7 +113,7 @@ sequenceDiagram
     end
 ```
 
-> 未設定セルの主クリックは送出ではなく編集ダイアログを開く（R4.6）。送信先が空/全無効のときは送出せず通知する（R4.4）。送出結果のログは `IOscSender` 経由で既存ログ機構に乗る（R4.3）。
+> 送出は実行モードのシングルクリックでのみ行う（編集モードでは無反応）。編集はモードに関わらずダブルクリックで開く（実行モードでは `EditCellCommand` 自体が編集モード以外を無視するため、実質編集モード専用）。未設定セルのクリックは送出せず何もしない（R4.6）。送信先が空/全無効のときは送出せず通知する（R4.4）。送出結果のログは `IOscSender` 経由で既存ログ機構に乗る（R4.3）。
 
 ## Requirements Traceability
 
@@ -254,8 +254,8 @@ public interface IOscTriggerDialogService
 
 ### View 層（Summary-only）
 
-- **OscTriggerPanelView**: ヘッダに行数/列数入力（数値）。本体は `ItemsControl`（`ItemsSource=Cells`）+ `ItemsPanel` を `UniformGrid`（`Rows`/`Columns` バインド）で固定グリッド表示。各セルは `Button`（`Command=TriggerCellCommand`、`CommandParameter=cell`）。設定済み/未設定でスタイル差。編集は右クリック `ContextMenu`（編集/クリア）または編集アイコン。`DarkTheme` リソース（Card/Accent/Border）を使用（R6.3）。
-- **OscTriggerButtonEditDialog**: `CueEditDialog` を範として、ラベル・OSCアドレス・引数（`i:/f:/s:` テキスト）・ホスト選択（`HostSelection` チェックリスト）。OK 時に検証して `OscTriggerButton` を返す。
+- **OscTriggerPanelView**: ヘッダに実行/編集モード切替（`RadioButton`、`IsPlayMode`/`IsEditMode` バインド）と行数/列数入力（編集モード時のみ有効）。本体は `ItemsControl`（`ItemsSource=Cells`）+ `ItemsPanel` を `UniformGrid`（`Rows`/`Columns` バインド）で固定グリッド表示。各セルは `Button`（`Command=TriggerCellCommand` でシングルクリック送出）。編集はダブルクリック（`PreviewMouseLeftButtonDown` の `ClickCount==2` で `EditCellCommand`）。設定済みはアクセント色の角丸枠、未設定は薄い枠＋「＋」、送出時はアクセント背景でハイライト。`DarkTheme` リソース（Card/Accent/Border）を使用（R6.3、R7）。右クリックメニューは廃止。
+- **OscTriggerButtonEditDialog**: `CueEditDialog` を範として、ラベル・OSCアドレス・引数（`i:/f:/s:` テキスト）・ホスト選択（`HostSelection` チェックリスト）。OK 時に検証して `OscTriggerButton` を返す。既存ボタン編集時は「削除」ボタンを表示し、`OscTriggerEditResult`（Save/Delete/Cancel）で結果を返す（R7）。
 
 ### Util 層
 

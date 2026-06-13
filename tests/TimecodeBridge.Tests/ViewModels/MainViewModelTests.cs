@@ -200,7 +200,8 @@ internal class StubOscSenderForMain : IOscSender
 
 internal class StubOscTriggerDialogServiceForMain : IOscTriggerDialogService
 {
-    public OscTriggerButton? ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title) => template;
+    public OscTriggerEditResult ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title, bool canDelete)
+        => new(OscTriggerEditAction.Save, template);
 }
 
 // --- Tests ---
