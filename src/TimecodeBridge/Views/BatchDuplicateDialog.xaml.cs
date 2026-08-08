@@ -14,9 +14,10 @@ public partial class BatchDuplicateDialog : Window
 
     private void OnOkClick(object sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(CountBox.Text, out var count) || count < 1)
+        // 上限は大量キュー一括生成によるUIフリーズ防止
+        if (!int.TryParse(CountBox.Text, out var count) || count < 1 || count > 999)
         {
-            MessageBox.Show("複製数は1以上の整数を入力してください。", "入力エラー",
+            MessageBox.Show("複製数は 1〜999 の整数を入力してください。", "入力エラー",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

@@ -13,7 +13,8 @@ public partial class TimecodeViewModel : DispatcherViewModel
     private readonly ITimecodeEngine _timecodeEngine;
     private bool _hasEverReceived;
     private bool _generatorInitialized;
-    private bool _generatorFrameRateDirty;
+    private bool _generatorSettingsDirty;
+    private bool _restoring;
 
     [ObservableProperty] private string _rawTimecodeDisplay = "";
     [ObservableProperty] private string _offsetTimecodeDisplay = "";
@@ -60,8 +61,20 @@ public partial class TimecodeViewModel : DispatcherViewModel
             {
                 _timecodeEngine.Offset = value;
                 OnPropertyChanged(nameof(OffsetText));
+                MarkDirty();
             }
         }
+    }
+
+    /// <summary>
+    /// エンジン側のオフセットを表示へ反映する（プロジェクト読込・新規作成用）。
+    /// エンジンへの書き戻しやdirty化はしない。
+    /// </summary>
+    public void SyncOffsetFromEngine()
+    {
+        _offset = _timecodeEngine.Offset;
+        OnPropertyChanged(nameof(Offset));
+        OnPropertyChanged(nameof(OffsetText));
     }
 
     public string OffsetText
@@ -77,11 +90,13 @@ public partial class TimecodeViewModel : DispatcherViewModel
     }
 
     private readonly ICueManager _cueManager;
+    private readonly IProjectService _projectService;
 
-    public TimecodeViewModel(ITimecodeEngine timecodeEngine, ICueManager cueManager)
+    public TimecodeViewModel(ITimecodeEngine timecodeEngine, ICueManager cueManager, IProjectService projectService)
     {
         _timecodeEngine = timecodeEngine;
         _cueManager = cueManager;
+        _projectService = projectService;
         _offset = timecodeEngine.Offset;
 
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;
@@ -90,12 +105,38 @@ public partial class TimecodeViewModel : DispatcherViewModel
         RefreshAudioDevices();
     }
 
+    private void MarkDirty()
+    {
+        if (!_restoring) _projectService.MarkAsChanged();
+    }
+
     partial void OnGeneratorFrameRateChanged(FrameRate value)
     {
-        _timecodeEngine.FrameRate = value;
-        // ジェネレーター初期化済みの場合、次回リセットで再初期化が必要
-        _generatorFrameRateDirty = _generatorInitialized;
+        // 稼働中のジェネレーターとエンジンのレートがずれると表示が壊れるため、
+        // 初期化済みの間は即時変更せず次回リセット時にまとめて適用する
+        if (!_generatorInitialized)
+        {
+            _timecodeEngine.FrameRate = value;
+        }
+        _generatorSettingsDirty = _generatorInitialized;
+        MarkDirty();
     }
+
+    // 出力デバイス・音量の変更もリセット時の再初期化で反映する
+    // ponytail: 一時停止からの再開では旧設定のまま（位置保持を優先）。リセットで反映
+    partial void OnSelectedOutputDeviceChanged(AudioDeviceInfo? value)
+    {
+        _generatorSettingsDirty = _generatorInitialized;
+        MarkDirty();
+    }
+
+    partial void OnOutputVolumeLevelChanged(float value)
+    {
+        _generatorSettingsDirty = _generatorInitialized;
+        MarkDirty();
+    }
+
+    partial void OnGeneratorStartTimeChanged(string value) => MarkDirty();
 
     partial void OnIsTriggerMutedChanged(bool value)
     {
@@ -107,10 +148,15 @@ public partial class TimecodeViewModel : DispatcherViewModel
         OnPropertyChanged(nameof(IsGeneratorMode));
         OnPropertyChanged(nameof(IsLtcMode));
 
+        MarkDirty();
+
+        // プロジェクト復元中は RestoreSourceSettings が停止・再開をまとめて面倒を見る
+        if (_restoring) return;
+
         _timecodeEngine.Stop();
         _hasEverReceived = false;
         _generatorInitialized = false;
-        _generatorFrameRateDirty = false;
+        _generatorSettingsDirty = false;
         StatusText = "停止";
         IsReceiving = false;
         IsGeneratorRunning = false;
@@ -134,6 +180,11 @@ public partial class TimecodeViewModel : DispatcherViewModel
     [RelayCommand]
     private void RefreshAudioDevices()
     {
+        // Clear で選択が null に飛ぶため、更新前の選択を控えて更新後に復元する
+        var prevInput = SelectedDevice;
+        var prevOutput = SelectedOutputDevice;
+        _restoring = true;
+
         AudioDevices.Clear();
         OutputDevices.Clear();
         using var enumerator = new MMDeviceEnumerator();
@@ -152,13 +203,35 @@ public partial class TimecodeViewModel : DispatcherViewModel
             AudioDevices.Add(new AudioDeviceInfo(device.ID, $"{device.FriendlyName} (Loopback)", IsLoopback: true));
             OutputDevices.Add(new AudioDeviceInfo(device.ID, device.FriendlyName, IsLoopback: false));
         }
+
+        SelectedDevice = AudioDevices.FirstOrDefault(d => prevInput is not null && d.Id == prevInput.Id && d.IsLoopback == prevInput.IsLoopback);
+        SelectedOutputDevice = OutputDevices.FirstOrDefault(d => prevOutput is not null && d.Id == prevOutput.Id);
+        _restoring = false;
+
+        // 使用中のデバイスが消えていたら受信を止めてUIと実態を一致させる
+        if (SelectedSource == TimecodeSourceType.Ltc && prevInput is not null && SelectedDevice is null)
+        {
+            _timecodeEngine.Stop();
+            IsReceiving = false;
+            StatusText = "停止";
+        }
     }
 
     partial void OnSelectedDeviceChanged(AudioDeviceInfo? value)
     {
-        if (value is null || SelectedSource != TimecodeSourceType.Ltc) return;
+        if (_restoring) return;
+        if (SelectedSource != TimecodeSourceType.Ltc) return;
 
+        MarkDirty();
         _timecodeEngine.Stop();
+
+        if (value is null)
+        {
+            // 未選択になったら受信も止める（旧デバイスで受信が残り続けるのを防ぐ）
+            IsReceiving = false;
+            StatusText = "停止";
+            return;
+        }
 
         try
         {
@@ -222,8 +295,8 @@ public partial class TimecodeViewModel : DispatcherViewModel
     {
         var startTime = ParseTimecodeInput(GeneratorStartTime, GeneratorFrameRate);
 
-        // フレームレートが変更されている場合はジェネレーターを再初期化
-        if (_generatorFrameRateDirty)
+        // フレームレート・出力デバイス・音量が変更されている場合はジェネレーターを再初期化
+        if (_generatorSettingsDirty)
         {
             bool wasRunning = IsGeneratorRunning;
             _timecodeEngine.Stop();
@@ -238,7 +311,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
             };
             _timecodeEngine.StartGenerator(settings);
             _generatorInitialized = true;
-            _generatorFrameRateDirty = false;
+            _generatorSettingsDirty = false;
 
             if (!wasRunning)
             {
@@ -319,30 +392,59 @@ public partial class TimecodeViewModel : DispatcherViewModel
     public void RestoreSourceSettings(TimecodeSourceSettings settings)
     {
         // Stop current engine before switching
+        // Stop current engine before switching
         _timecodeEngine.Stop();
         _hasEverReceived = false;
         _generatorInitialized = false;
+        _generatorSettingsDirty = false;
         IsGeneratorRunning = false;
         IsLtcOutputActive = false;
 
-        // Restore generator settings
-        GeneratorFrameRate = settings.GeneratorSettings.FrameRate;
-        GeneratorStartTime = settings.GeneratorSettings.StartTime.ToString();
-        OutputVolumeLevel = settings.GeneratorSettings.VolumeLevel;
+        // 値が現在と同一でも受信を確実に再開できるよう、復元中は変更コールバックの
+        // 自動再開・dirty化を抑止し、最後に明示的に開始する
+        _restoring = true;
+        try
+        {
+            // Restore generator settings
+            GeneratorFrameRate = settings.GeneratorSettings.FrameRate;
+            GeneratorStartTime = settings.GeneratorSettings.StartTime.ToString();
+            OutputVolumeLevel = settings.GeneratorSettings.VolumeLevel;
 
-        // Restore output device selection
-        SelectedOutputDevice = OutputDevices.FirstOrDefault(d => d.Id == settings.GeneratorSettings.OutputDeviceId);
+            // Restore output device selection
+            SelectedOutputDevice = OutputDevices.FirstOrDefault(d => d.Id == settings.GeneratorSettings.OutputDeviceId);
 
-        // Restore input device selection
-        SelectedDevice = AudioDevices.FirstOrDefault(d => d.Id == settings.DeviceId);
+            // Restore input device selection
+            SelectedDevice = AudioDevices.FirstOrDefault(d => d.Id == settings.DeviceId);
 
-        // Restore freerun duration
-        _timecodeEngine.FreerunDurationSeconds = settings.FreerunDurationSeconds;
+            // Restore freerun duration
+            _timecodeEngine.FreerunDurationSeconds = settings.FreerunDurationSeconds;
 
-        // Restore source type (this triggers OnSelectedSourceChanged which may auto-start LTC)
-        SelectedSource = settings.SourceType;
+            // Restore source type
+            SelectedSource = settings.SourceType;
+
+            _timecodeEngine.FrameRate = GeneratorFrameRate;
+        }
+        finally
+        {
+            _restoring = false;
+        }
 
         StatusText = "停止";
+        IsReceiving = false;
+
+        // LTCソースでデバイスが選択されていれば受信を開始する
+        if (SelectedSource == TimecodeSourceType.Ltc && SelectedDevice is not null)
+        {
+            try
+            {
+                _timecodeEngine.StartLtc(SelectedDevice.Id, SelectedDevice.IsLoopback);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "エラー";
+                System.Diagnostics.Debug.WriteLine($"Device start failed: {ex.Message}");
+            }
+        }
     }
 
     public override void Dispose()
@@ -360,6 +462,11 @@ public partial class TimecodeViewModel : DispatcherViewModel
             int.TryParse(parts[2], out int s) &&
             int.TryParse(parts[3], out int f))
         {
+            // 範囲外の成分はタイムコードとして有効な値へ丸める
+            h = Math.Clamp(h, 0, 23);
+            m = Math.Clamp(m, 0, 59);
+            s = Math.Clamp(s, 0, 59);
+            f = Math.Clamp(f, 0, frameRate.FramesPerSecond() - 1);
             return new TimecodeValue(h, m, s, f, frameRate);
         }
         return new TimecodeValue(0, 0, 0, 0, frameRate);

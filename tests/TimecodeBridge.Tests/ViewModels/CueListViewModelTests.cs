@@ -28,7 +28,7 @@ public class CueListViewModelTests
     private static CueListViewModel CreateVm(StubCueManager cueManager, StubTimecodeEngine engine)
     {
         var stubCueDialogService = new StubCueDialogService();
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), stubCueDialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), stubCueDialogService, new StubProjectService());
         return vm;
     }
 
@@ -123,14 +123,18 @@ public class CueListViewModelTests
 
     // --- ToggleCueEnabledCommand ---
 
+    // CheckBoxのTwoWayバインディングが先に item.IsEnabled を反転し、
+    // コマンドはその値をManagerへ同期する契約（二重反転バグ修正後の仕様）
+
     [Fact]
-    public void ToggleCueEnabledCommand_TogglesEnabledState()
+    public void ToggleCueEnabledCommand_SyncsDisabledStateToManager()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: true));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
+        vm.CueItems[0].IsEnabled = false; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
         Assert.Single(cueManager.SetCueEnabledCalls);
@@ -139,13 +143,14 @@ public class CueListViewModelTests
     }
 
     [Fact]
-    public void ToggleCueEnabledCommand_DisabledCue_EnablesIt()
+    public void ToggleCueEnabledCommand_SyncsEnabledStateToManager()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: false));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
+        vm.CueItems[0].IsEnabled = true; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
         Assert.Single(cueManager.SetCueEnabledCalls);
@@ -154,17 +159,17 @@ public class CueListViewModelTests
     }
 
     [Fact]
-    public void ToggleCueEnabledCommand_UpdatesCueItemViewModelEnabled()
+    public void ToggleCueEnabledCommand_DoesNotRevertCueItemEnabled()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: true));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
-        Assert.True(vm.CueItems[0].IsEnabled);
-
+        vm.CueItems[0].IsEnabled = false; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
+        // コマンドが再反転して元に戻さないこと
         Assert.False(vm.CueItems[0].IsEnabled);
     }
 
@@ -271,7 +276,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new RecordingCueDialogService();
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -290,7 +295,7 @@ public class CueListViewModelTests
 
         var editedCue = CreateCue("c1", "Edited", "/edited", 20);
         var dialogService = new FixedResultCueDialogService(editedCue);
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -307,7 +312,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new FixedResultCueDialogService(null); // cancel
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -322,7 +327,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new FixedResultCueDialogService(null); // cancel
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.AddCueCommand.Execute(null);
 

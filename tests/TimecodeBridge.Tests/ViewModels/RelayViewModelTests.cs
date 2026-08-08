@@ -40,7 +40,7 @@ public class RelayViewModelTests
     private readonly StubTimecodeRelay _relay = new();
     private readonly StubHostRegistryForRelay _hostRegistry = new();
 
-    private RelayViewModel CreateVm() => new(_relay, _hostRegistry);
+    private RelayViewModel CreateVm() => new(_relay, _hostRegistry, new StubProjectService());
 
     // --- OscAddressPattern bidirectional binding ---
 

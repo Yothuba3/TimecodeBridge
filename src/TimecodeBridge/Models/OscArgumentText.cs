@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace TimecodeBridge.Models;
 
 /// <summary>
@@ -11,10 +13,11 @@ public static class OscArgumentText
     public static string Format(IReadOnlyList<OscArgument> args)
     {
         if (args.Count == 0) return string.Empty;
+        // 小数点記号がカンマのロケールでも往復できるよう常にインバリアント表記
         return string.Join(" ", args.Select(a => a switch
         {
-            OscInt32Argument i => $"i:{i.Value}",
-            OscFloat32Argument f => $"f:{f.Value}",
+            OscInt32Argument i => $"i:{i.Value.ToString(CultureInfo.InvariantCulture)}",
+            OscFloat32Argument f => $"f:{f.Value.ToString(CultureInfo.InvariantCulture)}",
             OscStringArgument s => $"s:{s.Value}",
             _ => string.Empty,
         }));
@@ -36,10 +39,10 @@ public static class OscArgumentText
 
             switch (typePrefix)
             {
-                case "i" when int.TryParse(valueStr, out var iv):
+                case "i" when int.TryParse(valueStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var iv):
                     result.Add(new OscInt32Argument(iv));
                     break;
-                case "f" when float.TryParse(valueStr, out var fv):
+                case "f" when float.TryParse(valueStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var fv):
                     result.Add(new OscFloat32Argument(fv));
                     break;
                 case "s":

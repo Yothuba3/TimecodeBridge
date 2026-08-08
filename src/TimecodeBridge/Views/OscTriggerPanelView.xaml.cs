@@ -17,9 +17,10 @@ public partial class OscTriggerPanelView : UserControl
     {
         if (e.ClickCount != 2) return;
 
-        if (sender is FrameworkElement { DataContext: OscTriggerCellViewModel cell }
-            && DataContext is OscTriggerPanelViewModel vm
-            && vm.EditCellCommand.CanExecute(cell))
+        // 実行モードでは何もしない（e.Handled すると素早い連打の2打目が握りつぶされる）
+        if (DataContext is not OscTriggerPanelViewModel vm || !vm.IsEditMode) return;
+
+        if (sender is FrameworkElement { DataContext: OscTriggerCellViewModel cell })
         {
             vm.EditCellCommand.Execute(cell);
             e.Handled = true;

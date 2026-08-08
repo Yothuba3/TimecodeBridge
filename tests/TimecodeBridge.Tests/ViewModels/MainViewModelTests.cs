@@ -44,6 +44,12 @@ internal class StubProjectService : IProjectService
         SetHasUnsavedChanges(true);
     }
 
+    public void Reset()
+    {
+        CurrentFilePath = null;
+        SetHasUnsavedChanges(false);
+    }
+
     public void SimulateUnsavedChanges(bool value)
     {
         SetHasUnsavedChanges(value);
@@ -204,6 +210,13 @@ internal class StubOscTriggerDialogServiceForMain : IOscTriggerDialogService
         => new(OscTriggerEditAction.Save, template);
 }
 
+internal class StubFileDialogServiceForMain : IFileDialogService
+{
+    public string? SaveDialogResult { get; set; }
+    public string? ShowOpenFileDialog(string filter, string? initialDirectory = null) => null;
+    public string? ShowSaveFileDialog(string filter, string? defaultFileName = null, string? initialDirectory = null) => SaveDialogResult;
+}
+
 // --- Tests ---
 
 public class MainViewModelTests
@@ -222,9 +235,9 @@ public class MainViewModelTests
 
     public MainViewModelTests()
     {
-        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager);
-        _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain());
-        _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry);
+        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager, _projectService);
+        _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain(), _projectService);
+        _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry, _projectService);
         _oscTriggerPanelManager = new OscTriggerPanelManager(new StubOscSenderForMain(), _hostRegistry);
         _oscTriggerPanelViewModel = new OscTriggerPanelViewModel(
             _oscTriggerPanelManager, new StubOscTriggerDialogServiceForMain(), _hostRegistry, _projectService);
@@ -241,7 +254,8 @@ public class MainViewModelTests
         _cueListViewModel,
         _relayViewModel,
         _oscTriggerPanelManager,
-        _oscTriggerPanelViewModel);
+        _oscTriggerPanelViewModel,
+        new StubFileDialogServiceForMain());
 
     // --- Initial Title ---
 

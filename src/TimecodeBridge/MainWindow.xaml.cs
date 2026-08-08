@@ -11,7 +11,7 @@ namespace TimecodeBridge;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const string FileFilter = "TimecodeBridge プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*";
+    private const string FileFilter = MainViewModel.ProjectFileFilter;
 
     public MainWindow()
     {
@@ -89,7 +89,11 @@ public partial class MainWindow : Window
         switch (result)
         {
             case MessageBoxResult.Yes:
-                mainViewModel.SaveProjectCommand.Execute(null);
+                // 保存先未確定なら保存ダイアログが出る。キャンセルされたら閉じるのも中止
+                if (!mainViewModel.TrySaveWithPrompt())
+                {
+                    e.Cancel = true;
+                }
                 break;
             case MessageBoxResult.Cancel:
                 e.Cancel = true;

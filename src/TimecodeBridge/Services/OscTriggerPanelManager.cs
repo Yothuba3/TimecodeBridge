@@ -11,7 +11,10 @@ public class OscTriggerPanelManager : IOscTriggerPanelManager
 {
     public const int DefaultRows = 4;
     public const int DefaultColumns = 4;
-    private const int MinSize = 1;
+    public const int MinSize = 1;
+
+    /// <summary>行・列それぞれの上限。巨大値によるセル一括生成でのUIフリーズを防ぐ。</summary>
+    public const int MaxSize = 32;
 
     private readonly IOscSender _oscSender;
     private readonly IHostRegistry _hostRegistry;
@@ -32,8 +35,8 @@ public class OscTriggerPanelManager : IOscTriggerPanelManager
 
     public void SetGridSize(int rows, int columns)
     {
-        var newRows = Math.Max(MinSize, rows);
-        var newColumns = Math.Max(MinSize, columns);
+        var newRows = Math.Clamp(rows, MinSize, MaxSize);
+        var newColumns = Math.Clamp(columns, MinSize, MaxSize);
         if (newRows == _rows && newColumns == _columns) return;
 
         _rows = newRows;
@@ -47,8 +50,8 @@ public class OscTriggerPanelManager : IOscTriggerPanelManager
 
     public IReadOnlyList<OscTriggerButton> GetOutOfRangeButtons(int rows, int columns)
     {
-        var r = Math.Max(MinSize, rows);
-        var c = Math.Max(MinSize, columns);
+        var r = Math.Clamp(rows, MinSize, MaxSize);
+        var c = Math.Clamp(columns, MinSize, MaxSize);
         return _buttons.Where(b => b.Row >= r || b.Column >= c).ToList().AsReadOnly();
     }
 
@@ -96,10 +99,11 @@ public class OscTriggerPanelManager : IOscTriggerPanelManager
 
     public void LoadSettings(OscTriggerPanelSettings settings)
     {
-        _rows = Math.Max(MinSize, settings.Rows);
-        _columns = Math.Max(MinSize, settings.Columns);
+        _rows = Math.Clamp(settings.Rows, MinSize, MaxSize);
+        _columns = Math.Clamp(settings.Columns, MinSize, MaxSize);
         _buttons.Clear();
-        _buttons.AddRange(settings.Buttons);
+        // グリッド範囲外のボタン（手編集ファイル等）は見えないまま残さない
+        _buttons.AddRange(settings.Buttons.Where(b => b.Row >= 0 && b.Row < _rows && b.Column >= 0 && b.Column < _columns));
         OnChanged();
     }
 

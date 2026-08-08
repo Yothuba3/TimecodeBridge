@@ -67,7 +67,7 @@ public partial class CueBatchEditDialog : Window
         // OSC Arguments
         if (ApplyOscArgs.IsChecked == true)
         {
-            result.Arguments = ParseArguments(OscArgsBox.Text);
+            result.Arguments = OscArgumentText.Parse(OscArgsBox.Text);
         }
 
         // Target Hosts
@@ -117,6 +117,12 @@ public partial class CueBatchEditDialog : Window
         if (!int.TryParse(OffsetSecondsBox.Text, out var os)) os = 0;
         if (!int.TryParse(OffsetFramesBox.Text, out var of2)) of2 = 0;
 
+        // 範囲外の成分はオフセットとして有効な値へ丸める（負値は符号コンボで指定）
+        oh = Math.Clamp(oh, 0, 23);
+        om = Math.Clamp(om, 0, 59);
+        os = Math.Clamp(os, 0, 59);
+        of2 = Math.Clamp(of2, 0, _frameRate.FramesPerSecond() - 1);
+
         if (oh == 0 && om == 0 && os == 0 && of2 == 0)
             return null;
 
@@ -124,33 +130,4 @@ public partial class CueBatchEditDialog : Window
         return new TimecodeOffset(isNegative, oh, om, os, of2, _frameRate);
     }
 
-    private static List<OscArgument> ParseArguments(string text)
-    {
-        var result = new List<OscArgument>();
-        if (string.IsNullOrWhiteSpace(text)) return result;
-
-        foreach (var token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var colonIndex = token.IndexOf(':');
-            if (colonIndex < 1 || colonIndex >= token.Length - 1) continue;
-
-            var typePrefix = token[..colonIndex];
-            var valueStr = token[(colonIndex + 1)..];
-
-            switch (typePrefix)
-            {
-                case "i" when int.TryParse(valueStr, out var iv):
-                    result.Add(new OscInt32Argument(iv));
-                    break;
-                case "f" when float.TryParse(valueStr, out var fv):
-                    result.Add(new OscFloat32Argument(fv));
-                    break;
-                case "s":
-                    result.Add(new OscStringArgument(valueStr));
-                    break;
-            }
-        }
-
-        return result;
-    }
 }

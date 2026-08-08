@@ -137,7 +137,7 @@ public class HostManagerViewModelTests
 
     private HostManagerViewModel CreateVm()
     {
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService);
+        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService, new StubProjectService());
         return vm;
     }
 
@@ -299,7 +299,7 @@ public class HostManagerViewModelTests
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "Original", IpAddress = "1.2.3.4", Port = 8000 });
         var cancelDialogService = new CancellingHostDialogService();
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService);
+        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService, new StubProjectService());
 
         vm.EditHostCommand.Execute("h1");
 
@@ -310,7 +310,7 @@ public class HostManagerViewModelTests
     public void AddHostCommand_DialogCancelled_DoesNotAddHost()
     {
         var cancelDialogService = new CancellingHostDialogService();
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService);
+        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService, new StubProjectService());
 
         vm.AddHostCommand.Execute(null);
 

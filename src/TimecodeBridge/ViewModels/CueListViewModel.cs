@@ -14,6 +14,7 @@ public partial class CueListViewModel : DispatcherViewModel
     private readonly ITimecodeEngine _timecodeEngine;
     private readonly IHostRegistry _hostRegistry;
     private readonly ICueDialogService _cueDialogService;
+    private readonly IProjectService _projectService;
 
     public ObservableCollection<CueItemViewModel> CueItems { get; } = [];
 
@@ -22,20 +23,23 @@ public partial class CueListViewModel : DispatcherViewModel
         get => _cueManager.TriggerWindowFrames;
         set
         {
-            if (_cueManager.TriggerWindowFrames != value)
+            // 負数は巻き戻し判定を壊すため0未満は受け付けない（プロジェクト非永続の実行時設定）
+            var clamped = Math.Max(0, value);
+            if (_cueManager.TriggerWindowFrames != clamped)
             {
-                _cueManager.TriggerWindowFrames = value;
-                OnPropertyChanged();
+                _cueManager.TriggerWindowFrames = clamped;
             }
+            OnPropertyChanged();
         }
     }
 
-    public CueListViewModel(ICueManager cueManager, ITimecodeEngine timecodeEngine, IHostRegistry hostRegistry, ICueDialogService cueDialogService)
+    public CueListViewModel(ICueManager cueManager, ITimecodeEngine timecodeEngine, IHostRegistry hostRegistry, ICueDialogService cueDialogService, IProjectService projectService)
     {
         _cueManager = cueManager;
         _timecodeEngine = timecodeEngine;
         _hostRegistry = hostRegistry;
         _cueDialogService = cueDialogService;
+        _projectService = projectService;
 
         // Populate from existing cues
         foreach (var cue in _cueManager.Cues)
@@ -72,8 +76,7 @@ public partial class CueListViewModel : DispatcherViewModel
         if (result is not null)
         {
             result.Id = Guid.NewGuid().ToString();
-            _cueManager.AddCue(result);
-            CueItems.Add(new CueItemViewModel(result));
+            AddCueInternal(result);
         }
     }
 
@@ -99,6 +102,7 @@ public partial class CueListViewModel : DispatcherViewModel
             {
                 CueItems[index] = new CueItemViewModel(result);
             }
+            _projectService.MarkAsChanged();
         }
     }
 
@@ -131,6 +135,8 @@ public partial class CueListViewModel : DispatcherViewModel
                 CueItems[index] = new CueItemViewModel(cue);
             }
         }
+
+        _projectService.MarkAsChanged();
     }
 
     private static void ApplyBatchEdit(Cue cue, CueBatchEditResult edit)
@@ -208,6 +214,7 @@ public partial class CueListViewModel : DispatcherViewModel
     {
         _cueManager.AddCue(cue);
         CueItems.Add(new CueItemViewModel(cue));
+        _projectService.MarkAsChanged();
     }
 
     [RelayCommand]
@@ -220,6 +227,7 @@ public partial class CueListViewModel : DispatcherViewModel
         {
             CueItems.Remove(item);
         }
+        _projectService.MarkAsChanged();
     }
 
     [RelayCommand]
@@ -234,9 +242,10 @@ public partial class CueListViewModel : DispatcherViewModel
         var item = CueItems.FirstOrDefault(c => c.Id == cueId);
         if (item != null)
         {
-            var newEnabled = !item.IsEnabled;
-            _cueManager.SetCueEnabled(cueId, newEnabled);
-            item.IsEnabled = newEnabled;
+            // CheckBoxのTwoWayバインディングが先にitem.IsEnabledを反転済みなので、
+            // ここで再反転せずManagerへ同期するだけにする（二重反転で元に戻るバグの修正）
+            _cueManager.SetCueEnabled(cueId, item.IsEnabled);
+            _projectService.MarkAsChanged();
         }
     }
 

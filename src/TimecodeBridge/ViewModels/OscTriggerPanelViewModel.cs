@@ -79,10 +79,10 @@ public partial class OscTriggerPanelViewModel : ObservableObject
     {
         if (_suppressSizeApply) return;
 
-        var newRows = Math.Max(1, Rows);
-        var newColumns = Math.Max(1, Columns);
+        var newRows = Math.Clamp(Rows, Services.OscTriggerPanelManager.MinSize, Services.OscTriggerPanelManager.MaxSize);
+        var newColumns = Math.Clamp(Columns, Services.OscTriggerPanelManager.MinSize, Services.OscTriggerPanelManager.MaxSize);
 
-        // 1未満が入力された場合は表示値も最小値へ補正
+        // 範囲外が入力された場合は表示値も補正
         if (newRows != Rows || newColumns != Columns)
         {
             _suppressSizeApply = true;

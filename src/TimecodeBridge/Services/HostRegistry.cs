@@ -5,20 +5,29 @@ namespace TimecodeBridge.Services;
 
 public class HostRegistry : IHostRegistry
 {
+    // _hosts はUIスレッド（追加・編集）とOSC送信ワーカー（列挙）の両方から触られる。
+    // 変更は _gate で保護し、読み取りはスナップショットを返す。
+    private readonly object _gate = new();
     private readonly List<OscHost> _hosts = [];
 
-    public IReadOnlyList<OscHost> Hosts => _hosts.AsReadOnly();
+    public IReadOnlyList<OscHost> Hosts
+    {
+        get { lock (_gate) return _hosts.ToList().AsReadOnly(); }
+    }
 
     public event EventHandler<HostChangedEventArgs>? HostChanged;
 
     public void AddHost(OscHost host)
     {
-        if (_hosts.Any(h => h.Id == host.Id))
+        lock (_gate)
         {
-            throw new ArgumentException($"Host with Id '{host.Id}' already exists.");
-        }
+            if (_hosts.Any(h => h.Id == host.Id))
+            {
+                throw new ArgumentException($"Host with Id '{host.Id}' already exists.");
+            }
 
-        _hosts.Add(host);
+            _hosts.Add(host);
+        }
         HostChanged?.Invoke(this, new HostChangedEventArgs
         {
             HostId = host.Id,
@@ -28,13 +37,16 @@ public class HostRegistry : IHostRegistry
 
     public void UpdateHost(string hostId, OscHost updatedHost)
     {
-        var index = _hosts.FindIndex(h => h.Id == hostId);
-        if (index < 0)
+        lock (_gate)
         {
-            throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
-        }
+            var index = _hosts.FindIndex(h => h.Id == hostId);
+            if (index < 0)
+            {
+                throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
+            }
 
-        _hosts[index] = updatedHost;
+            _hosts[index] = updatedHost;
+        }
         HostChanged?.Invoke(this, new HostChangedEventArgs
         {
             HostId = hostId,
@@ -44,13 +56,16 @@ public class HostRegistry : IHostRegistry
 
     public void RemoveHost(string hostId)
     {
-        var index = _hosts.FindIndex(h => h.Id == hostId);
-        if (index < 0)
+        lock (_gate)
         {
-            throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
-        }
+            var index = _hosts.FindIndex(h => h.Id == hostId);
+            if (index < 0)
+            {
+                throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
+            }
 
-        _hosts.RemoveAt(index);
+            _hosts.RemoveAt(index);
+        }
         HostChanged?.Invoke(this, new HostChangedEventArgs
         {
             HostId = hostId,
@@ -60,8 +75,15 @@ public class HostRegistry : IHostRegistry
 
     public void SetHostEnabled(string hostId, bool enabled)
     {
-        var host = _hosts.FirstOrDefault(h => h.Id == hostId)
-            ?? throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
+        OscHost? host;
+        lock (_gate)
+        {
+            host = _hosts.FirstOrDefault(h => h.Id == hostId);
+        }
+        if (host is null)
+        {
+            throw new KeyNotFoundException($"Host with Id '{hostId}' not found.");
+        }
 
         host.IsEnabled = enabled;
         HostChanged?.Invoke(this, new HostChangedEventArgs
@@ -73,9 +95,12 @@ public class HostRegistry : IHostRegistry
 
     public IReadOnlyList<OscHost> GetEnabledHosts(IReadOnlyList<string> hostIds)
     {
-        return _hosts
-            .Where(h => hostIds.Contains(h.Id) && h.IsEnabled)
-            .ToList()
-            .AsReadOnly();
+        lock (_gate)
+        {
+            return _hosts
+                .Where(h => hostIds.Contains(h.Id) && h.IsEnabled)
+                .ToList()
+                .AsReadOnly();
+        }
     }
 }

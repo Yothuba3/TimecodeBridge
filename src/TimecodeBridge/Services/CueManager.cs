@@ -5,6 +5,9 @@ namespace TimecodeBridge.Services;
 
 public class CueManager : ICueManager
 {
+    // _cues はUIスレッド（追加・編集）とタイムコードワーカー（列挙）の両方から触られる。
+    // 変更は _gate で保護し、ワーカー側はスナップショットを列挙する。
+    private readonly object _gate = new();
     private readonly List<Cue> _cues = [];
     private readonly ITimecodeEngine _timecodeEngine;
     private readonly IOscSender _oscSender;
@@ -26,61 +29,80 @@ public class CueManager : ICueManager
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;
     }
 
-    public IReadOnlyList<Cue> Cues => _cues.AsReadOnly();
+    public IReadOnlyList<Cue> Cues
+    {
+        get { lock (_gate) return _cues.ToList().AsReadOnly(); }
+    }
 
     public void AddCue(Cue cue)
     {
-        if (_cues.Any(c => c.Id == cue.Id))
+        lock (_gate)
         {
-            throw new ArgumentException($"Cue with ID '{cue.Id}' already exists.", nameof(cue));
-        }
+            if (_cues.Any(c => c.Id == cue.Id))
+            {
+                throw new ArgumentException($"Cue with ID '{cue.Id}' already exists.", nameof(cue));
+            }
 
-        _cues.Add(cue);
+            _cues.Add(cue);
+        }
     }
 
     public void UpdateCue(string cueId, Cue updatedCue)
     {
-        var index = _cues.FindIndex(c => c.Id == cueId);
-        if (index < 0)
+        lock (_gate)
         {
-            throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
-        }
+            var index = _cues.FindIndex(c => c.Id == cueId);
+            if (index < 0)
+            {
+                throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
+            }
 
-        updatedCue.Id = cueId;
-        _cues[index] = updatedCue;
+            updatedCue.Id = cueId;
+            _cues[index] = updatedCue;
+        }
     }
 
     public void RemoveCue(string cueId)
     {
-        var index = _cues.FindIndex(c => c.Id == cueId);
-        if (index < 0)
+        lock (_gate)
         {
-            throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
-        }
+            var index = _cues.FindIndex(c => c.Id == cueId);
+            if (index < 0)
+            {
+                throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
+            }
 
-        _cues.RemoveAt(index);
+            _cues.RemoveAt(index);
+        }
     }
 
     public void ReorderCues(IReadOnlyList<string> orderedCueIds)
     {
-        var cueMap = _cues.ToDictionary(c => c.Id);
-        var reordered = new List<Cue>(orderedCueIds.Count);
-
-        foreach (var id in orderedCueIds)
+        lock (_gate)
         {
-            if (cueMap.TryGetValue(id, out var cue))
-            {
-                reordered.Add(cue);
-            }
-        }
+            var cueMap = _cues.ToDictionary(c => c.Id);
+            var reordered = new List<Cue>(orderedCueIds.Count);
 
-        _cues.Clear();
-        _cues.AddRange(reordered);
+            foreach (var id in orderedCueIds)
+            {
+                if (cueMap.TryGetValue(id, out var cue))
+                {
+                    reordered.Add(cue);
+                }
+            }
+
+            _cues.Clear();
+            _cues.AddRange(reordered);
+        }
     }
 
     public void SetCueEnabled(string cueId, bool enabled)
     {
-        var cue = _cues.FirstOrDefault(c => c.Id == cueId);
+        Cue? cue;
+        lock (_gate)
+        {
+            cue = _cues.FirstOrDefault(c => c.Id == cueId);
+        }
         if (cue is null)
         {
             throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
@@ -91,7 +113,12 @@ public class CueManager : ICueManager
 
     public void ManualTrigger(string cueId)
     {
-        var cue = _cues.FirstOrDefault(c => c.Id == cueId)
+        Cue? found;
+        lock (_gate)
+        {
+            found = _cues.FirstOrDefault(c => c.Id == cueId);
+        }
+        var cue = found
             ?? throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
 
         var args = BuildArguments(cue);
@@ -108,6 +135,10 @@ public class CueManager : ICueManager
     {
         var tc = e.OffsetTimecode;
         long tcOrd = tc.ToOrdinal();
+
+        // UIスレッドの変更と競合しないよう、この判定パスではスナップショットを列挙する
+        Cue[] cues;
+        lock (_gate) cues = _cues.ToArray();
 
         // When muted, keep tracking position but don't fire any cues.
         if (IsMuted)
@@ -136,7 +167,7 @@ public class CueManager : ICueManager
         if (_highWaterMark is null)
         {
             _highWaterMark = tc;
-            foreach (var cue in _cues)
+            foreach (var cue in cues)
             {
                 if (!cue.IsEnabled) continue;
                 if (cue.TriggerTime.ToOrdinal() == tcOrd)
@@ -155,7 +186,7 @@ public class CueManager : ICueManager
         {
             _firedCueIds.RemoveWhere(id =>
             {
-                var cue = _cues.FirstOrDefault(c => c.Id == id);
+                var cue = cues.FirstOrDefault(c => c.Id == id);
                 return cue is not null && cue.TriggerTime.ToOrdinal() > tcOrd;
             });
             _highWaterMark = tc;
@@ -169,7 +200,7 @@ public class CueManager : ICueManager
         }
 
         // ── Forward into new territory ──
-        foreach (var cue in _cues)
+        foreach (var cue in cues)
         {
             if (!cue.IsEnabled) continue;
             if (_firedCueIds.Contains(cue.Id)) continue;

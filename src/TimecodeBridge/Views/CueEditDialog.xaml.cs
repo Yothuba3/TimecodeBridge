@@ -61,6 +61,12 @@ public partial class CueEditDialog : Window
         if (!int.TryParse(OffsetSecondsBox.Text, out var os)) os = 0;
         if (!int.TryParse(OffsetFramesBox.Text, out var of2)) of2 = 0;
 
+        // 範囲外の成分はオフセットとして有効な値へ丸める（負値は符号コンボで指定）
+        oh = Math.Clamp(oh, 0, 23);
+        om = Math.Clamp(om, 0, 59);
+        os = Math.Clamp(os, 0, 59);
+        of2 = Math.Clamp(of2, 0, _frameRate.FramesPerSecond() - 1);
+
         // All zero means no offset
         if (oh == 0 && om == 0 && os == 0 && of2 == 0)
             return null;

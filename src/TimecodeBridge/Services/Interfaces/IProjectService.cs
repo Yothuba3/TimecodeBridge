@@ -14,5 +14,8 @@ public interface IProjectService
     void SaveProject(string filePath, ProjectData data);
     void MarkAsChanged();
 
+    /// <summary>新規プロジェクト状態へ戻す（保存先パスと未保存フラグをクリア）</summary>
+    void Reset();
+
     event EventHandler<EventArgs> UnsavedChangesStatusChanged;
 }

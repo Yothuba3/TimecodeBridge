@@ -7,7 +7,10 @@ namespace TimecodeBridge.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IDisposable
 {
+    public const string ProjectFileFilter = "TimecodeBridge プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*";
+
     private readonly IProjectService _projectService;
+    private readonly IFileDialogService _fileDialogService;
     private readonly IRecentProjectsService _recentProjectsService;
     private readonly ICueManager _cueManager;
     private readonly IHostRegistry _hostRegistry;
@@ -40,9 +43,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         CueListViewModel cueListViewModel,
         RelayViewModel relayViewModel,
         IOscTriggerPanelManager oscTriggerPanelManager,
-        OscTriggerPanelViewModel oscTriggerPanelViewModel)
+        OscTriggerPanelViewModel oscTriggerPanelViewModel,
+        IFileDialogService fileDialogService)
     {
         _projectService = projectService;
+        _fileDialogService = fileDialogService;
         _recentProjectsService = recentProjectsService;
         _cueManager = cueManager;
         _hostRegistry = hostRegistry;
@@ -62,6 +67,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void NewProject()
     {
+        if (!ConfirmDiscardIfDirty()) return;
+
         ClearAllData();
 
         // Reset relay settings
@@ -72,6 +79,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Reset engine offset
         _timecodeEngine.Offset = TimecodeOffset.Zero(_timecodeEngine.FrameRate);
+        _timecodeViewModel.SyncOffsetFromEngine();
 
         // Reset source settings
         _timecodeViewModel.RestoreSourceSettings(new TimecodeSourceSettings());
@@ -81,6 +89,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _relayViewModel.SyncFromService();
         _oscTriggerPanelViewModel.SyncFromService();
 
+        // 保存先パスと未保存フラグをクリア（旧プロジェクトへの誤上書きを防ぐ）
+        _projectService.Reset();
+
         _isNewProject = true;
         UpdateTitle();
     }
@@ -88,10 +99,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void SaveProject(string? filePath)
     {
-        var path = filePath ?? _projectService.CurrentFilePath;
-        if (path is null) return;
+        if (filePath is not null)
+        {
+            SaveToPath(filePath);
+            return;
+        }
+
+        TrySaveWithPrompt();
+    }
+
+    /// <summary>
+    /// 現在の保存先へ保存する。保存先が未確定なら保存ダイアログを出す。
+    /// 保存が完了したら true、ユーザーがキャンセルしたら false。
+    /// </summary>
+    public bool TrySaveWithPrompt()
+    {
+        var path = _projectService.CurrentFilePath
+            ?? _fileDialogService.ShowSaveFileDialog(ProjectFileFilter, "project.json");
+        if (path is null) return false;
 
         SaveToPath(path);
+        return true;
     }
 
     [RelayCommand]
@@ -103,22 +131,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenProject(string filePath)
     {
+        if (!ConfirmDiscardIfDirty()) return;
+
+        ProjectData data;
+        try
+        {
+            data = _projectService.LoadProject(filePath);
+        }
+        catch (Exception ex)
+        {
+            NotifyLoadError(filePath, ex);
+            return;
+        }
+
         _isNewProject = false;
-        var data = _projectService.LoadProject(filePath);
 
         // MRUリストに追加（ProjectServiceの責務外）
         _recentProjectsService.AddRecentProject(filePath);
 
         ClearAllData();
 
-        // Restore cues
-        foreach (var cue in data.Cues)
+        // Restore cues（ID重複データはAddCueが例外を投げるため先に除去）
+        foreach (var cue in data.Cues.DistinctBy(c => c.Id))
         {
             _cueManager.AddCue(cue);
         }
 
         // Restore hosts
-        foreach (var host in data.Hosts)
+        foreach (var host in data.Hosts.DistinctBy(h => h.Id))
         {
             _hostRegistry.AddHost(host);
         }
@@ -131,6 +171,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Restore engine offset
         _timecodeEngine.Offset = data.Offset;
+        _timecodeViewModel.SyncOffsetFromEngine();
 
         // Restore source settings
         _timecodeViewModel.RestoreSourceSettings(data.SourceSettings);
@@ -147,8 +188,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
         RecentProjects = _recentProjectsService.GetRecentProjects();
     }
 
+    /// <summary>未保存の変更を破棄してよいか確認する。テスト時に差し替え可能。</summary>
+    protected virtual bool ConfirmDiscardIfDirty()
+    {
+        if (!_projectService.HasUnsavedChanges) return true;
+
+        var result = System.Windows.MessageBox.Show(
+            "未保存の変更があります。破棄して続行しますか？",
+            "確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        return result == System.Windows.MessageBoxResult.OK;
+    }
+
+    /// <summary>プロジェクト読み込み失敗の通知。テスト時に差し替え可能。</summary>
+    protected virtual void NotifyLoadError(string filePath, Exception ex)
+    {
+        System.Windows.MessageBox.Show(
+            $"プロジェクトを開けませんでした:\n{filePath}\n\n{ex.Message}",
+            "読み込みエラー", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+    }
+
     private void ClearAllData()
     {
+        // 読み込み途中の中間状態でキュー発火・リレー送信が走らないよう、先に受信を止める
+        _timecodeEngine.Stop();
+
         foreach (var cue in _cueManager.Cues.ToList())
         {
             _cueManager.RemoveCue(cue.Id);
