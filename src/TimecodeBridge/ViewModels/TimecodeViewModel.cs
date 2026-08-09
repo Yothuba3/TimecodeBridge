@@ -16,8 +16,9 @@ public partial class TimecodeViewModel : DispatcherViewModel
     private bool _generatorSettingsDirty;
     private bool _restoring;
 
-    [ObservableProperty] private string _rawTimecodeDisplay = "";
-    [ObservableProperty] private string _offsetTimecodeDisplay = "";
+    // 受信前でも空欄にせずゼロ表記を出す（FallbackValueはバインディング失敗時にしか効かない）
+    [ObservableProperty] private string _rawTimecodeDisplay = "00:00:00:00";
+    [ObservableProperty] private string _offsetTimecodeDisplay = "00:00:00:00";
     [ObservableProperty] private bool _isReceiving;
     [ObservableProperty] private string _statusText = "停止";
     [ObservableProperty] private AudioDeviceInfo? _selectedDevice;
@@ -86,6 +87,9 @@ public partial class TimecodeViewModel : DispatcherViewModel
             {
                 Offset = parsed;
             }
+            // 不正入力がTextBoxに残らないよう、常に実値の表記へ戻す
+            // （バインディング更新中の同期通知は書き戻されないためDispatcher経由）
+            Dispatcher.BeginInvoke(() => OnPropertyChanged(nameof(OffsetText)));
         }
     }
 
@@ -184,29 +188,40 @@ public partial class TimecodeViewModel : DispatcherViewModel
         var prevInput = SelectedDevice;
         var prevOutput = SelectedOutputDevice;
         _restoring = true;
-
-        AudioDevices.Clear();
-        OutputDevices.Clear();
-        using var enumerator = new MMDeviceEnumerator();
-
-        // Capture devices (input)
-        var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-        foreach (var device in devices)
+        try
         {
-            AudioDevices.Add(new AudioDeviceInfo(device.ID, device.FriendlyName, IsLoopback: false));
-        }
+            AudioDevices.Clear();
+            OutputDevices.Clear();
+            using var enumerator = new MMDeviceEnumerator();
 
-        // Render devices (for loopback capture and LTC output)
-        var renderDevices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
-        foreach (var device in renderDevices)
+            // Capture devices (input)
+            var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+            foreach (var device in devices)
+            {
+                AudioDevices.Add(new AudioDeviceInfo(device.ID, device.FriendlyName, IsLoopback: false));
+            }
+
+            // Render devices (for loopback capture and LTC output)
+            var renderDevices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+            foreach (var device in renderDevices)
+            {
+                AudioDevices.Add(new AudioDeviceInfo(device.ID, $"{device.FriendlyName} (Loopback)", IsLoopback: true));
+                OutputDevices.Add(new AudioDeviceInfo(device.ID, device.FriendlyName, IsLoopback: false));
+            }
+
+            SelectedDevice = AudioDevices.FirstOrDefault(d => prevInput is not null && d.Id == prevInput.Id && d.IsLoopback == prevInput.IsLoopback);
+            SelectedOutputDevice = OutputDevices.FirstOrDefault(d => prevOutput is not null && d.Id == prevOutput.Id);
+        }
+        catch (Exception ex)
         {
-            AudioDevices.Add(new AudioDeviceInfo(device.ID, $"{device.FriendlyName} (Loopback)", IsLoopback: true));
-            OutputDevices.Add(new AudioDeviceInfo(device.ID, device.FriendlyName, IsLoopback: false));
+            // デバイス列挙のCOM例外でフラグが立ちっぱなしになると全コールバックが死ぬため必ず復帰させる
+            StatusText = "エラー";
+            System.Diagnostics.Debug.WriteLine($"Device enumeration failed: {ex.Message}");
         }
-
-        SelectedDevice = AudioDevices.FirstOrDefault(d => prevInput is not null && d.Id == prevInput.Id && d.IsLoopback == prevInput.IsLoopback);
-        SelectedOutputDevice = OutputDevices.FirstOrDefault(d => prevOutput is not null && d.Id == prevOutput.Id);
-        _restoring = false;
+        finally
+        {
+            _restoring = false;
+        }
 
         // 使用中のデバイスが消えていたら受信を止めてUIと実態を一致させる
         if (SelectedSource == TimecodeSourceType.Ltc && prevInput is not null && SelectedDevice is null)
@@ -260,6 +275,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
             {
                 // First start: initialize with settings
                 var startTime = ParseTimecodeInput(GeneratorStartTime, GeneratorFrameRate);
+                GeneratorStartTime = startTime.ToString(); // 丸め結果を入力欄へ反映（表示と実値の乖離防止）
                 var settings = new GeneratorSettings
                 {
                     FrameRate = GeneratorFrameRate,
@@ -267,6 +283,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
                     OutputDeviceId = SelectedOutputDevice?.Id ?? string.Empty,
                     VolumeLevel = OutputVolumeLevel,
                 };
+                _cueManager.ResetTracking();
                 _timecodeEngine.StartGenerator(settings);
                 _generatorInitialized = true;
             }
@@ -285,6 +302,9 @@ public partial class TimecodeViewModel : DispatcherViewModel
     [RelayCommand]
     private void StopGenerator()
     {
+        // 未開始なら「一時停止」表示にしない
+        if (!_generatorInitialized) return;
+
         _timecodeEngine.StopGenerator();
         IsGeneratorRunning = false;
         StatusText = "一時停止";
@@ -294,6 +314,10 @@ public partial class TimecodeViewModel : DispatcherViewModel
     private void ResetGenerator()
     {
         var startTime = ParseTimecodeInput(GeneratorStartTime, GeneratorFrameRate);
+        GeneratorStartTime = startTime.ToString(); // 丸め結果を入力欄へ反映（表示と実値の乖離防止）
+
+        // 前方ジャンプで旧位置〜新開始時間の間のキューが一斉発火しないよう追跡状態を仕切り直す
+        _cueManager.ResetTracking();
 
         // フレームレート・出力デバイス・音量が変更されている場合はジェネレーターを再初期化
         if (_generatorSettingsDirty)

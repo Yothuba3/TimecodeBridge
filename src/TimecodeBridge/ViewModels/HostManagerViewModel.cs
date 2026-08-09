@@ -114,8 +114,23 @@ public partial class HostManagerViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void RemoveHost(string hostId)
     {
+        var host = _hostRegistry.Hosts.FirstOrDefault(h => h.Id == hostId);
+        if (host is null) return;
+
+        if (!ConfirmRemoveHost(host)) return;
+
         _hostRegistry.RemoveHost(hostId);
         _projectService.MarkAsChanged();
+    }
+
+    /// <summary>ホスト削除の確認。テスト時に差し替え可能。</summary>
+    protected virtual bool ConfirmRemoveHost(OscHost host)
+    {
+        var result = System.Windows.MessageBox.Show(
+            $"ホスト「{host.Name}」({host.IpAddress}:{host.Port}) を削除しますか？\n\n" +
+            "このホストを送信先にしているキュー・OSCポン出しボタン・リレー設定からは送信できなくなります。",
+            "ホスト削除の確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        return result == System.Windows.MessageBoxResult.OK;
     }
 
     [RelayCommand]

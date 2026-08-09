@@ -508,6 +508,7 @@ public class CueListViewModelTests
 
         public void ManualTrigger(string cueId) => ManualTriggerCalls.Add(cueId);
 
+        public void ResetTracking() { }
 
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
 

@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using TimecodeBridge.Models;
@@ -14,11 +16,43 @@ namespace TimecodeBridge.Services;
 /// </summary>
 public class OscTransport : IOscTransport
 {
+    // ponytail: ホスト名の初回解決は同期ブロックが残る（失敗も30秒キャッシュして毎フレームの
+    // DNSタイムアウトでタイムコード処理が止まるのを防ぐ）。完全非同期化が必要になったら送信キュー化
+    private static readonly ConcurrentDictionary<string, (IPAddress? Address, DateTime Expires)> _dnsCache = new();
+    private static readonly TimeSpan DnsCacheTtl = TimeSpan.FromSeconds(30);
+
     public void Send(string ipAddress, int port, string oscAddress, IReadOnlyList<OscArgument> arguments)
     {
+        var address = ResolveCached(ipAddress)
+            ?? throw new InvalidOperationException($"ホスト名を解決できません: {ipAddress}");
+
         var payload = EncodeMessage(oscAddress, arguments);
         using var udp = new UdpClient();
-        udp.Send(payload, payload.Length, ipAddress, port);
+        udp.EnableBroadcast = true; // ブロードキャストアドレス宛の送信を許可
+        udp.Send(payload, payload.Length, new IPEndPoint(address, port));
+    }
+
+    private static IPAddress? ResolveCached(string host)
+    {
+        if (IPAddress.TryParse(host, out var literal)) return literal;
+
+        if (_dnsCache.TryGetValue(host, out var cached) && cached.Expires > DateTime.UtcNow)
+            return cached.Address;
+
+        IPAddress? resolved = null;
+        try
+        {
+            var addresses = Dns.GetHostAddresses(host);
+            resolved = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
+                ?? addresses.FirstOrDefault();
+        }
+        catch
+        {
+            // 解決失敗もキャッシュして連続タイムアウトを防ぐ
+        }
+
+        _dnsCache[host] = (resolved, DateTime.UtcNow + DnsCacheTtl);
+        return resolved;
     }
 
     /// <summary>OSC 1.0 メッセージ（アドレス + タイプタグ + 引数、各4バイト境界）へエンコードする。</summary>

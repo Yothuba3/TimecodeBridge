@@ -52,6 +52,7 @@ public partial class CueEditDialog : Window
             IsSelected = cue.TargetHostIds.Contains(h.Id),
         }).ToList();
         HostListBox.ItemsSource = hostItems;
+        NoHostsHint.Visibility = hostItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private TimecodeOffset? ParseCueOffset()

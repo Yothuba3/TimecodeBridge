@@ -108,7 +108,13 @@ public partial class RelayViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void UpdateHostSelections()
     {
-        TargetHostIds = HostSelections.Where(h => h.IsSelected).Select(h => h.Id).ToList();
+        var ids = HostSelections.Where(h => h.IsSelected).Select(h => h.Id).ToList();
+
+        // CheckBoxコンテナ生成時のCheckedイベント（プロジェクト読込直後など）で
+        // 内容が変わっていないのにdirty化しないよう、実際の変化のみ反映する
+        if (ids.SequenceEqual(TargetHostIds)) return;
+
+        TargetHostIds = ids;
     }
 
     private void OnHostChanged(object? sender, HostChangedEventArgs e) => RefreshHostSelections();

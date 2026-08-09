@@ -55,6 +55,9 @@ public partial class OscTriggerPanelViewModel : ObservableObject
         Columns = _manager.Columns;
         _suppressSizeApply = false;
         RebuildCells();
+
+        // プロジェクト切替後は安全側（編集モード）へ戻す
+        IsEditMode = true;
     }
 
     private void RebuildCells()
@@ -124,8 +127,13 @@ public partial class OscTriggerPanelViewModel : ObservableObject
     {
         if (cell is null) return;
 
-        // 実行モードでのみクリック送信する（編集モードでは無反応）
-        if (IsEditMode) return;
+        // 編集モードのクリック/Enter/Spaceは編集として扱う（キーボードでも編集可能にする）
+        if (IsEditMode)
+        {
+            EditCell(cell);
+            return;
+        }
+
         if (!cell.IsConfigured) return;
 
         var result = _manager.Trigger(cell.Button!.Id);

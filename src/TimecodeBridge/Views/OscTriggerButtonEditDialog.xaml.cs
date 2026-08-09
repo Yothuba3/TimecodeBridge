@@ -28,6 +28,7 @@ public partial class OscTriggerButtonEditDialog : Window
             IsSelected = button.TargetHostIds.Contains(h.Id),
         }).ToList();
         HostListBox.ItemsSource = hostItems;
+        NoHostsHint.Visibility = hostItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         DeleteButton.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
     }

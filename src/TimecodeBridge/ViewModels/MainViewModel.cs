@@ -212,6 +212,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 読み込み途中の中間状態でキュー発火・リレー送信が走らないよう、先に受信を止める
         _timecodeEngine.Stop();
 
+        // 前プロジェクトの再生位置が残ると、読込直後の最初のフレームで中間キューが一斉発火する
+        _cueManager.ResetTracking();
+
         foreach (var cue in _cueManager.Cues.ToList())
         {
             _cueManager.RemoveCue(cue.Id);

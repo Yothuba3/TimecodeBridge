@@ -24,6 +24,10 @@ public interface ICueManager
     void ReorderCues(IReadOnlyList<string> orderedCueIds);
     void SetCueEnabled(string cueId, bool enabled);
     void ManualTrigger(string cueId);
+
+    /// <summary>再生位置の追跡状態を仕切り直す（位置ジャンプ時の中間キュー一斉発火を防ぐ）。</summary>
+    void ResetTracking();
+
     event EventHandler<CueTriggeredEventArgs> CueTriggered;
 }
 

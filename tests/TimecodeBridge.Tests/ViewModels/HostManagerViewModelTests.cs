@@ -135,9 +135,21 @@ public class HostManagerViewModelTests
     private readonly StubTimecodeEngineForHostMgr _timecodeEngine = new();
     private readonly StubHostDialogService _hostDialogService = new();
 
+    // 削除確認ダイアログを常に承認するテスト用サブクラス
+    private class TestHostManagerViewModel(
+        TimecodeBridge.Services.Interfaces.IHostRegistry hostRegistry,
+        TimecodeBridge.Services.Interfaces.IOscSender oscSender,
+        TimecodeBridge.Services.Interfaces.ITimecodeEngine timecodeEngine,
+        TimecodeBridge.Services.Interfaces.IHostDialogService hostDialogService,
+        TimecodeBridge.Services.Interfaces.IProjectService projectService)
+        : HostManagerViewModel(hostRegistry, oscSender, timecodeEngine, hostDialogService, projectService)
+    {
+        protected override bool ConfirmRemoveHost(OscHost host) => true;
+    }
+
     private HostManagerViewModel CreateVm()
     {
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService, new StubProjectService());
+        var vm = new TestHostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService, new StubProjectService());
         return vm;
     }
 

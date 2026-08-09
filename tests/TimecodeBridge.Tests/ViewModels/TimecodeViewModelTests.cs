@@ -23,6 +23,7 @@ public class TimecodeViewModelTests
         public void ReorderCues(IReadOnlyList<string> orderedCueIds) { }
         public void SetCueEnabled(string cueId, bool enabled) { }
         public void ManualTrigger(string cueId) { }
+        public void ResetTracking() { }
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
     }
 
@@ -34,8 +35,9 @@ public class TimecodeViewModelTests
         var engine = new StubTimecodeEngine();
         var vm = new TimecodeViewModel(engine, StubCue(), new StubProjectService());
 
-        Assert.Equal("", vm.RawTimecodeDisplay);
-        Assert.Equal("", vm.OffsetTimecodeDisplay);
+        // 受信前もゼロ表記を表示する仕様
+        Assert.Equal("00:00:00:00", vm.RawTimecodeDisplay);
+        Assert.Equal("00:00:00:00", vm.OffsetTimecodeDisplay);
         Assert.False(vm.IsReceiving);
         Assert.Equal("停止", vm.StatusText);
     }
@@ -240,6 +242,7 @@ public class TimecodeViewModelTests
         public void ReorderCues(IReadOnlyList<string> orderedCueIds) { }
         public void SetCueEnabled(string cueId, bool enabled) { }
         public void ManualTrigger(string cueId) { }
+        public void ResetTracking() { }
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
     }
 

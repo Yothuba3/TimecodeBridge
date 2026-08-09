@@ -107,24 +107,33 @@
             <TextBlock Grid.Row="5" Grid.Column="0" Text="OSC引数" VerticalAlignment="Center" Margin="0,0,0,10"
                        Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
             <TextBox Grid.Row="5" Grid.Column="1" x:Name="OscArgsBox" FontFamily="Consolas" Margin="0,0,0,10"
-                     ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り)" />
+                     ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)" />
 
             <!-- Target Hosts -->
             <TextBlock Grid.Row="6" Grid.Column="0" Text="送信先ホスト" VerticalAlignment="Top" Margin="0,0,0,10"
                        Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-            <ListBox Grid.Row="6" Grid.Column="1" x:Name="HostListBox"
-                     Height="80" Margin="0,0,0,10"
-                     SelectionMode="Multiple"
-                     Background="{DynamicResource SecondaryBackgroundBrush}"
-                     BorderBrush="{DynamicResource BorderSubtleBrush}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
-                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                  Foreground="{DynamicResource PrimaryForegroundBrush}" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <!-- チェックのみが選択状態（行選択の青と混同しないようListBoxは使わない） -->
+            <Border Grid.Row="6" Grid.Column="1" Height="80" Margin="0,0,0,10"
+                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="HostListBox" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,2"
+                                              Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock x:Name="NoHostsHint" Visibility="Collapsed"
+                               Text="ホストが未登録です。&#10;先に「ホスト管理」からホストを追加してください"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
+                </Grid>
+            </Border>
 
             <!-- Memo -->
             <TextBlock Grid.Row="7" Grid.Column="0" Text="メモ" VerticalAlignment="Top" Margin="0,0,0,10"

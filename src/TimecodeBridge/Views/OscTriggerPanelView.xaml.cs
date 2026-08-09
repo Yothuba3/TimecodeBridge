@@ -1,4 +1,3 @@
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TimecodeBridge.ViewModels;
@@ -10,19 +9,15 @@ public partial class OscTriggerPanelView : UserControl
     public OscTriggerPanelView()
     {
         InitializeComponent();
+        PreviewKeyDown += OnPanelPreviewKeyDown;
     }
 
-    // ダブルクリックでセルを編集する（シングルクリックは Button.Click = 実行モードの送信）。
-    private void OnCellPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // Esc で実行モードから安全側（編集モード）へ即座に戻す
+    private void OnPanelPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.ClickCount != 2) return;
-
-        // 実行モードでは何もしない（e.Handled すると素早い連打の2打目が握りつぶされる）
-        if (DataContext is not OscTriggerPanelViewModel vm || !vm.IsEditMode) return;
-
-        if (sender is FrameworkElement { DataContext: OscTriggerCellViewModel cell })
+        if (e.Key == Key.Escape && DataContext is OscTriggerPanelViewModel { IsPlayMode: true } vm)
         {
-            vm.EditCellCommand.Execute(cell);
+            vm.IsEditMode = true;
             e.Handled = true;
         }
     }

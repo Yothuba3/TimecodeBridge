@@ -18,6 +18,7 @@ public class CueManager : ICueManager
     private readonly HashSet<string> _firedCueIds = [];
     private TimecodeValue? _highWaterMark;
     private TimecodeValue? _lastRawTimecode;
+    private volatile bool _trackingResetPending;
 
     public int TriggerWindowFrames { get; set; } = 3;
     public bool IsMuted { get; set; }
@@ -131,8 +132,24 @@ public class CueManager : ICueManager
         });
     }
 
+    /// <summary>
+    /// 再生位置の追跡状態（ハイウォーターマーク・発火済み集合）を仕切り直す。
+    /// プロジェクト切替やジェネレーターリセットの前に呼ぶことで、位置ジャンプ時に
+    /// 中間キューが一斉発火するのを防ぐ。実際のクリアはワーカースレッド側で行うためスレッド安全。
+    /// </summary>
+    public void ResetTracking() => _trackingResetPending = true;
+
     private void OnTimecodeUpdated(object? sender, TimecodeUpdatedEventArgs e)
     {
+        // 追跡状態フィールドはワーカースレッドでのみ触る（ResetTrackingはフラグを立てるだけ）
+        if (_trackingResetPending)
+        {
+            _trackingResetPending = false;
+            _highWaterMark = null;
+            _lastRawTimecode = null;
+            _firedCueIds.Clear();
+        }
+
         var tc = e.OffsetTimecode;
         long tcOrd = tc.ToOrdinal();
 

@@ -69,7 +69,7 @@
                 <TextBlock Grid.Column="1" Text="OSC引数" VerticalAlignment="Center"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                 <TextBox Grid.Column="2" x:Name="OscArgsBox" FontFamily="Consolas"
-                         ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り)"
+                         ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)"
                          IsEnabled="{Binding IsChecked, ElementName=ApplyOscArgs}" />
             </Grid>
 
@@ -83,28 +83,32 @@
                 <CheckBox Grid.Column="0" x:Name="ApplyTargetHosts" VerticalAlignment="Top" Margin="0,0,8,0" />
                 <TextBlock Grid.Column="1" Text="送信先ホスト" VerticalAlignment="Top"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-                <ListBox Grid.Column="2" x:Name="HostListBox"
-                         Height="80" SelectionMode="Multiple"
-                         IsHitTestVisible="{Binding IsChecked, ElementName=ApplyTargetHosts}"
-                         Background="{DynamicResource SecondaryBackgroundBrush}"
-                         BorderBrush="{DynamicResource BorderSubtleBrush}">
-                    <ListBox.Style>
-                        <Style TargetType="ListBox">
+                <!-- IsEnabledで無効化（擬似無効化だとTabキーで貫通して操作できてしまう） -->
+                <Border Grid.Column="2" Height="80"
+                        IsEnabled="{Binding IsChecked, ElementName=ApplyTargetHosts}"
+                        Background="{DynamicResource SecondaryBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsChecked, ElementName=ApplyTargetHosts}" Value="False">
+                                <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.4" />
-                                </DataTrigger>
+                                </Trigger>
                             </Style.Triggers>
                         </Style>
-                    </ListBox.Style>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
-                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                      Foreground="{DynamicResource PrimaryForegroundBrush}" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                    </Border.Style>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="HostListBox" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,2"
+                                              Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
             </Grid>
 
             <!-- Cue Offset -->

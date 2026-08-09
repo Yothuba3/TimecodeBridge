@@ -53,4 +53,49 @@ public class OscArgumentTextTests
         var parsed = OscArgumentText.Parse("s:hello");
         Assert.Equal("hello", Assert.IsType<OscStringArgument>(parsed[0]).Value);
     }
+
+    [Fact]
+    public void RoundTrip_StringWithSpaces_Preserved()
+    {
+        List<OscArgument> args = [new OscStringArgument("hello world"), new OscInt32Argument(1)];
+
+        var text = OscArgumentText.Format(args);
+        var parsed = OscArgumentText.Parse(text);
+
+        Assert.Equal(2, parsed.Count);
+        Assert.Equal("hello world", Assert.IsType<OscStringArgument>(parsed[0]).Value);
+        Assert.Equal(1, Assert.IsType<OscInt32Argument>(parsed[1]).Value);
+    }
+
+    [Fact]
+    public void RoundTrip_StringWithQuotesAndBackslash_Preserved()
+    {
+        List<OscArgument> args = [new OscStringArgument("say \"hi\" C:\\path")];
+
+        var parsed = OscArgumentText.Parse(OscArgumentText.Format(args));
+
+        Assert.Equal("say \"hi\" C:\\path", Assert.IsType<OscStringArgument>(parsed[0]).Value);
+    }
+
+    [Fact]
+    public void RoundTrip_EmptyString_Preserved()
+    {
+        List<OscArgument> args = [new OscStringArgument("")];
+
+        var text = OscArgumentText.Format(args);
+        Assert.Equal("s:\"\"", text);
+
+        var parsed = OscArgumentText.Parse(text);
+        Assert.Equal("", Assert.IsType<OscStringArgument>(parsed[0]).Value);
+    }
+
+    [Fact]
+    public void Parse_QuotedString_AllowsSpaces()
+    {
+        var parsed = OscArgumentText.Parse("s:\"a b c\" i:2");
+
+        Assert.Equal(2, parsed.Count);
+        Assert.Equal("a b c", Assert.IsType<OscStringArgument>(parsed[0]).Value);
+        Assert.Equal(2, Assert.IsType<OscInt32Argument>(parsed[1]).Value);
+    }
 }

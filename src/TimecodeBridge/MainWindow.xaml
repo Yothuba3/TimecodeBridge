@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         Title="{Binding Title}"
         Height="768" Width="1200"
-        MinHeight="600" MinWidth="900"
+        MinHeight="660" MinWidth="1150"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PrimaryBackgroundBrush}">
     <Grid Background="{DynamicResource PrimaryBackgroundBrush}">
@@ -20,11 +20,11 @@
         <!-- Row 0: Menu Bar -->
         <Menu Grid.Row="0">
             <MenuItem Header="ファイル(_F)">
-                <MenuItem Header="新規プロジェクト(_N)" Command="{Binding NewProjectCommand}" />
+                <MenuItem Header="新規プロジェクト(_N)" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N" />
                 <Separator />
-                <MenuItem Header="開く(_O)" x:Name="OpenMenuItem" Click="OpenMenuItem_Click" />
-                <MenuItem Header="保存(_S)" Command="{Binding SaveProjectCommand}" />
-                <MenuItem Header="名前を付けて保存(_A)" x:Name="SaveAsMenuItem" Click="SaveAsMenuItem_Click" />
+                <MenuItem Header="開く(_O)" x:Name="OpenMenuItem" Click="OpenMenuItem_Click" InputGestureText="Ctrl+O" />
+                <MenuItem Header="保存(_S)" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S" />
+                <MenuItem Header="名前を付けて保存(_A)" x:Name="SaveAsMenuItem" Click="SaveAsMenuItem_Click" InputGestureText="Ctrl+Shift+S" />
                 <Separator />
                 <MenuItem Header="最近のプロジェクト" x:Name="RecentProjectsMenuItem"
                           ItemsSource="{Binding RecentProjects}">
@@ -92,7 +92,7 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
-                            <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" Height="46" />
+                            <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" />
                         </Grid>
 
                         <!-- Right: Log Panel -->
@@ -111,9 +111,14 @@
                                                    Foreground="{DynamicResource PrimaryForegroundBrush}"
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <Button Content="クリア" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                                            Padding="10,4" FontSize="11"
-                                            x:Name="ClearLogButton" />
+                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                        <CheckBox x:Name="FailOnlyCheck" Content="失敗のみ" FontSize="11"
+                                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                  Checked="FailOnlyCheck_Changed" Unchecked="FailOnlyCheck_Changed" />
+                                        <Button Content="クリア" Padding="10,4" FontSize="11"
+                                                x:Name="ClearLogButton" />
+                                    </StackPanel>
                                 </DockPanel>
                                 <ListView Grid.Row="1" x:Name="LogListView"
                                           Background="Transparent"
@@ -121,8 +126,24 @@
                                           Margin="4,0,4,4">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11"
-                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.fff}'}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                           Margin="0,0,8,0" />
+                                                <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSuccess}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>

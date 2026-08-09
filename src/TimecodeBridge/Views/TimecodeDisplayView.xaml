@@ -35,9 +35,13 @@ mc:Ignorable="d"
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,6,0" />
+            <Style.Triggers>
+                <!-- モード切替で無効なフィールドのラベルをグレーアウトする -->
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
-
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
     <Border Background="{DynamicResource CardBackgroundBrush}"
@@ -91,7 +95,8 @@ mc:Ignorable="d"
                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Mute Toggle -->
                     <ToggleButton IsChecked="{Binding IsTriggerMuted}"
-                                  ToolTip="OSCトリガーのミュート切替"
+                                  ToolTipService.ShowDuration="20000"
+                                  ToolTip="タイムコードによる自動キュー発火のミュート切替。&#10;※手動発火（▶）・OSCポン出し・リレー送信は止まりません"
                                   Margin="0,0,14,0" VerticalAlignment="Center">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
@@ -107,7 +112,7 @@ mc:Ignorable="d"
                                                     <Ellipse x:Name="MuteDot" Width="8" Height="8"
                                                              Fill="{DynamicResource SuccessBrush}"
                                                              Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                    <TextBlock x:Name="MuteLabel" Text="LIVE"
+                                                    <TextBlock x:Name="MuteLabel" Text="AUTO LIVE"
                                                                FontFamily="Consolas" FontSize="11"
                                                                FontWeight="Bold"
                                                                Foreground="{DynamicResource SuccessBrush}"
@@ -119,7 +124,7 @@ mc:Ignorable="d"
                                                     <Setter TargetName="MuteBorder" Property="Background" Value="#401A1A" />
                                                     <Setter TargetName="MuteBorder" Property="BorderBrush" Value="#EF5A6F" />
                                                     <Setter TargetName="MuteDot" Property="Fill" Value="#EF5A6F" />
-                                                    <Setter TargetName="MuteLabel" Property="Text" Value="MUTE" />
+                                                    <Setter TargetName="MuteLabel" Property="Text" Value="AUTO MUTE" />
                                                     <Setter TargetName="MuteLabel" Property="Foreground" Value="#EF5A6F" />
                                                 </Trigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -175,11 +180,12 @@ mc:Ignorable="d"
                 <!-- Row 0: 入力デバイス | フレームレート | オフセット -->
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="入力デバイス" Style="{StaticResource FieldLabelStyle}"
                            IsEnabled="{Binding IsLtcMode}" />
-                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
-                            IsEnabled="{Binding IsLtcMode}">
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
                     <ComboBox ItemsSource="{Binding AudioDevices}"
                               SelectedItem="{Binding SelectedDevice}"
+                              IsEnabled="{Binding IsLtcMode}"
                               MinWidth="140" HorizontalAlignment="Stretch" />
+                    <!-- 更新ボタンは出力デバイス一覧も更新するため生成モードでも有効のまま -->
                     <Button Content="↻" Command="{Binding RefreshAudioDevicesCommand}"
                             Padding="5,2" Margin="4,0,0,0" ToolTip="デバイス一覧を更新"
                             FontSize="12" VerticalAlignment="Center" />
@@ -190,6 +196,7 @@ mc:Ignorable="d"
                 <ComboBox Grid.Row="0" Grid.Column="4" ItemsSource="{Binding AvailableFrameRates}"
                           SelectedItem="{Binding GeneratorFrameRate}"
                           IsEnabled="{Binding IsGeneratorMode}"
+                          ToolTip="生成中の変更は次回リセット時に反映されます"
                           HorizontalAlignment="Left" MinWidth="80" />
 
                 <TextBlock Grid.Row="0" Grid.Column="6" Text="オフセット" Style="{StaticResource FieldLabelStyle}" />
@@ -205,6 +212,7 @@ mc:Ignorable="d"
                             IsEnabled="{Binding IsGeneratorMode}">
                     <ComboBox ItemsSource="{Binding OutputDevices}"
                               SelectedItem="{Binding SelectedOutputDevice}"
+                              ToolTip="生成中の変更は次回リセット時に反映されます"
                               MinWidth="140" HorizontalAlignment="Stretch" />
                     <Ellipse Style="{StaticResource LtcOutputIndicatorStyle}" Margin="6,0,0,0"
                              VerticalAlignment="Center" />
@@ -224,6 +232,7 @@ mc:Ignorable="d"
                 <Slider Grid.Row="2" Grid.Column="7"
                         Value="{Binding OutputVolumeLevel}" Minimum="0" Maximum="1"
                         Width="100" VerticalAlignment="Center"
+                        ToolTip="生成中の変更は次回リセット時に反映されます"
                         IsEnabled="{Binding IsGeneratorMode}" />
 
                 <!-- Row 4: Generator buttons -->

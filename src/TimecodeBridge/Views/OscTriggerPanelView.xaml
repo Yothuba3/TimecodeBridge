@@ -6,9 +6,25 @@
              mc:Ignorable="d"
              d:DesignHeight="500" d:DesignWidth="800">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
     <Border Background="{DynamicResource CardBackgroundBrush}"
-            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
             CornerRadius="8" Margin="4" Padding="14">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Style.Triggers>
+                    <!-- 実行モード＝武装状態を枠色でも識別できるようにする -->
+                    <DataTrigger Binding="{Binding IsPlayMode}" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                        <Setter Property="BorderThickness" Value="2" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -23,6 +39,13 @@
                     <TextBlock Text="OSCポン出し" FontSize="13" FontWeight="SemiBold"
                                Foreground="{DynamicResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
+                    <!-- 実行モードの常時バナー（Escで編集モードへ） -->
+                    <Border Background="{DynamicResource ErrorBrush}" CornerRadius="4"
+                            Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding IsPlayMode, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="実行モード: クリックで即送信（Escで編集へ）"
+                                   FontSize="11" FontWeight="Bold" Foreground="White" />
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
@@ -63,8 +86,7 @@
                         <DataTemplate>
                             <Button Margin="4" MinHeight="60"
                                     Command="{Binding DataContext.TriggerCellCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                    CommandParameter="{Binding}"
-                                    PreviewMouseLeftButtonDown="OnCellPreviewMouseLeftButtonDown">
+                                    CommandParameter="{Binding}">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Content" Value="{Binding DisplayText}" />
@@ -81,9 +103,13 @@
                                                             Background="{TemplateBinding Background}"
                                                             BorderBrush="{TemplateBinding BorderBrush}"
                                                             Padding="6">
-                                                        <ContentPresenter HorizontalAlignment="Center"
-                                                                          VerticalAlignment="Center"
-                                                                          TextBlock.TextAlignment="Center" />
+                                                        <!-- 長いラベルはセル内で折返し、収まらない分は省略記号にする -->
+                                                        <TextBlock Text="{TemplateBinding Content}"
+                                                                   TextWrapping="Wrap"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   TextAlignment="Center"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" />
                                                     </Border>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
@@ -94,6 +120,9 @@
                                             </Setter.Value>
                                         </Setter>
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsConfigured}" Value="True">
+                                                <Setter Property="ToolTip" Value="{Binding DisplayText}" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsConfigured}" Value="False">
                                                 <Setter Property="Content" Value="＋" />
                                                 <Setter Property="FontWeight" Value="Normal" />
