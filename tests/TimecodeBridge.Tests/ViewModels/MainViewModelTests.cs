@@ -20,6 +20,7 @@ internal class StubProjectService : IProjectService
     public string? LastSavedPath => _lastSavedPath;
 
     public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+    public event EventHandler<EventArgs>? ChangeCommitted;
 
     public ProjectData? ProjectDataToLoad { get; set; }
 
@@ -42,6 +43,7 @@ internal class StubProjectService : IProjectService
     public void MarkAsChanged()
     {
         SetHasUnsavedChanges(true);
+        ChangeCommitted?.Invoke(this, EventArgs.Empty);
     }
 
     public void Reset()
@@ -244,7 +246,29 @@ public class MainViewModelTests
             _oscTriggerPanelManager, new StubOscTriggerDialogServiceForMain(), _hostRegistry, _projectService);
     }
 
-    private MainViewModel CreateVm() => new(
+    // 確認ダイアログ(MessageBox)をヘッドレス環境で表示しないテスト用サブクラス
+    private class TestMainViewModel(
+        IProjectService projectService,
+        IRecentProjectsService recentProjectsService,
+        ICueManager cueManager,
+        IHostRegistry hostRegistry,
+        ITimecodeRelay timecodeRelay,
+        ITimecodeEngine timecodeEngine,
+        TimecodeViewModel timecodeViewModel,
+        CueListViewModel cueListViewModel,
+        RelayViewModel relayViewModel,
+        IOscTriggerPanelManager oscTriggerPanelManager,
+        OscTriggerPanelViewModel oscTriggerPanelViewModel,
+        IFileDialogService fileDialogService)
+        : MainViewModel(projectService, recentProjectsService, cueManager, hostRegistry,
+            timecodeRelay, timecodeEngine, timecodeViewModel, cueListViewModel,
+            relayViewModel, oscTriggerPanelManager, oscTriggerPanelViewModel, fileDialogService)
+    {
+        protected override bool ConfirmDiscardIfDirty() => true;
+        protected override void NotifyLoadError(string filePath, Exception ex) { }
+    }
+
+    private MainViewModel CreateVm() => new TestMainViewModel(
         _projectService,
         _recentProjectsService,
         _cueManager,
@@ -624,5 +648,87 @@ public class MainViewModelTests
 
         var data = _projectService.LastSavedData!;
         Assert.NotNull(data.SourceSettings);
+    }
+
+    // --- Undo/Redo ---
+
+    private Cue CreateCueForUndo(string id) => new()
+    {
+        Id = id,
+        Name = $"Cue {id}",
+        OscAddress = "/test",
+        TriggerTime = new TimecodeValue(0, 0, 1, 0, FrameRate.Fps30),
+    };
+
+    [Fact]
+    public void Undo_RestoresPreviousCueState()
+    {
+        var vm = CreateVm();
+        Assert.False(vm.CanUndo);
+
+        // 編集操作を模倣: キュー追加 + MarkAsChanged（VMの編集コマンドと同じ流れ）
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+
+        Assert.True(vm.CanUndo);
+
+        vm.UndoCommand.Execute(null);
+
+        Assert.Empty(_cueManager.Cues);
+        Assert.True(vm.CanRedo);
+    }
+
+    [Fact]
+    public void Redo_ReappliesUndoneChange()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+
+        vm.UndoCommand.Execute(null);
+        Assert.Empty(_cueManager.Cues);
+
+        vm.RedoCommand.Execute(null);
+
+        Assert.Single(_cueManager.Cues);
+        Assert.Equal("c1", _cueManager.Cues[0].Id);
+        Assert.False(vm.CanRedo);
+    }
+
+    [Fact]
+    public void NewProject_ResetsUndoHistory()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+        Assert.True(vm.CanUndo);
+
+        vm.NewProjectCommand.Execute(null);
+
+        Assert.False(vm.CanUndo);
+        Assert.False(vm.CanRedo);
+    }
+
+    [Fact]
+    public void Undo_NewEditAfterUndo_DiscardsRedoHistory()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+        System.Threading.Thread.Sleep(600); // 連続編集の集約ウィンドウを跨ぐ
+        _cueManager.AddCue(CreateCueForUndo("c2"));
+        _projectService.MarkAsChanged();
+
+        vm.UndoCommand.Execute(null);
+        Assert.Single(_cueManager.Cues);
+
+        System.Threading.Thread.Sleep(600);
+        _cueManager.AddCue(CreateCueForUndo("c3"));
+        _projectService.MarkAsChanged();
+
+        Assert.False(vm.CanRedo);
     }
 }

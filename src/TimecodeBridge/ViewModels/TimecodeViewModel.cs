@@ -19,6 +19,23 @@ public partial class TimecodeViewModel : DispatcherViewModel
     // 受信前でも空欄にせずゼロ表記を出す（FallbackValueはバインディング失敗時にしか効かない）
     [ObservableProperty] private string _rawTimecodeDisplay = "00:00:00:00";
     [ObservableProperty] private string _offsetTimecodeDisplay = "00:00:00:00";
+
+    /// <summary>受信フレームから検出したフレームレート表示（例: "30fps" / "29.97DF"）。</summary>
+    [ObservableProperty] private string _detectedFrameRateText = "";
+
+    /// <summary>信号喪失時の補足情報（例: "最終受信 12秒前"）。</summary>
+    [ObservableProperty] private string _signalDetailText = "";
+
+    /// <summary>ステータスバー用の「ソース: 状態」要約。</summary>
+    public string SourceStatusSummary =>
+        $"{(SelectedSource == TimecodeSourceType.Generator ? "内部生成" : "LTC")}: {StatusText}";
+
+    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(SourceStatusSummary));
+
+    private DateTime? _lastFrameReceivedAt;
+    // DispatcherTimerだとテストホスト等Dispatcherループのないスレッドでプロセスが終了しなくなるため、
+    // バックグラウンドのThreading.Timer + RunOnUiThreadで更新する
+    private System.Threading.Timer? _signalInfoTimer;
     [ObservableProperty] private bool _isReceiving;
     [ObservableProperty] private string _statusText = "停止";
     [ObservableProperty] private AudioDeviceInfo? _selectedDevice;
@@ -107,6 +124,24 @@ public partial class TimecodeViewModel : DispatcherViewModel
         _timecodeEngine.StatusChanged += OnStatusChanged;
 
         RefreshAudioDevices();
+
+        // 信号喪失時の経過秒表示を1秒ごとに更新する
+        _signalInfoTimer = new System.Threading.Timer(
+            _ => RunOnUiThread(UpdateSignalDetail), null,
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateSignalDetail()
+    {
+        if (StatusText == "信号喪失" && _lastFrameReceivedAt is { } lastAt)
+        {
+            var seconds = (int)(DateTime.Now - lastAt).TotalSeconds;
+            SignalDetailText = $"最終受信 {seconds}秒前";
+        }
+        else if (SignalDetailText.Length > 0 && StatusText != "信号喪失")
+        {
+            SignalDetailText = "";
+        }
     }
 
     private void MarkDirty()
@@ -151,6 +186,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
     {
         OnPropertyChanged(nameof(IsGeneratorMode));
         OnPropertyChanged(nameof(IsLtcMode));
+        OnPropertyChanged(nameof(SourceStatusSummary));
 
         MarkDirty();
 
@@ -354,6 +390,10 @@ public partial class TimecodeViewModel : DispatcherViewModel
         {
             RawTimecodeDisplay = e.RawTimecode.ToString();
             OffsetTimecodeDisplay = e.OffsetTimecode.ToString();
+
+            _lastFrameReceivedAt = DateTime.Now;
+            var frameRate = e.RawTimecode.FrameRate;
+            DetectedFrameRateText = frameRate.IsDropFrame() ? "29.97DF" : $"{frameRate.FramesPerSecond()}fps";
         });
     }
 
@@ -473,6 +513,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
 
     public override void Dispose()
     {
+        _signalInfoTimer?.Dispose();
         _timecodeEngine.TimecodeUpdated -= OnTimecodeUpdated;
         _timecodeEngine.StatusChanged -= OnStatusChanged;
     }

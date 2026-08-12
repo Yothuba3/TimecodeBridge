@@ -17,6 +17,7 @@ public class ProjectService : IProjectService
     public bool HasUnsavedChanges => _hasUnsavedChanges;
 
     public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+    public event EventHandler<EventArgs>? ChangeCommitted;
 
     public ProjectData LoadProject(string filePath)
     {
@@ -58,6 +59,7 @@ public class ProjectService : IProjectService
     public void MarkAsChanged()
     {
         SetHasUnsavedChanges(true);
+        ChangeCommitted?.Invoke(this, EventArgs.Empty);
     }
 
     public void Reset()

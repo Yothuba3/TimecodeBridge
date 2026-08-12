@@ -416,6 +416,30 @@
         <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
     </Style>
 
+    <!-- 受信状態テキストの色分け（DataContext.StatusText に応じて緑/黄/赤/灰） -->
+    <Style x:Key="ReceiveStatusTextStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding StatusText}" Value="受信中">
+                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusText}" Value="生成中">
+                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusText}" Value="フリーラン">
+                <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusText}" Value="信号喪失">
+                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                <Setter Property="FontWeight" Value="Bold" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding StatusText}" Value="エラー">
+                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                <Setter Property="FontWeight" Value="Bold" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- TabControl Style -->
     <Style TargetType="{x:Type TabControl}">
         <Setter Property="Background" Value="{StaticResource PrimaryBackgroundBrush}" />

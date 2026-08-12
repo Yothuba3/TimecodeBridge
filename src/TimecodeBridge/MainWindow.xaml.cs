@@ -98,6 +98,13 @@ public partial class MainWindow : Window
 
             // Wire OSC trigger panel
             OscTriggerPanel.DataContext = App.Services.GetRequiredService<OscTriggerPanelViewModel>();
+
+            // Wire status bar (バッジごとに参照するViewModelが異なる)
+            var timecodeVm = App.Services.GetRequiredService<TimecodeViewModel>();
+            StatusSourceText.DataContext = timecodeVm;
+            StatusMuteBadge.DataContext = timecodeVm;
+            StatusRelayBadge.DataContext = App.Services.GetRequiredService<RelayViewModel>();
+            StatusPlayModeBadge.DataContext = App.Services.GetRequiredService<OscTriggerPanelViewModel>();
         }
     }
 

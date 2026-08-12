@@ -8,13 +8,26 @@ mc:Ignorable="d"
              d:DesignHeight="200" d:DesignWidth="1000"
              Background="Transparent">
     <UserControl.Resources>
+        <!-- 状態別色分け: 受信/生成=緑, フリーラン=黄, 喪失/エラー=赤, 停止=灰 -->
         <Style x:Key="StatusIndicatorStyle" TargetType="Ellipse">
-            <Setter Property="Width" Value="8" />
-            <Setter Property="Height" Value="8" />
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
             <Setter Property="Fill" Value="#4A4A68" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsReceiving}" Value="True">
-                    <Setter Property="Fill" Value="#4ADE80" />
+                <DataTrigger Binding="{Binding StatusText}" Value="受信中">
+                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="生成中">
+                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="フリーラン">
+                    <Setter Property="Fill" Value="{DynamicResource WarningBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="信号喪失">
+                    <Setter Property="Fill" Value="{DynamicResource ErrorBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="エラー">
+                    <Setter Property="Fill" Value="{DynamicResource ErrorBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -45,9 +58,21 @@ mc:Ignorable="d"
     </UserControl.Resources>
 
     <Border Background="{DynamicResource CardBackgroundBrush}"
-            BorderBrush="{DynamicResource BorderSubtleBrush}"
-            BorderThickness="1" Margin="0,0,0,2" Padding="14,10" CornerRadius="8"
+            Margin="0,0,0,2" Padding="14,10" CornerRadius="8"
             VerticalAlignment="Stretch">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Style.Triggers>
+                    <!-- 信号喪失をタイムコード表示部全体でも警告する -->
+                    <DataTrigger Binding="{Binding StatusText}" Value="信号喪失">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                        <Setter Property="BorderThickness" Value="2" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -76,6 +101,11 @@ mc:Ignorable="d"
                                FontFamily="Consolas" FontSize="32" FontWeight="Bold"
                                Foreground="{DynamicResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
+                    <!-- 検出フレームレート -->
+                    <TextBlock Text="{Binding DetectedFrameRateText}"
+                               FontFamily="Consolas" FontSize="11"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                               VerticalAlignment="Bottom" Margin="6,0,0,4" />
                 </StackPanel>
 
                 <!-- OFFSET -->
@@ -138,10 +168,14 @@ mc:Ignorable="d"
                         </ToggleButton.Style>
                     </ToggleButton>
 
-                    <Ellipse Style="{StaticResource StatusIndicatorStyle}" Margin="0,0,4,0" />
+                    <Ellipse Style="{StaticResource StatusIndicatorStyle}" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding StatusText, FallbackValue='停止'}"
-                               Foreground="{DynamicResource PrimaryForegroundBrush}"
-                               VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0" />
+                               Style="{StaticResource ReceiveStatusTextStyle}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,4,0" />
+                    <!-- 信号喪失時の補足（最終受信からの経過秒） -->
+                    <TextBlock Text="{Binding SignalDetailText}"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               VerticalAlignment="Center" FontSize="10" Margin="0,0,12,0" />
                     <RadioButton Content="LTC" GroupName="Source"
                                  IsChecked="{Binding IsLtcMode}"
                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
