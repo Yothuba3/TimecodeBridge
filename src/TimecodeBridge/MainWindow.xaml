@@ -7,8 +7,8 @@
         xmlns:views="clr-namespace:TimecodeBridge.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
-        Height="768" Width="1200"
-        MinHeight="660" MinWidth="1150"
+        Height="840" Width="1600"
+        MinHeight="720" MinWidth="1380"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PrimaryBackgroundBrush}">
     <Window.Resources>
@@ -52,13 +52,18 @@
             </MenuItem>
         </Menu>
 
-        <!-- Row 1: Tabs -->
-        <TabControl Grid.Row="1" Margin="4,4,4,4" SelectedIndex="0"
-                    Background="Transparent" BorderThickness="0">
+        <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->
+        <Grid Grid.Row="1" Margin="4,4,4,4">
+            <!-- 両列とも比率指定にする: 固定px列だとGridSplitterが
+                 ウィンドウ幅を超えて列を広げ続けられてしまう -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3.2*" MinWidth="1080" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="260" />
+            </Grid.ColumnDefinitions>
 
-            <!-- Tab 1: Timecode (existing full feature set) -->
-            <TabItem Header="タイムコード">
-                <Grid>
+            <!-- Left: Timecode (existing full feature set) -->
+                <Grid Grid.Column="0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="3*" />
                         <RowDefinition Height="2*" />
@@ -163,15 +168,16 @@
                         </Border>
                     </Grid>
                 </Grid>
-            </TabItem>
 
-            <!-- Tab 2: OSC Trigger Panel (pon-out) -->
-            <TabItem Header="OSCポン出し">
-                <views:OscTriggerPanelView x:Name="OscTriggerPanel" />
-            </TabItem>
-        </TabControl>
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="3"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
-        <!-- Row 2: 運用ステータスバー（どのタブでも送信に関わる状態を一目で確認できる） -->
+            <!-- Right: OSC Trigger Panel (pon-out) -->
+            <views:OscTriggerPanelView Grid.Column="2" x:Name="OscTriggerPanel" />
+        </Grid>
+
+        <!-- Row 2: 運用ステータスバー（送信に関わる状態を常時一目で確認できる） -->
         <Border Grid.Row="2" Background="{DynamicResource SecondaryBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
             <DockPanel Margin="10,4">

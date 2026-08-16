@@ -20,6 +20,10 @@ public class CueManager : ICueManager
     private TimecodeValue? _lastRawTimecode;
     private volatile bool _trackingResetPending;
 
+    // 編集されたキューの「発火済み」を解除するための引き継ぎキュー
+    //（発火済み集合はワーカースレッド専有のため、UIスレッドからは直接触らない）
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _reArmQueue = new();
+
     public int TriggerWindowFrames { get; set; } = 3;
     public bool IsMuted { get; set; }
 
@@ -61,6 +65,9 @@ public class CueManager : ICueManager
             updatedCue.Id = cueId;
             _cues[index] = updatedCue;
         }
+
+        // 編集で発火時刻が未来へ移った場合に再発火できるよう、発火済みを解除する
+        _reArmQueue.Enqueue(cueId);
     }
 
     public void RemoveCue(string cueId)
@@ -150,6 +157,12 @@ public class CueManager : ICueManager
             _firedCueIds.Clear();
         }
 
+        // 編集されたキューの発火済みを解除（UIスレッドからの引き継ぎ）
+        while (_reArmQueue.TryDequeue(out var reArmId))
+        {
+            _firedCueIds.Remove(reArmId);
+        }
+
         var tc = e.OffsetTimecode;
         long tcOrd = tc.ToOrdinal();
 
@@ -187,7 +200,7 @@ public class CueManager : ICueManager
             foreach (var cue in cues)
             {
                 if (!cue.IsEnabled) continue;
-                if (cue.TriggerTime.ToOrdinal() == tcOrd)
+                if (cue.GetEffectiveTriggerTime().ToOrdinal() == tcOrd)
                 {
                     TriggerCue(cue, tc);
                     _firedCueIds.Add(cue.Id);
@@ -204,7 +217,7 @@ public class CueManager : ICueManager
             _firedCueIds.RemoveWhere(id =>
             {
                 var cue = cues.FirstOrDefault(c => c.Id == id);
-                return cue is not null && cue.TriggerTime.ToOrdinal() > tcOrd;
+                return cue is not null && cue.GetEffectiveTriggerTime().ToOrdinal() > tcOrd;
             });
             _highWaterMark = tc;
             return;
@@ -222,7 +235,7 @@ public class CueManager : ICueManager
             if (!cue.IsEnabled) continue;
             if (_firedCueIds.Contains(cue.Id)) continue;
 
-            long cueOrd = cue.TriggerTime.ToOrdinal();
+            long cueOrd = cue.GetEffectiveTriggerTime().ToOrdinal();
             if (cueOrd > hwmOrd && cueOrd <= tcOrd)
             {
                 TriggerCue(cue, tc);
@@ -250,11 +263,9 @@ public class CueManager : ICueManager
         if (!cue.SendTriggerTimeAsSeconds)
             return cue.Arguments;
 
-        var triggerTime = cue.TriggerTime;
-        if (cue.CueOffset is { } offset)
-            triggerTime = triggerTime.Add(offset);
-
-        float totalSeconds = triggerTime.TotalFrames() / (float)triggerTime.FrameRate.FramesPerSecond();
+        // 送信タイムコードが指定されていればそれを、なければトリガー時間を秒数化して送る
+        var sendTime = cue.SendTimecode ?? cue.TriggerTime;
+        float totalSeconds = sendTime.TotalFrames() / (float)sendTime.FrameRate.FramesPerSecond();
 
         var args = new List<OscArgument>(cue.Arguments.Count + 1);
         args.Add(new OscFloat32Argument(totalSeconds));

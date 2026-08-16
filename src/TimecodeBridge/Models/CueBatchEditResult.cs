@@ -12,11 +12,11 @@ public class CueBatchEditResult
     public bool? SendTriggerTimeAsSeconds { get; set; }
 
     /// <summary>
-    /// true = オフセット値を適用, false = 変更しない。
-    /// ApplyOffset が true のとき CueOffset の値（nullならオフセット解除）を適用する。
+    /// true = トリガーオフセット値を適用, false = 変更しない。
+    /// ApplyTriggerOffset が true のとき TriggerOffset の値（nullなら解除）を適用する。
     /// </summary>
-    public bool ApplyOffset { get; set; }
-    public TimecodeOffset? CueOffset { get; set; }
+    public bool ApplyTriggerOffset { get; set; }
+    public TimecodeOffset? TriggerOffset { get; set; }
 
     public bool ApplyMemo { get; set; }
     public string? Memo { get; set; }

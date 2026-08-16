@@ -38,6 +38,17 @@ public partial class MainWindow : Window
             System.Windows.Input.ApplicationCommands.SaveAs,
             System.Windows.Input.Key.S,
             System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Shift));
+
+        // ポン出し実行モードのEsc解除は、フォーカスがどこにあっても効くようウィンドウ全体で処理する
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape
+                && OscTriggerPanel.DataContext is OscTriggerPanelViewModel { IsPlayMode: true } ponVm)
+            {
+                ponVm.IsEditMode = true;
+                e.Handled = true;
+            }
+        };
     }
 
     private void OpenMenuItem_Click(object sender, RoutedEventArgs e)

@@ -81,11 +81,17 @@ public partial class CueBatchEditDialog : Window
             result.TargetHostIds = selectedHostIds;
         }
 
-        // Cue Offset
+        // Trigger Offset（発火タイミングのオフセット）
         if (ApplyOffset.IsChecked == true)
         {
-            result.ApplyOffset = true;
-            result.CueOffset = ParseCueOffset();
+            if (!TryParseTriggerOffset(out var triggerOffset))
+            {
+                MessageBox.Show("トリガーオフセットを正しい形式で入力してください。\nHH(0-23) MM(0-59) SS(0-59) FF(0-max)",
+                    "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            result.ApplyTriggerOffset = true;
+            result.TriggerOffset = triggerOffset;
         }
 
         // Memo
@@ -110,24 +116,35 @@ public partial class CueBatchEditDialog : Window
         DialogResult = false;
     }
 
-    private TimecodeOffset? ParseCueOffset()
+    // 各成分を検証してオフセットを組み立てる（全ゼロ = 解除(null)）。不正入力は false
+    private bool TryParseTriggerOffset(out TimecodeOffset? offset)
     {
-        if (!int.TryParse(OffsetHoursBox.Text, out var oh)) oh = 0;
-        if (!int.TryParse(OffsetMinutesBox.Text, out var om)) om = 0;
-        if (!int.TryParse(OffsetSecondsBox.Text, out var os)) os = 0;
-        if (!int.TryParse(OffsetFramesBox.Text, out var of2)) of2 = 0;
+        offset = null;
 
-        // 範囲外の成分はオフセットとして有効な値へ丸める（負値は符号コンボで指定）
-        oh = Math.Clamp(oh, 0, 23);
-        om = Math.Clamp(om, 0, 59);
-        os = Math.Clamp(os, 0, 59);
-        of2 = Math.Clamp(of2, 0, _frameRate.FramesPerSecond() - 1);
+        if (!TryParseOffsetField(OffsetHoursBox.Text, 23, out var oh) ||
+            !TryParseOffsetField(OffsetMinutesBox.Text, 59, out var om) ||
+            !TryParseOffsetField(OffsetSecondsBox.Text, 59, out var os) ||
+            !TryParseOffsetField(OffsetFramesBox.Text, _frameRate.FramesPerSecond() - 1, out var of2))
+        {
+            return false;
+        }
 
         if (oh == 0 && om == 0 && os == 0 && of2 == 0)
-            return null;
+            return true;
 
         bool isNegative = OffsetSignBox.SelectedIndex == 1;
-        return new TimecodeOffset(isNegative, oh, om, os, of2, _frameRate);
+        offset = new TimecodeOffset(isNegative, oh, om, os, of2, _frameRate);
+        return true;
     }
 
+    // 空欄は0扱い、非数値・範囲外はエラー
+    private static bool TryParseOffsetField(string text, int max, out int value)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = 0;
+            return true;
+        }
+        return int.TryParse(text, out value) && value >= 0 && value <= max;
+    }
 }

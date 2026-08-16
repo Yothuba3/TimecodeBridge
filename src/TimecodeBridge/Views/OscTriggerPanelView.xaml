@@ -31,9 +31,9 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Header: title + mode switch + grid size inputs -->
-            <DockPanel Grid.Row="0" Margin="0,0,0,12">
-                <StackPanel Orientation="Horizontal">
+            <!-- Header: 常設の狭い幅でも収まるよう「タイトル行」と「操作行」の2段構成 -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                     <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
                             CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
                     <TextBlock Text="OSCポン出し" FontSize="13" FontWeight="SemiBold"
@@ -41,37 +41,37 @@
                                VerticalAlignment="Center" />
                     <!-- 実行モードの常時バナー（Escで編集モードへ） -->
                     <Border Background="{DynamicResource ErrorBrush}" CornerRadius="4"
-                            Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center"
-                            Visibility="{Binding IsPlayMode, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="実行モード: クリックで即送信（Escで編集へ）"
+                            Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding IsPlayMode, Converter={StaticResource BoolToVis}}"
+                            ToolTip="クリックで即送信されます。Escキーで編集モードへ戻ります">
+                        <TextBlock Text="実行中 (Esc=編集)"
                                    FontSize="11" FontWeight="Bold" Foreground="White" />
                     </Border>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
-                            HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <RadioButton Content="実行" GroupName="PonMode" Margin="0,0,12,0"
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton Content="実行" GroupName="PonMode" Margin="0,0,8,0"
                                  VerticalAlignment="Center" FontSize="12"
                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
                                  IsChecked="{Binding IsPlayMode}" />
-                    <RadioButton Content="編集" GroupName="PonMode" Margin="0,0,18,0"
+                    <RadioButton Content="編集" GroupName="PonMode" Margin="0,0,10,0"
                                  VerticalAlignment="Center" FontSize="12"
                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
                                  IsChecked="{Binding IsEditMode}" />
-                    <TextBlock Text="行" VerticalAlignment="Center" Margin="0,0,6,0"
+                    <TextBlock Text="行" VerticalAlignment="Center" Margin="0,0,4,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-                    <TextBox Text="{Binding Rows, UpdateSourceTrigger=LostFocus}" Width="48"
+                    <TextBox Text="{Binding Rows, UpdateSourceTrigger=LostFocus}" Width="40"
                              TextAlignment="Center" FontFamily="Consolas"
                              IsEnabled="{Binding IsEditMode}"
                              KeyDown="OnSizeBoxKeyDown" />
-                    <TextBlock Text="列" VerticalAlignment="Center" Margin="12,0,6,0"
+                    <TextBlock Text="列" VerticalAlignment="Center" Margin="8,0,4,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-                    <TextBox Text="{Binding Columns, UpdateSourceTrigger=LostFocus}" Width="48"
+                    <TextBox Text="{Binding Columns, UpdateSourceTrigger=LostFocus}" Width="40"
                              TextAlignment="Center" FontFamily="Consolas"
                              IsEnabled="{Binding IsEditMode}"
                              KeyDown="OnSizeBoxKeyDown" />
                 </StackPanel>
-            </DockPanel>
+            </StackPanel>
 
             <!-- Grid of trigger buttons -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"

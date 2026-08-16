@@ -112,20 +112,55 @@ public partial class CueListViewModel : DispatcherViewModel
         var result = _cueDialogService.ShowBatchEditDialog(cueIds.Count, _hostRegistry.Hosts, _timecodeEngine.FrameRate);
         if (result is null) return;
 
+        int offsetSkipped = 0;
         foreach (var cueId in cueIds)
         {
             var cue = _cueManager.Cues.FirstOrDefault(c => c.Id == cueId);
             if (cue is null) continue;
 
-            ApplyBatchEdit(cue, result);
+            // トリガーオフセット適用で発火時刻が0〜24時の範囲外になるキューには適用しない
+            if (result.ApplyTriggerOffset &&
+                !Cue.TryApplyTriggerOffset(cue.TriggerTime, result.TriggerOffset, out _))
+            {
+                offsetSkipped++;
+                var withoutOffset = new CueBatchEditResult
+                {
+                    OscAddress = result.OscAddress,
+                    Arguments = result.Arguments,
+                    TargetHostIds = result.TargetHostIds,
+                    IsEnabled = result.IsEnabled,
+                    SendTriggerTimeAsSeconds = result.SendTriggerTimeAsSeconds,
+                    ApplyMemo = result.ApplyMemo,
+                    Memo = result.Memo,
+                };
+                ApplyBatchEdit(cue, withoutOffset);
+            }
+            else
+            {
+                ApplyBatchEdit(cue, result);
+            }
+
             _cueManager.UpdateCue(cueId, cue);
 
             // 項目を差し替えず更新して選択状態を維持する
             CueItems.FirstOrDefault(c => c.Id == cueId)?.Update(cue);
         }
 
+        if (offsetSkipped > 0)
+        {
+            NotifyTriggerOffsetSkipped(offsetSkipped);
+        }
+
         RefreshNextCue();
         _projectService.MarkAsChanged();
+    }
+
+    /// <summary>範囲外のためトリガーオフセットを適用しなかったキューの通知。テスト時に差し替え可能。</summary>
+    protected virtual void NotifyTriggerOffsetSkipped(int count)
+    {
+        System.Windows.MessageBox.Show(
+            $"{count} 件のキューは、トリガーオフセット適用後の発火時刻が 0〜24時 の範囲を超えるため、オフセットを適用しませんでした（他の項目は適用済み）。",
+            "一括編集", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
     }
 
     private static void ApplyBatchEdit(Cue cue, CueBatchEditResult edit)
@@ -140,8 +175,8 @@ public partial class CueListViewModel : DispatcherViewModel
             cue.IsEnabled = edit.IsEnabled.Value;
         if (edit.SendTriggerTimeAsSeconds.HasValue)
             cue.SendTriggerTimeAsSeconds = edit.SendTriggerTimeAsSeconds.Value;
-        if (edit.ApplyOffset)
-            cue.CueOffset = edit.CueOffset;
+        if (edit.ApplyTriggerOffset)
+            cue.TriggerOffset = edit.TriggerOffset;
         if (edit.ApplyMemo)
             cue.Memo = edit.Memo ?? string.Empty;
     }
@@ -195,7 +230,8 @@ public partial class CueListViewModel : DispatcherViewModel
             TargetHostIds = source.TargetHostIds.ToList(),
             IsEnabled = source.IsEnabled,
             SendTriggerTimeAsSeconds = source.SendTriggerTimeAsSeconds,
-            CueOffset = source.CueOffset,
+            SendTimecode = source.SendTimecode,
+            TriggerOffset = source.TriggerOffset,
         };
     }
 
@@ -253,7 +289,8 @@ public partial class CueListViewModel : DispatcherViewModel
     [RelayCommand]
     private void SortCuesByTime()
     {
-        var ordered = CueItems.OrderBy(c => c.TriggerTime.ToOrdinal()).ToList();
+        // 表示上のトリガー時間ではなく、オフセット適用後の実際の発火順に並べる
+        var ordered = CueItems.OrderBy(c => c.GetEffectiveTriggerTime().ToOrdinal()).ToList();
         if (ordered.SequenceEqual(CueItems)) return;
 
         _cueManager.ReorderCues(ordered.Select(c => c.Id).ToList());
@@ -328,7 +365,8 @@ public partial class CueListViewModel : DispatcherViewModel
 
             if (!item.IsEnabled) continue;
 
-            long cueOrd = item.TriggerTime.ToOrdinal();
+            // トリガーオフセット適用後の実際の発火時刻で判定する
+            long cueOrd = item.GetEffectiveTriggerTime().ToOrdinal();
             if (cueOrd > currentOrd && cueOrd < nextOrd)
             {
                 nextCue = item;
@@ -340,9 +378,9 @@ public partial class CueListViewModel : DispatcherViewModel
         {
             nextCue.IsNextCue = true;
 
-            var remaining = TimecodeValue.FromTotalFrames(
-                nextOrd - currentOrd, nextCue.TriggerTime.FrameRate);
-            NextCueSummary = $"NEXT {nextCue.TriggerTime} {nextCue.Name}（あと {remaining}）";
+            // ordinalは30固定基準（1秒=30）なので、実FPSのフレーム数として復元せず秒に換算する
+            var remaining = TimeSpan.FromSeconds((nextOrd - currentOrd) / 30.0);
+            NextCueSummary = $"NEXT {nextCue.GetEffectiveTriggerTime()} {nextCue.Name}（あと {remaining:hh\\:mm\\:ss}）";
         }
         else
         {

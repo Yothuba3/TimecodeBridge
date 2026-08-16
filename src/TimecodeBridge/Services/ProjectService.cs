@@ -82,6 +82,13 @@ public class ProjectService : IProjectService
         {
             cue.Arguments ??= [];
             cue.TargetHostIds ??= [];
+
+            // 旧形式の cueOffset（送信秒数の補正オフセット）は送信タイムコードへ変換して引き継ぐ
+            if (cue.CueOffset is { } legacyOffset)
+            {
+                cue.SendTimecode ??= cue.TriggerTime.Add(legacyOffset);
+                cue.CueOffset = null;
+            }
         }
         data.Cues.RemoveAll(c => c is null || c.Id is null);
         data.Hosts.RemoveAll(h => h is null || h.Id is null);

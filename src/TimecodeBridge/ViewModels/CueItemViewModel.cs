@@ -11,7 +11,8 @@ public partial class CueItemViewModel : ObservableObject
     public string Id { get; }
     public string Memo { get; private set; }
     public bool SendTriggerTimeAsSeconds { get; private set; }
-    public TimecodeOffset? CueOffset { get; private set; }
+    public TimecodeValue? SendTimecode { get; private set; }
+    public TimecodeOffset? TriggerOffset { get; private set; }
 
     [ObservableProperty] private string _name;
     [ObservableProperty] private TimecodeValue _triggerTime;
@@ -29,7 +30,8 @@ public partial class CueItemViewModel : ObservableObject
         _oscAddress = cue.OscAddress;
         IsEnabled = cue.IsEnabled;
         SendTriggerTimeAsSeconds = cue.SendTriggerTimeAsSeconds;
-        CueOffset = cue.CueOffset;
+        SendTimecode = cue.SendTimecode;
+        TriggerOffset = cue.TriggerOffset;
     }
 
     /// <summary>
@@ -44,8 +46,13 @@ public partial class CueItemViewModel : ObservableObject
         OscAddress = cue.OscAddress;
         IsEnabled = cue.IsEnabled;
         SendTriggerTimeAsSeconds = cue.SendTriggerTimeAsSeconds;
-        CueOffset = cue.CueOffset;
+        SendTimecode = cue.SendTimecode;
+        TriggerOffset = cue.TriggerOffset;
     }
+
+    /// <summary>トリガーオフセット適用後の実際の発火時刻（Cue側と同一ロジック）。</summary>
+    public TimecodeValue GetEffectiveTriggerTime()
+        => Cue.TryApplyTriggerOffset(TriggerTime, TriggerOffset, out var effective) ? effective : TriggerTime;
 
     /// <summary>
     /// 発火フラッシュを開始する。UIスレッドから呼ぶこと。

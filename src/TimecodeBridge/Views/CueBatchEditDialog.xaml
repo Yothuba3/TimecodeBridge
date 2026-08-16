@@ -119,7 +119,9 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <CheckBox Grid.Column="0" x:Name="ApplyOffset" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="1" Text="キューオフセット" VerticalAlignment="Center"
+                <TextBlock Grid.Column="1" Text="トリガーオフセット" VerticalAlignment="Center"
+                           ToolTipService.ShowDuration="20000"
+                           ToolTip="発火タイミングを±ずらします。実際の発火時刻 = トリガー時間 ± この値"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                 <Grid Grid.Column="2" IsEnabled="{Binding IsChecked, ElementName=ApplyOffset}">
                     <Grid.ColumnDefinitions>

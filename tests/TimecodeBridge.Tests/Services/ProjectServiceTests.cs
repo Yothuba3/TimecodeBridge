@@ -26,6 +26,28 @@ public class ProjectServiceTests : IDisposable
         }
     }
 
+    // --- 旧形式 cueOffset の移行 ---
+
+    [Fact]
+    public void LoadProject_LegacyCueOffset_MigratedToSendTimecode()
+    {
+        // 旧形式: cueOffset は「送信秒数の補正オフセット」だった。
+        // 読込時に SendTimecode = TriggerTime + cueOffset へ変換される
+        var data = CreateSampleProjectData();
+        data.Cues[0].SendTriggerTimeAsSeconds = true;
+        data.Cues[0].CueOffset = new TimecodeOffset(false, 0, 0, 30, 0, FrameRate.Fps24); // +30秒
+        var path = Path.Combine(_tempDir, "legacy.json");
+        _service.SaveProject(path, data);
+
+        var loaded = _service.LoadProject(path);
+
+        var cue = loaded.Cues[0];
+        Assert.Null(cue.CueOffset);
+        Assert.NotNull(cue.SendTimecode);
+        // TriggerTime 00:01:00:00 + 30秒 = 00:01:30:00
+        Assert.Equal(new TimecodeValue(0, 1, 30, 0, FrameRate.Fps24), cue.SendTimecode.Value);
+    }
+
     private static ProjectData CreateSampleProjectData()
     {
         return new ProjectData

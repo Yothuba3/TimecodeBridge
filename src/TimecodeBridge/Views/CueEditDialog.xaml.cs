@@ -26,8 +26,26 @@ public partial class CueEditDialog : Window
         EnabledBox.IsChecked = cue.IsEnabled;
         SendTcSecondsBox.IsChecked = cue.SendTriggerTimeAsSeconds;
 
-        // Cue offset
-        if (cue.CueOffset is { } offset)
+        // Send timecode（未指定 = トリガー時間をそのまま送信）
+        if (cue.SendTimecode is { } sendTc)
+        {
+            UseSendTimecodeBox.IsChecked = true;
+            SendTcHoursBox.Text = sendTc.Hours.ToString("D2");
+            SendTcMinutesBox.Text = sendTc.Minutes.ToString("D2");
+            SendTcSecondsFieldBox.Text = sendTc.Seconds.ToString("D2");
+            SendTcFramesBox.Text = sendTc.Frames.ToString("D2");
+        }
+        else
+        {
+            UseSendTimecodeBox.IsChecked = false;
+            SendTcHoursBox.Text = "00";
+            SendTcMinutesBox.Text = "00";
+            SendTcSecondsFieldBox.Text = "00";
+            SendTcFramesBox.Text = "00";
+        }
+
+        // Trigger offset（発火タイミングのオフセット）
+        if (cue.TriggerOffset is { } offset)
         {
             OffsetSignBox.SelectedIndex = offset.IsNegative ? 1 : 0;
             OffsetHoursBox.Text = offset.Hours.ToString("D2");
@@ -55,25 +73,37 @@ public partial class CueEditDialog : Window
         NoHostsHint.Visibility = hostItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private TimecodeOffset? ParseCueOffset()
+    // 各成分を検証してオフセットを組み立てる（全ゼロ = オフセットなし）。不正入力は false
+    private bool TryParseTriggerOffset(out TimecodeOffset? offset)
     {
-        if (!int.TryParse(OffsetHoursBox.Text, out var oh)) oh = 0;
-        if (!int.TryParse(OffsetMinutesBox.Text, out var om)) om = 0;
-        if (!int.TryParse(OffsetSecondsBox.Text, out var os)) os = 0;
-        if (!int.TryParse(OffsetFramesBox.Text, out var of2)) of2 = 0;
+        offset = null;
 
-        // 範囲外の成分はオフセットとして有効な値へ丸める（負値は符号コンボで指定）
-        oh = Math.Clamp(oh, 0, 23);
-        om = Math.Clamp(om, 0, 59);
-        os = Math.Clamp(os, 0, 59);
-        of2 = Math.Clamp(of2, 0, _frameRate.FramesPerSecond() - 1);
+        if (!TryParseOffsetField(OffsetHoursBox.Text, 23, out var oh) ||
+            !TryParseOffsetField(OffsetMinutesBox.Text, 59, out var om) ||
+            !TryParseOffsetField(OffsetSecondsBox.Text, 59, out var os) ||
+            !TryParseOffsetField(OffsetFramesBox.Text, _frameRate.FramesPerSecond() - 1, out var of2))
+        {
+            return false;
+        }
 
         // All zero means no offset
         if (oh == 0 && om == 0 && os == 0 && of2 == 0)
-            return null;
+            return true;
 
         bool isNegative = OffsetSignBox.SelectedIndex == 1;
-        return new TimecodeOffset(isNegative, oh, om, os, of2, _frameRate);
+        offset = new TimecodeOffset(isNegative, oh, om, os, of2, _frameRate);
+        return true;
+    }
+
+    // 空欄は0扱い、非数値・範囲外はエラー
+    private static bool TryParseOffsetField(string text, int max, out int value)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = 0;
+            return true;
+        }
+        return int.TryParse(text, out value) && value >= 0 && value <= max;
     }
 
     private void OnOkClick(object sender, RoutedEventArgs e)
@@ -104,6 +134,47 @@ public partial class CueEditDialog : Window
             return;
         }
 
+        // トリガーオフセット（非数値・範囲外はエラー、全ゼロ = なし）
+        if (!TryParseTriggerOffset(out var triggerOffset))
+        {
+            MessageBox.Show("トリガーオフセットを正しい形式で入力してください。\nHH(0-23) MM(0-59) SS(0-59) FF(0-max)",
+                "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // 適用後の発火時刻が0〜24時に収まるか（範囲外だと発火できないキューになる）
+        var triggerTime = new TimecodeValue(h, m, s, f, _frameRate);
+        if (!Cue.TryApplyTriggerOffset(triggerTime, triggerOffset, out _))
+        {
+            MessageBox.Show("トリガーオフセット適用後の発火時刻が 00:00:00:00〜23:59:59:FF の範囲を超えます。\nオフセットまたはトリガー時間を調整してください。",
+                "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // 送信タイムコード（「指定」OFF = トリガー時間をそのまま送る）
+        TimecodeValue? sendTimecode = null;
+        if (UseSendTimecodeBox.IsChecked == true)
+        {
+            bool valid = int.TryParse(SendTcHoursBox.Text, out var sh) && sh >= 0 && sh <= 23 &&
+                         int.TryParse(SendTcMinutesBox.Text, out var sm) && sm >= 0 && sm <= 59 &&
+                         int.TryParse(SendTcSecondsFieldBox.Text, out var ss) && ss >= 0 && ss <= 59 &&
+                         int.TryParse(SendTcFramesBox.Text, out var sf) && sf >= 0 && sf <= maxFrames;
+
+            if (valid)
+            {
+                sendTimecode = new TimecodeValue(
+                    int.Parse(SendTcHoursBox.Text), int.Parse(SendTcMinutesBox.Text),
+                    int.Parse(SendTcSecondsFieldBox.Text), int.Parse(SendTcFramesBox.Text), _frameRate);
+            }
+            else if (SendTcSecondsBox.IsChecked == true)
+            {
+                // 秒数送信が有効なときだけエラーにする（無効時は残った不正値で保存をブロックしない）
+                MessageBox.Show("送信タイムコードを正しい形式で入力してください。\nHH(0-23) MM(0-59) SS(0-59) FF(0-max)",
+                    "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         var selectedHostIds = new List<string>();
         if (HostListBox.ItemsSource is IEnumerable<HostSelection> items)
         {
@@ -114,14 +185,15 @@ public partial class CueEditDialog : Window
         {
             Id = string.Empty, // caller will set
             Name = NameBox.Text.Trim(),
-            TriggerTime = new TimecodeValue(h, m, s, f, _frameRate),
+            TriggerTime = triggerTime,
             OscAddress = oscAddress,
             Arguments = OscArgumentText.Parse(OscArgsBox.Text),
             TargetHostIds = selectedHostIds,
             Memo = MemoBox.Text,
             IsEnabled = EnabledBox.IsChecked ?? true,
             SendTriggerTimeAsSeconds = SendTcSecondsBox.IsChecked ?? false,
-            CueOffset = ParseCueOffset(),
+            SendTimecode = sendTimecode,
+            TriggerOffset = triggerOffset,
         };
 
         DialogResult = true;
