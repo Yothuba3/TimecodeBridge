@@ -67,7 +67,16 @@ public partial class CueBatchEditDialog : Window
         // OSC Arguments
         if (ApplyOscArgs.IsChecked == true)
         {
-            result.Arguments = OscArgumentText.Parse(OscArgsBox.Text);
+            // 不正な引数トークンを黙って捨てると「設定が消えた」ように見えるためエラーにする
+            if (!OscArgumentText.TryParse(OscArgsBox.Text, out var arguments, out var invalidToken))
+            {
+                MessageBox.Show(
+                    $"OSC引数の形式が正しくありません: 「{invalidToken}」\n\n" +
+                    "「型:値」をスペース区切りで入力してください。\n例: i:1 f:0.5 s:hello（空白を含む文字列は s:\"hello world\"）",
+                    "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            result.Arguments = arguments;
         }
 
         // Target Hosts
