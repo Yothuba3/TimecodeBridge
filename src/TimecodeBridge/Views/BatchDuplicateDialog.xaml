@@ -27,9 +27,28 @@
                        Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
             <TextBox Grid.Row="0" Grid.Column="1" x:Name="CountBox" Text="23" Margin="0,0,0,10" FontFamily="Consolas" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔 (時間)" VerticalAlignment="Center" Margin="0,0,0,10"
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔" VerticalAlignment="Center" Margin="0,0,0,10"
+                       ToolTip="複製ごとにトリガー時間へ加算する間隔（時:分:秒）"
                        Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-            <TextBox Grid.Row="1" Grid.Column="1" x:Name="IntervalHoursBox" Text="1" Margin="0,0,0,10" FontFamily="Consolas" />
+            <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="IntervalHoursBox" Text="1" TextAlignment="Center"
+                         MaxLength="2" FontFamily="Consolas" ToolTip="時間" />
+                <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center" Margin="4,0"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                <TextBox Grid.Column="2" x:Name="IntervalMinutesBox" Text="00" TextAlignment="Center"
+                         MaxLength="2" FontFamily="Consolas" ToolTip="分" />
+                <TextBlock Grid.Column="3" Text=":" VerticalAlignment="Center" Margin="4,0"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                <TextBox Grid.Column="4" x:Name="IntervalSecondsBox" Text="00" TextAlignment="Center"
+                         MaxLength="2" FontFamily="Consolas" ToolTip="秒" />
+            </Grid>
 
             <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">

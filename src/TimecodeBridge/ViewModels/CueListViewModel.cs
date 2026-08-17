@@ -202,9 +202,9 @@ public partial class CueListViewModel : DispatcherViewModel
         var batchResult = _cueDialogService.ShowBatchDuplicateDialog();
         if (batchResult is null) return;
 
-        var (count, intervalHours) = batchResult.Value;
+        var (count, interval) = batchResult.Value;
         int fps = source.TriggerTime.FrameRate.FramesPerSecond();
-        long framesPerInterval = (long)intervalHours * 3600 * fps;
+        long framesPerInterval = (long)interval.TotalSeconds * fps;
         long baseFrames = source.TriggerTime.TotalFrames();
 
         for (int i = 1; i <= count; i++)

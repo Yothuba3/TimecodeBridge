@@ -173,6 +173,25 @@ public class CueListViewModelTests
         Assert.False(vm.CueItems[0].IsEnabled);
     }
 
+    // --- BatchDuplicateCueCommand（分・秒単位の間隔） ---
+
+    [Fact]
+    public void BatchDuplicateCue_MinuteSecondInterval_AddsAtEachStep()
+    {
+        var cueManager = new StubCueManager();
+        cueManager.AddCue(CreateCue("c1", "Base", "/base", 10)); // 00:00:10:00
+        var engine = new StubTimecodeEngine();
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchDuplicateStubDialogService(2, new TimeSpan(0, 1, 30)), new StubProjectService());
+
+        vm.BatchDuplicateCueCommand.Execute("c1");
+
+        Assert.Equal(3, cueManager.Cues.Count);
+        // +1分30秒 ずつ
+        Assert.Equal(TC(0, 1, 40, 0), cueManager.Cues[1].TriggerTime);
+        Assert.Equal(TC(0, 3, 10, 0), cueManager.Cues[2].TriggerTime);
+    }
+
     // --- CueTriggered event ---
 
     [StaFact]
@@ -443,7 +462,7 @@ public class CueListViewModelTests
 
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
 
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog()
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog()
         {
             return null;
         }
@@ -462,7 +481,14 @@ public class CueListViewModelTests
         }
 
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
+    }
+
+    private class BatchDuplicateStubDialogService(int count, TimeSpan interval) : ICueDialogService
+    {
+        public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => null;
+        public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => (count, interval);
     }
 
     private class FixedResultCueDialogService : ICueDialogService
@@ -473,7 +499,7 @@ public class CueListViewModelTests
 
         public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => _result;
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
     }
 
     private class StubCueManager : ICueManager

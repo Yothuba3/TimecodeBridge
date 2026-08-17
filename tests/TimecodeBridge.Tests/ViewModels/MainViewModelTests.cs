@@ -172,7 +172,7 @@ internal class StubCueDialogServiceForMain : ICueDialogService
 {
     public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => template;
     public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-    public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+    public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
 }
 
 internal class StubTimecodeEngineForMain : ITimecodeEngine

@@ -9,5 +9,6 @@ public interface ICueDialogService
 {
     Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title);
     CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate);
-    (int Count, int IntervalHours)? ShowBatchDuplicateDialog();
+    /// <summary>連続複製ダイアログ。間隔は時:分:秒で指定される。</summary>
+    (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog();
 }
