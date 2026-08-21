@@ -192,6 +192,55 @@ public class CueListViewModelTests
         Assert.Equal(TC(0, 3, 10, 0), cueManager.Cues[2].TriggerTime);
     }
 
+    // --- BatchEditCuesCommand（送信タイムコード・追加アドレスの一括適用） ---
+
+    [Fact]
+    public void BatchEditCues_AppliesSendTimecodeAndAdditionalAddresses()
+    {
+        var cueManager = new StubCueManager();
+        cueManager.AddCue(CreateCue("c1"));
+        cueManager.AddCue(CreateCue("c2"));
+        var engine = new StubTimecodeEngine();
+
+        var edit = new CueBatchEditResult
+        {
+            ApplySendTimecode = true,
+            SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30),
+            AdditionalOscAddresses = ["/extra"],
+        };
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchEditStubDialogService(edit), new StubProjectService());
+
+        var selected = new List<CueItemViewModel> { vm.CueItems[0], vm.CueItems[1] };
+        vm.BatchEditCuesCommand.Execute(selected);
+
+        Assert.All(cueManager.Cues, c =>
+        {
+            Assert.Equal(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), c.SendTimecode);
+            Assert.Equal(["/extra"], c.AdditionalOscAddresses);
+        });
+    }
+
+    [Fact]
+    public void BatchEditCues_SendTimecodeUnset_ClearsValue()
+    {
+        var cueManager = new StubCueManager();
+        var cue = CreateCue("c1");
+        cue.SendTimecode = new TimecodeValue(2, 0, 0, 0, FrameRate.Fps30);
+        cueManager.AddCue(cue);
+        cueManager.AddCue(CreateCue("c2"));
+        var engine = new StubTimecodeEngine();
+
+        var edit = new CueBatchEditResult { ApplySendTimecode = true, SendTimecode = null };
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchEditStubDialogService(edit), new StubProjectService());
+
+        var selected = new List<CueItemViewModel> { vm.CueItems[0], vm.CueItems[1] };
+        vm.BatchEditCuesCommand.Execute(selected);
+
+        Assert.All(cueManager.Cues, c => Assert.Null(c.SendTimecode));
+    }
+
     // --- CueTriggered event ---
 
     [StaFact]
@@ -481,6 +530,13 @@ public class CueListViewModelTests
         }
 
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
+    }
+
+    private class BatchEditStubDialogService(CueBatchEditResult result) : ICueDialogService
+    {
+        public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => null;
+        public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => result;
         public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
     }
 

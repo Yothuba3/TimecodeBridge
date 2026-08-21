@@ -615,6 +615,34 @@ public class CueManagerTests
         Assert.Equal(5f, seconds);
     }
 
+    // --- AdditionalOscAddresses（追加アドレスは引数なしで送信） ---
+
+    [Fact]
+    public void ManualTrigger_AdditionalAddresses_SentWithoutArguments()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.OscAddress = "/main";
+        cue.Arguments = [new OscInt32Argument(1)];
+        cue.AdditionalOscAddresses = ["/extra/1", "/extra/2"];
+        cue.TargetHostIds = ["host1"];
+        manager.AddCue(cue);
+
+        manager.ManualTrigger("c1");
+
+        Assert.Equal(3, spySender.SendCalls.Count);
+        Assert.Equal("/main", spySender.SendCalls[0].OscAddress);
+        Assert.Single(spySender.SendCalls[0].Arguments);
+        Assert.Equal("/extra/1", spySender.SendCalls[1].OscAddress);
+        Assert.Empty(spySender.SendCalls[1].Arguments); // 追加アドレスは引数なし
+        Assert.Equal("/extra/2", spySender.SendCalls[2].OscAddress);
+        Assert.Empty(spySender.SendCalls[2].Arguments);
+        Assert.All(spySender.SendCalls, c => Assert.Equal("host1", c.TargetHostIds[0]));
+    }
+
     // --- SendCueSync（Cue-Syncワンショット送信） ---
 
     [Fact]

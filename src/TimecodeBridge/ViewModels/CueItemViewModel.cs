@@ -17,6 +17,9 @@ public partial class CueItemViewModel : ObservableObject
     [ObservableProperty] private string _name;
     [ObservableProperty] private TimecodeValue _triggerTime;
     [ObservableProperty] private string _oscAddress;
+
+    /// <summary>一覧表示用アドレス（追加アドレスがある場合は「+n」付き）。</summary>
+    [ObservableProperty] private string _oscAddressDisplay = "";
     [ObservableProperty] private bool _isEnabled;
     [ObservableProperty] private bool _isTriggered;
     [ObservableProperty] private bool _isNextCue;
@@ -32,7 +35,13 @@ public partial class CueItemViewModel : ObservableObject
         SendTriggerTimeAsSeconds = cue.SendTriggerTimeAsSeconds;
         SendTimecode = cue.SendTimecode;
         TriggerOffset = cue.TriggerOffset;
+        OscAddressDisplay = BuildAddressDisplay(cue);
     }
+
+    private static string BuildAddressDisplay(Cue cue)
+        => cue.AdditionalOscAddresses.Count > 0
+            ? $"{cue.OscAddress} +{cue.AdditionalOscAddresses.Count}"
+            : cue.OscAddress;
 
     /// <summary>
     /// 編集結果をこのインスタンスへ反映する。項目を差し替えないことで
@@ -48,6 +57,7 @@ public partial class CueItemViewModel : ObservableObject
         SendTriggerTimeAsSeconds = cue.SendTriggerTimeAsSeconds;
         SendTimecode = cue.SendTimecode;
         TriggerOffset = cue.TriggerOffset;
+        OscAddressDisplay = BuildAddressDisplay(cue);
     }
 
     /// <summary>トリガーオフセット適用後の実際の発火時刻（Cue側と同一ロジック）。</summary>

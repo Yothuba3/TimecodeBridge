@@ -84,6 +84,7 @@ public class ProjectService : IProjectService
         {
             cue.Arguments ??= [];
             cue.TargetHostIds ??= [];
+            cue.AdditionalOscAddresses ??= [];
 
             // 旧形式の cueOffset（送信秒数の補正オフセット）は送信タイムコードへ変換して引き継ぐ
             if (cue.CueOffset is { } legacyOffset)

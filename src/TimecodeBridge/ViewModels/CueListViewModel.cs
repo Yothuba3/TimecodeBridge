@@ -167,6 +167,8 @@ public partial class CueListViewModel : DispatcherViewModel
     {
         if (edit.OscAddress is not null)
             cue.OscAddress = edit.OscAddress;
+        if (edit.AdditionalOscAddresses is not null)
+            cue.AdditionalOscAddresses = edit.AdditionalOscAddresses.ToList();
         if (edit.Arguments is not null)
             cue.Arguments = edit.Arguments.ToList();
         if (edit.TargetHostIds is not null)
@@ -175,6 +177,8 @@ public partial class CueListViewModel : DispatcherViewModel
             cue.IsEnabled = edit.IsEnabled.Value;
         if (edit.SendTriggerTimeAsSeconds.HasValue)
             cue.SendTriggerTimeAsSeconds = edit.SendTriggerTimeAsSeconds.Value;
+        if (edit.ApplySendTimecode)
+            cue.SendTimecode = edit.SendTimecode;
         if (edit.ApplyTriggerOffset)
             cue.TriggerOffset = edit.TriggerOffset;
         if (edit.ApplyMemo)
@@ -226,6 +230,7 @@ public partial class CueListViewModel : DispatcherViewModel
             Memo = source.Memo,
             TriggerTime = triggerTime,
             OscAddress = source.OscAddress,
+            AdditionalOscAddresses = source.AdditionalOscAddresses.ToList(),
             Arguments = source.Arguments.ToList(),
             TargetHostIds = source.TargetHostIds.ToList(),
             IsEnabled = source.IsEnabled,

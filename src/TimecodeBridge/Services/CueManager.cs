@@ -129,14 +129,25 @@ public class CueManager : ICueManager
         var cue = found
             ?? throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
 
-        var args = BuildArguments(cue);
-        _oscSender.Send(cue.OscAddress, args, cue.TargetHostIds);
+        SendCueOsc(cue);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,
             TriggerTimecode = _timecodeEngine.CurrentOffsetTimecode,
             IsManual = true,
         });
+    }
+
+    // メインアドレス（引数あり）＋追加アドレス（引数なし）をまとめて送出する
+    private void SendCueOsc(Cue cue)
+    {
+        var args = BuildArguments(cue);
+        _oscSender.Send(cue.OscAddress, args, cue.TargetHostIds);
+
+        foreach (var address in cue.AdditionalOscAddresses)
+        {
+            _oscSender.Send(address, [], cue.TargetHostIds);
+        }
     }
 
     /// <summary>
@@ -309,8 +320,7 @@ public class CueManager : ICueManager
 
     private void TriggerCue(Cue cue, TimecodeValue triggerTimecode)
     {
-        var args = BuildArguments(cue);
-        _oscSender.Send(cue.OscAddress, args, cue.TargetHostIds);
+        SendCueOsc(cue);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,

@@ -7,6 +7,13 @@ public class Cue
     public string Memo { get; set; } = string.Empty;
     public required TimecodeValue TriggerTime { get; set; }
     public required string OscAddress { get; set; }
+
+    /// <summary>
+    /// 2個目以降のOSCアドレス。発火時にメインアドレスに続けて送信される。
+    /// 一括編集を成立させるため、常に引数なしで送る制約を持つ。
+    /// </summary>
+    public List<string> AdditionalOscAddresses { get; set; } = [];
+
     public List<OscArgument> Arguments { get; set; } = [];
     public List<string> TargetHostIds { get; set; } = [];
     public bool IsEnabled { get; set; } = true;

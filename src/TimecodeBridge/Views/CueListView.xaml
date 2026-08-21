@@ -117,7 +117,7 @@
                         <GridViewColumn Header="OSCアドレス" Width="150">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding OscAddress}"
+                                    <TextBlock Text="{Binding OscAddressDisplay}"
                                                FontFamily="Consolas" FontSize="12"
                                                Foreground="{DynamicResource SecondaryForegroundBrush}" />
                                 </DataTemplate>

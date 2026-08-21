@@ -29,7 +29,9 @@ public partial class CueBatchEditDialog : Window
     {
         // At least one field must be checked
         bool anyChecked = ApplyOscAddress.IsChecked == true
+                       || ApplyAdditionalAddresses.IsChecked == true
                        || ApplySendTcSeconds.IsChecked == true
+                       || ApplySendTimecode.IsChecked == true
                        || ApplyOscArgs.IsChecked == true
                        || ApplyTargetHosts.IsChecked == true
                        || ApplyOffset.IsChecked == true
@@ -58,10 +60,48 @@ public partial class CueBatchEditDialog : Window
             result.OscAddress = oscAddress;
         }
 
+        // Additional OSC Addresses（1行1件・空=全解除）
+        if (ApplyAdditionalAddresses.IsChecked == true)
+        {
+            var additionalAddresses = AdditionalAddressesBox.Text
+                .Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToList();
+            if (additionalAddresses.Any(a => !a.StartsWith('/')))
+            {
+                MessageBox.Show("追加アドレスも '/' で始まる必要があります。\n（1行に1アドレスずつ入力してください）", "入力エラー",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            result.AdditionalOscAddresses = additionalAddresses;
+        }
+
         // Send TC as Seconds
         if (ApplySendTcSeconds.IsChecked == true)
         {
             result.SendTriggerTimeAsSeconds = SendTcSecondsBox.IsChecked ?? false;
+        }
+
+        // Send Timecode（「指定」OFF = 解除してトリガー時間を送る）
+        if (ApplySendTimecode.IsChecked == true)
+        {
+            result.ApplySendTimecode = true;
+            if (UseSendTimecodeBox.IsChecked == true)
+            {
+                int maxFrames = _frameRate.FramesPerSecond() - 1;
+                if (!int.TryParse(SendTcHoursBox.Text, out var sh) || sh < 0 || sh > 23 ||
+                    !int.TryParse(SendTcMinutesBox.Text, out var sm) || sm < 0 || sm > 59 ||
+                    !int.TryParse(SendTcSecondsFieldBox.Text, out var ss) || ss < 0 || ss > 59 ||
+                    !int.TryParse(SendTcFramesBox.Text, out var sf) || sf < 0 || sf > maxFrames)
+                {
+                    MessageBox.Show("送信タイムコードを正しい形式で入力してください。\nHH(0-23) MM(0-59) SS(0-59) FF(0-max)",
+                        "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                result.SendTimecode = new TimecodeValue(sh, sm, ss, sf, _frameRate);
+            }
+            // 「指定」OFFなら result.SendTimecode は null のまま = 解除
         }
 
         // OSC Arguments

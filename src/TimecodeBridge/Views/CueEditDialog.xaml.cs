@@ -21,6 +21,7 @@ public partial class CueEditDialog : Window
         SecondsBox.Text = cue.TriggerTime.Seconds.ToString("D2");
         FramesBox.Text = cue.TriggerTime.Frames.ToString("D2");
         OscAddressBox.Text = cue.OscAddress;
+        AdditionalAddressesBox.Text = string.Join(Environment.NewLine, cue.AdditionalOscAddresses);
         OscArgsBox.Text = OscArgumentText.Format(cue.Arguments);
         MemoBox.Text = cue.Memo;
         EnabledBox.IsChecked = cue.IsEnabled;
@@ -134,6 +135,19 @@ public partial class CueEditDialog : Window
             return;
         }
 
+        // 追加アドレス（1行1件・空行は無視）
+        var additionalAddresses = AdditionalAddressesBox.Text
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToList();
+        if (additionalAddresses.Any(a => !a.StartsWith('/')))
+        {
+            MessageBox.Show("追加アドレスも '/' で始まる必要があります。\n（1行に1アドレスずつ入力してください）", "入力エラー",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         // 不正な引数トークンを黙って捨てると「設定が消えた」ように見えるためエラーにする
         if (!OscArgumentText.TryParse(OscArgsBox.Text, out var arguments, out var invalidToken))
         {
@@ -197,6 +211,7 @@ public partial class CueEditDialog : Window
             Name = NameBox.Text.Trim(),
             TriggerTime = triggerTime,
             OscAddress = oscAddress,
+            AdditionalOscAddresses = additionalAddresses,
             Arguments = arguments,
             TargetHostIds = selectedHostIds,
             Memo = MemoBox.Text,
