@@ -105,6 +105,7 @@ internal class StubCueManagerForMain : ICueManager
     public void SetCueEnabled(string cueId, bool enabled) { }
     public void ManualTrigger(string cueId) { }
     public void ResetTracking() { }
+    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
 
     public void ClearAll()
@@ -238,7 +239,8 @@ public class MainViewModelTests
 
     public MainViewModelTests()
     {
-        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager, _projectService);
+        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager, _projectService,
+            new CueSyncViewModel(_cueManager, _hostRegistry, _projectService));
         _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain(), _projectService);
         _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry, _projectService);
         _oscTriggerPanelManager = new OscTriggerPanelManager(new StubOscSenderForMain(), _hostRegistry);

@@ -103,6 +103,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             },
             Offset = _timecodeEngine.Offset,
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
+            CueSync = _timecodeViewModel.CueSync.GetSettings(),
         };
         return JsonSerializer.Serialize(data, ProjectData.CreateJsonOptions());
     }
@@ -188,6 +189,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 _timecodeEngine.Offset = data.Offset;
                 _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
+                _timecodeViewModel.CueSync.LoadSettings(data.CueSync ?? new CueSyncSettings());
             }
             finally
             {
@@ -235,6 +237,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Reset source settings
         _timecodeViewModel.RestoreSourceSettings(new TimecodeSourceSettings());
+        _timecodeViewModel.CueSync.LoadSettings(new CueSyncSettings());
 
         // Sync child ViewModels
         _cueListViewModel.SyncFromService();
@@ -332,6 +335,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Restore OSC trigger panel
         _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
 
+        // Restore Cue-Sync settings
+        _timecodeViewModel.CueSync.LoadSettings(data.CueSync);
+
         // Sync child ViewModels
         _cueListViewModel.SyncFromService();
         _relayViewModel.SyncFromService();
@@ -398,6 +404,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Offset = _timecodeEngine.Offset,
             SourceSettings = _timecodeViewModel.GetSourceSettings(),
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
+            CueSync = _timecodeViewModel.CueSync.GetSettings(),
         };
 
         _isNewProject = false;

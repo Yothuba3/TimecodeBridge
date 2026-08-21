@@ -32,6 +32,7 @@ public static class ServiceRegistration
         services.AddSingleton<IOscTriggerDialogService, OscTriggerDialogService>();
 
         // ViewModels
+        services.AddSingleton<CueSyncViewModel>();
         services.AddSingleton<TimecodeViewModel>();
         services.AddSingleton<CueListViewModel>();
         services.AddSingleton<RelayViewModel>();

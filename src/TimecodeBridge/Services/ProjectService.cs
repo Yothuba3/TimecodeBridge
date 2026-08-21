@@ -78,6 +78,8 @@ public class ProjectService : IProjectService
         data.OscTriggerPanel ??= new();
         data.OscTriggerPanel.Buttons ??= [];
         data.RelaySettings.TargetHostIds ??= [];
+        data.CueSync ??= new();
+        data.CueSync.TargetHostIds ??= [];
         foreach (var cue in data.Cues.Where(c => c is not null))
         {
             cue.Arguments ??= [];

@@ -113,11 +113,15 @@ public partial class TimecodeViewModel : DispatcherViewModel
     private readonly ICueManager _cueManager;
     private readonly IProjectService _projectService;
 
-    public TimecodeViewModel(ITimecodeEngine timecodeEngine, ICueManager cueManager, IProjectService projectService)
+    /// <summary>Cue-Syncワンショット（TimecodeDisplayView内のボタン領域が参照する）。</summary>
+    public CueSyncViewModel CueSync { get; }
+
+    public TimecodeViewModel(ITimecodeEngine timecodeEngine, ICueManager cueManager, IProjectService projectService, CueSyncViewModel cueSyncViewModel)
     {
         _timecodeEngine = timecodeEngine;
         _cueManager = cueManager;
         _projectService = projectService;
+        CueSync = cueSyncViewModel;
         _offset = timecodeEngine.Offset;
 
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;

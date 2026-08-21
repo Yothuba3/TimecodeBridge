@@ -114,6 +114,10 @@ public class CueTriggerFlowTests : IDisposable
                 allTriggered.TrySetResult(true);
         };
 
+        // 判定幅内のスキップは範囲内のキューを全発火させる仕様。
+        // 8秒(240フレーム)のジャンプを許容するよう判定幅を広げておく
+        _cueManager.TriggerWindowFrames = 300;
+
         // Act: establish _lastTimecode at 1s
         _engine.WriteFrame(new TimecodeValue(0, 0, 1, 0, FrameRate.Fps30));
         await Task.Delay(100);

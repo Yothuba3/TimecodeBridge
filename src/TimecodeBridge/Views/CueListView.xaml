@@ -33,12 +33,12 @@
                     <TextBlock Text="判定幅:" VerticalAlignment="Center" Margin="0,0,4,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11"
                                ToolTipService.ShowDuration="20000"
-                               ToolTip="タイムコードの揺らぎ（ジッタ）と巻き戻しを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
+                               ToolTip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBox Text="{Binding TriggerWindowFrames, UpdateSourceTrigger=PropertyChanged}"
                              Width="36" FontSize="11" VerticalAlignment="Center"
                              HorizontalContentAlignment="Center" Padding="4,3"
                              ToolTipService.ShowDuration="20000"
-                             ToolTip="タイムコードの揺らぎ（ジッタ）と巻き戻しを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
+                             ToolTip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBlock Text="f" VerticalAlignment="Center" Margin="3,0,16,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" />
                     <Button Content="時間順" Padding="10,4" Margin="3,0"

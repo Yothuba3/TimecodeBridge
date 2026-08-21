@@ -229,6 +229,28 @@ public class CueManager : ICueManager
             return;
         }
 
+        // ── 判定幅を超える前方ジャンプはシーク（頭出し）扱い ──
+        // 途中のキューを一斉発火させず位置だけ移す。着地フレームちょうどのキューは
+        // 受信開始時の完全一致ルールと同様に発火させる。
+        // 通常再生の1フレーム前進は判定幅0でもジャンプ扱いにしない。
+        if (tcOrd - hwmOrd > Math.Max(1, TriggerWindowFrames))
+        {
+            foreach (var cue in cues)
+            {
+                if (!cue.IsEnabled) continue;
+                if (_firedCueIds.Contains(cue.Id)) continue;
+
+                if (cue.GetEffectiveTriggerTime().ToOrdinal() == tcOrd)
+                {
+                    TriggerCue(cue, tc);
+                    _firedCueIds.Add(cue.Id);
+                }
+            }
+
+            _highWaterMark = tc;
+            return;
+        }
+
         // ── Forward into new territory ──
         foreach (var cue in cues)
         {
@@ -244,6 +266,45 @@ public class CueManager : ICueManager
         }
 
         _highWaterMark = tc;
+    }
+
+    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds)
+    {
+        var current = _timecodeEngine.CurrentOffsetTimecode;
+        long currentOrd = current.ToOrdinal();
+
+        // 有効かつ送信タイムコード指定ありのキューのうち、実効発火時刻が現在以前で最も近いもの
+        Cue? baseCue = null;
+        long bestOrd = long.MinValue;
+        foreach (var cue in Cues)
+        {
+            if (!cue.IsEnabled || cue.SendTimecode is null) continue;
+
+            long effectiveOrd = cue.GetEffectiveTriggerTime().ToOrdinal();
+            if (effectiveOrd <= currentOrd && effectiveOrd > bestOrd)
+            {
+                baseCue = cue;
+                bestOrd = effectiveOrd;
+            }
+        }
+
+        float totalSeconds = 0f;
+        if (baseCue is not null)
+        {
+            // 送信TC + (現在TC - 実効発火時刻) を秒ドメインで求める
+            var sendTc = baseCue.SendTimecode!.Value;
+            var effective = baseCue.GetEffectiveTriggerTime();
+
+            // 同一フレームレートならフレーム演算で正確に、異なる場合はordinal(1秒=30)近似で経過秒を求める
+            double elapsedSeconds = current.FrameRate == effective.FrameRate
+                ? (current.TotalFrames() - effective.TotalFrames()) / (double)current.FrameRate.FramesPerSecond()
+                : (currentOrd - bestOrd) / 30.0;
+
+            double sendSeconds = sendTc.TotalFrames() / (double)sendTc.FrameRate.FramesPerSecond();
+            totalSeconds = (float)(sendSeconds + elapsedSeconds);
+        }
+
+        _oscSender.Send(oscAddress, [new OscFloat32Argument(totalSeconds)], targetHostIds);
     }
 
     private void TriggerCue(Cue cue, TimecodeValue triggerTimecode)

@@ -535,6 +535,7 @@ public class CueListViewModelTests
         public void ManualTrigger(string cueId) => ManualTriggerCalls.Add(cueId);
 
         public void ResetTracking() { }
+        public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
 

@@ -28,6 +28,14 @@ public interface ICueManager
     /// <summary>再生位置の追跡状態を仕切り直す（位置ジャンプ時の中間キュー一斉発火を防ぐ）。</summary>
     void ResetTracking();
 
+    /// <summary>
+    /// Cue-Syncワンショット送信。現在のオフセット後TCに対し、実効発火時刻が直前の
+    /// 「有効かつ送信タイムコード指定あり」のキューを基準に
+    /// 「送信タイムコード + (現在TC - 実効発火時刻)」を秒数(float)で送信する。
+    /// 基準キューがなければ 0.0 を送る。
+    /// </summary>
+    void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds);
+
     event EventHandler<CueTriggeredEventArgs> CueTriggered;
 }
 
