@@ -246,7 +246,7 @@ mc:Ignorable="d"
                     <Button Command="{Binding CueSync.SendCueSyncCommand}"
                             Width="96" Height="96" VerticalAlignment="Top"
                             ToolTipService.ShowDuration="20000"
-                            ToolTip="Cue-Syncワンショット送信。&#10;直前の「送信タイムコード指定あり」キューを基準に、&#10;送信タイムコード + (現在TC − 実効発火時刻) を秒数(float)で1回送信します。&#10;基準キューがない場合は 0.0 を送ります">
+                            ToolTip="Cue-Syncワンショット送信。&#10;直前の有効なキューを基準に、送信タイムコード + (現在TC − 実効発火時刻) を秒数(float)で1回送信します。&#10;送信タイムコード未指定のキューはトリガー時間を送信軸とみなします。&#10;基準キューがない場合は 0.0 を送ります">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Cursor" Value="Hand" />

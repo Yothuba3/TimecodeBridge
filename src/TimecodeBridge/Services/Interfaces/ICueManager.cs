@@ -30,8 +30,8 @@ public interface ICueManager
 
     /// <summary>
     /// Cue-Syncワンショット送信。現在のオフセット後TCに対し、実効発火時刻が直前の
-    /// 「有効かつ送信タイムコード指定あり」のキューを基準に
-    /// 「送信タイムコード + (現在TC - 実効発火時刻)」を秒数(float)で送信する。
+    /// 有効なキューを基準に「送信タイムコード + (現在TC - 実効発火時刻)」を秒数(float)で送信する。
+    /// 送信タイムコード未指定のキューはトリガー時間を送信軸とみなす。
     /// 基準キューがなければ 0.0 を送る。
     /// </summary>
     void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds);

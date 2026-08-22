@@ -673,16 +673,11 @@ public class CueManagerTests
     }
 
     [Fact]
-    public void SendCueSync_CuesWithoutSendTimecodeOrDisabled_Ignored()
+    public void SendCueSync_DisabledCue_Ignored()
     {
         var stubEngine = new StubTimecodeEngine();
         var spySender = new SpyOscSender();
         var manager = new CueManager(stubEngine, spySender);
-
-        // 送信TC指定なし → 基準候補にならない
-        var noSendTc = CreateCue("no-send");
-        noSendTc.TriggerTime = new TimecodeValue(0, 0, 24, 0, FrameRate.Fps30);
-        manager.AddCue(noSendTc);
 
         // 無効 → 基準候補にならない
         var disabled = CreateCue("disabled", enabled: false);
@@ -700,6 +695,53 @@ public class CueManagerTests
 
         var call = Assert.Single(spySender.SendCalls);
         Assert.Equal(3605f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_BaseCueWithoutSendTimecode_UsesTriggerTimeAsAxis()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // 送信TC未指定・トリガーオフセット+2秒 → 実効22秒、送信軸はトリガー時間(20秒)
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 20, 0, FrameRate.Fps30);
+        cue.TriggerOffset = new TimecodeOffset(false, 0, 0, 2, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        // 現在25秒 → 20 + (25 - 22) = 23秒（= 現在TCからオフセット分を差し引いた値）
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(23f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_NoSendTimecodeCueIsNearest_TakesPrecedence()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // 送信TC指定ありだが遠いキュー
+        var withSendTc = CreateCue("with");
+        withSendTc.TriggerTime = new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30);
+        withSendTc.SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(withSendTc);
+
+        // 送信TC未指定だが直前のキュー → こちらが基準
+        var nearest = CreateCue("nearest");
+        nearest.TriggerTime = new TimecodeValue(0, 0, 24, 0, FrameRate.Fps30);
+        manager.AddCue(nearest);
+
+        // 現在25秒 → 24 + (25 - 24) = 25秒
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(25f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
     }
 
     [Fact]

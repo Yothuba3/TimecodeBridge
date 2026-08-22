@@ -284,12 +284,12 @@ public class CueManager : ICueManager
         var current = _timecodeEngine.CurrentOffsetTimecode;
         long currentOrd = current.ToOrdinal();
 
-        // 有効かつ送信タイムコード指定ありのキューのうち、実効発火時刻が現在以前で最も近いもの
+        // 有効なキューのうち、実効発火時刻が現在以前で最も近いもの
         Cue? baseCue = null;
         long bestOrd = long.MinValue;
         foreach (var cue in Cues)
         {
-            if (!cue.IsEnabled || cue.SendTimecode is null) continue;
+            if (!cue.IsEnabled) continue;
 
             long effectiveOrd = cue.GetEffectiveTriggerTime().ToOrdinal();
             if (effectiveOrd <= currentOrd && effectiveOrd > bestOrd)
@@ -302,8 +302,10 @@ public class CueManager : ICueManager
         float totalSeconds = 0f;
         if (baseCue is not null)
         {
-            // 送信TC + (現在TC - 実効発火時刻) を秒ドメインで求める
-            var sendTc = baseCue.SendTimecode!.Value;
+            // 送信TC + (現在TC - 実効発火時刻) を秒ドメインで求める。
+            // 送信タイムコード未指定のキューはトリガー時間を送信軸とみなす
+            // （= 現在TCからトリガーオフセット分を差し引いた値になる）
+            var sendTc = baseCue.SendTimecode ?? baseCue.TriggerTime;
             var effective = baseCue.GetEffectiveTriggerTime();
 
             // 同一フレームレートならフレーム演算で正確に、異なる場合はordinal(1秒=30)近似で経過秒を求める
