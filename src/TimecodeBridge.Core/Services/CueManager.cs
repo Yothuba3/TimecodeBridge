@@ -25,7 +25,70 @@ public class CueManager : ICueManager
     private readonly System.Collections.Concurrent.ConcurrentQueue<string> _reArmQueue = new();
 
     public int TriggerWindowFrames { get; set; } = 3;
-    public bool IsMuted { get; set; }
+
+    // オートミュート状態。発火ワーカー・解除タイマー・UIスレッドが触るため _muteGate で保護する
+    private readonly object _muteGate = new();
+    private bool _isMuted;
+    private Timer? _autoUnmuteTimer;
+
+    public bool IsMuted
+    {
+        get { lock (_muteGate) return _isMuted; }
+        set
+        {
+            // 手動での切替は予約済みの自動解除より優先する（後から勝手に解除/再ミュートされない）
+            lock (_muteGate)
+            {
+                _autoUnmuteTimer?.Dispose();
+                _autoUnmuteTimer = null;
+                if (_isMuted == value) return;
+                _isMuted = value;
+            }
+            MuteStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public bool IsAutoMuteEnabled { get; set; } = true;
+
+    public event EventHandler? MuteStateChanged;
+
+    /// <summary>キュー設定に応じて発火時オートミュートを適用する。</summary>
+    private void ApplyAutoMute(Cue cue)
+    {
+        if (!IsAutoMuteEnabled || !cue.AutoMuteOnFire) return;
+
+        bool changed;
+        lock (_muteGate)
+        {
+            _autoUnmuteTimer?.Dispose();
+            _autoUnmuteTimer = null;
+
+            changed = !_isMuted;
+            _isMuted = true;
+
+            if (cue.AutoUnmuteAfter is { } after)
+            {
+                double seconds = after.TotalFrames() / (double)after.FrameRate.FramesPerSecond();
+                _autoUnmuteTimer = new Timer(OnAutoUnmute, null,
+                    TimeSpan.FromSeconds(seconds), Timeout.InfiniteTimeSpan);
+            }
+        }
+
+        if (changed) MuteStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnAutoUnmute(object? state)
+    {
+        bool changed;
+        lock (_muteGate)
+        {
+            _autoUnmuteTimer?.Dispose();
+            _autoUnmuteTimer = null;
+            changed = _isMuted;
+            _isMuted = false;
+        }
+        if (changed) MuteStateChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public CueManager(ITimecodeEngine timecodeEngine, IOscSender oscSender)
     {
@@ -130,6 +193,7 @@ public class CueManager : ICueManager
             ?? throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
 
         SendCueOsc(cue);
+        ApplyAutoMute(cue);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,
@@ -323,6 +387,7 @@ public class CueManager : ICueManager
     private void TriggerCue(Cue cue, TimecodeValue triggerTimecode)
     {
         SendCueOsc(cue);
+        ApplyAutoMute(cue);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,

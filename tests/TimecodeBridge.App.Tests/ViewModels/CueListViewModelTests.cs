@@ -34,6 +34,8 @@ public class CueListViewModelTests
         public IReadOnlyList<Cue> Cues => _cues;
         public int TriggerWindowFrames { get; set; } = 3;
         public bool IsMuted { get; set; }
+        public bool IsAutoMuteEnabled { get; set; } = true;
+        public event EventHandler? MuteStateChanged;
 
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
 

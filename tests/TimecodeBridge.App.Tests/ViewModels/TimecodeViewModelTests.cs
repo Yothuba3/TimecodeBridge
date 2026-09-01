@@ -64,6 +64,8 @@ public class TimecodeViewModelTests
         public IReadOnlyList<Cue> Cues { get; } = [];
         public int TriggerWindowFrames { get; set; }
         public bool IsMuted { get; set; }
+        public bool IsAutoMuteEnabled { get; set; } = true;
+        public event EventHandler? MuteStateChanged;
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
         public void AddCue(Cue cue) { }
         public void UpdateCue(string cueId, Cue updatedCue) { }

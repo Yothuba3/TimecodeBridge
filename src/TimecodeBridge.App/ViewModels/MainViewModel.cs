@@ -42,6 +42,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string? _projectFilePath;
 
+    /// <summary>発火時オートミュート機能のマスタースイッチ（メニュー「キュー設定」から切替）。</summary>
+    public bool AutoMuteEnabled => _cueManager.IsAutoMuteEnabled;
+
+    [RelayCommand]
+    private void ToggleAutoMute()
+    {
+        _cueManager.IsAutoMuteEnabled = !_cueManager.IsAutoMuteEnabled;
+        OnPropertyChanged(nameof(AutoMuteEnabled));
+        _projectService.MarkAsChanged();
+    }
+
     // Child ViewModels
     public TimecodeViewModel TimecodeViewModel { get; }
     public CueListViewModel CueListViewModel { get; }
@@ -118,6 +129,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Offset = _timecodeEngine.Offset,
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = TimecodeViewModel.CueSync.GetSettings(),
+            CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
         };
         return JsonSerializer.Serialize(data, ProjectData.CreateJsonOptions());
     }
@@ -204,6 +216,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _timecodeEngine.Offset = data.Offset;
                 _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
                 TimecodeViewModel.CueSync.LoadSettings(data.CueSync ?? new CueSyncSettings());
+                _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
             }
             finally
             {
@@ -214,6 +227,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             CueListViewModel.SyncFromService();
             RelayViewModel.SyncFromService();
             OscTriggerPanelViewModel.SyncFromService();
+            OnPropertyChanged(nameof(AutoMuteEnabled));
 
             // Undo/Redo後は保存済みファイルと異なる可能性が高いためdirty扱いにする
             _projectService.MarkAsChanged();
@@ -252,6 +266,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Reset source settings
         TimecodeViewModel.RestoreSourceSettings(new TimecodeSourceSettings());
         TimecodeViewModel.CueSync.LoadSettings(new CueSyncSettings());
+        _cueManager.IsAutoMuteEnabled = true;
+        OnPropertyChanged(nameof(AutoMuteEnabled));
 
         // Sync child ViewModels
         CueListViewModel.SyncFromService();
@@ -366,6 +382,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Restore Cue-Sync settings
         TimecodeViewModel.CueSync.LoadSettings(data.CueSync);
 
+        // Restore auto-mute master switch
+        _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
+        OnPropertyChanged(nameof(AutoMuteEnabled));
+
         // Sync child ViewModels
         CueListViewModel.SyncFromService();
         RelayViewModel.SyncFromService();
@@ -429,6 +449,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             SourceSettings = TimecodeViewModel.GetSourceSettings(),
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = TimecodeViewModel.CueSync.GetSettings(),
+            CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
         };
 
         _isNewProject = false;

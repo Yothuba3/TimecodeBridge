@@ -46,6 +46,12 @@
                 <MenuItem Header="元に戻す(_U)" Command="{CompiledBinding UndoCommand}" InputGesture="Cmd+Z" />
                 <MenuItem Header="やり直し(_R)" Command="{CompiledBinding RedoCommand}" InputGesture="Cmd+Shift+Z" />
             </MenuItem>
+            <MenuItem Header="キュー設定(_C)">
+                <MenuItem Header="発火時オートミュートを有効にする"
+                          ToggleType="CheckBox"
+                          IsChecked="{CompiledBinding AutoMuteEnabled, Mode=OneWay}"
+                          Command="{CompiledBinding ToggleAutoMuteCommand}" />
+            </MenuItem>
         </Menu>
 
         <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->

@@ -237,6 +237,8 @@ public partial class CueListViewModel : DispatcherViewModel
             SendTriggerTimeAsSeconds = source.SendTriggerTimeAsSeconds,
             SendTimecode = source.SendTimecode,
             TriggerOffset = source.TriggerOffset,
+            AutoMuteOnFire = source.AutoMuteOnFire,
+            AutoUnmuteAfter = source.AutoUnmuteAfter,
         };
     }
 

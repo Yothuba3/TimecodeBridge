@@ -13,6 +13,9 @@ public class ProjectData
     public OscTriggerPanelSettings OscTriggerPanel { get; set; } = new();
     public CueSyncSettings CueSync { get; set; } = new();
 
+    /// <summary>発火時オートミュート機能のマスタースイッチ（既定は有効）。</summary>
+    public bool CueAutoMuteEnabled { get; set; } = true;
+
     public static JsonSerializerOptions CreateJsonOptions()
     {
         var options = new JsonSerializerOptions

@@ -31,7 +31,7 @@
             BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
             CornerRadius="8" Padding="20">
         <Grid ColumnDefinitions="110,*"
-              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
             <Grid.Styles>
                 <Style Selector="Grid > :is(Control)">
                     <Setter Property="Margin" Value="0,0,0,10" />
@@ -108,14 +108,41 @@
                          IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
             </Grid>
 
+            <!-- Auto Mute on Fire -->
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="発火時ミュート" Classes="Label"
+                       ToolTip.Tip="このキューの発火と同時にMUTE（自動キュー発火の停止）を掛けます。&#10;再生中に不慮のTCが飛んできても他のキューが誤発火しません。&#10;※メニュー「キュー設定」で機能全体を無効化できます" />
+            <CheckBox Grid.Row="6" Grid.Column="1" Name="AutoMuteBox"
+                      Content="発火と同時に自動でミュートする" />
+
+            <!-- Auto Unmute After -->
+            <TextBlock Grid.Row="7" Grid.Column="0" Text="ミュート解除" Classes="Label"
+                       ToolTip.Tip="指定時間の経過後にMUTEを自動解除します。&#10;未指定なら手動で解除するまでミュートを維持します" />
+            <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*"
+                  IsEnabled="{Binding #AutoMuteBox.IsChecked}">
+                <CheckBox Grid.Column="0" Name="UseAutoUnmuteBox" Content="指定"
+                          VerticalAlignment="Center" Margin="0,0,8,0"
+                          ToolTip.Tip="OFFの場合は手動で解除するまでミュートを維持します" />
+                <TextBox Grid.Column="1" Name="UnmuteHoursBox" Classes="TimeField" Text="00"
+                         IsEnabled="{Binding #UseAutoUnmuteBox.IsChecked}" />
+                <TextBlock Grid.Column="2" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="3" Name="UnmuteMinutesBox" Classes="TimeField" Text="00"
+                         IsEnabled="{Binding #UseAutoUnmuteBox.IsChecked}" />
+                <TextBlock Grid.Column="4" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="5" Name="UnmuteSecondsBox" Classes="TimeField" Text="00"
+                         IsEnabled="{Binding #UseAutoUnmuteBox.IsChecked}" />
+                <TextBlock Grid.Column="6" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="7" Name="UnmuteFramesBox" Classes="TimeField" Text="00"
+                         IsEnabled="{Binding #UseAutoUnmuteBox.IsChecked}" />
+            </Grid>
+
             <!-- OSC Arguments -->
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="OSC引数" Classes="Label" />
-            <TextBox Grid.Row="6" Grid.Column="1" Name="OscArgsBox" FontFamily="{StaticResource MonoFont}"
+            <TextBlock Grid.Row="8" Grid.Column="0" Text="OSC引数" Classes="Label" />
+            <TextBox Grid.Row="8" Grid.Column="1" Name="OscArgsBox" FontFamily="{StaticResource MonoFont}"
                      ToolTip.Tip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)" />
 
             <!-- Target Hosts -->
-            <TextBlock Grid.Row="7" Grid.Column="0" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
-            <Border Grid.Row="7" Grid.Column="1" Height="80"
+            <TextBlock Grid.Row="9" Grid.Column="0" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
+            <Border Grid.Row="9" Grid.Column="1" Height="80"
                     Background="{StaticResource SecondaryBackgroundBrush}"
                     BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
                 <Grid>
@@ -137,15 +164,15 @@
             </Border>
 
             <!-- Memo -->
-            <TextBlock Grid.Row="8" Grid.Column="0" Text="メモ" Classes="Label" VerticalAlignment="Top" />
-            <TextBox Grid.Row="8" Grid.Column="1" Name="MemoBox" Height="50"
+            <TextBlock Grid.Row="10" Grid.Column="0" Text="メモ" Classes="Label" VerticalAlignment="Top" />
+            <TextBox Grid.Row="10" Grid.Column="1" Name="MemoBox" Height="50"
                      AcceptsReturn="True" TextWrapping="Wrap" />
 
             <!-- Enabled -->
-            <CheckBox Grid.Row="9" Grid.Column="1" Name="EnabledBox" Content="有効" />
+            <CheckBox Grid.Row="11" Grid.Column="1" Name="EnabledBox" Content="有効" />
 
             <!-- Buttons -->
-            <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+            <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
                 <Button Content="OK" Padding="24,8" Classes="accent" IsDefault="True" Click="OnOkClick" />
                 <Button Content="キャンセル" Padding="24,8" IsCancel="True" Click="OnCancelClick" />

@@ -29,6 +29,18 @@ public class Cue
     public TimecodeOffset? TriggerOffset { get; set; }
 
     /// <summary>
+    /// 発火時に自動でミュート（タイムコードによる自動キュー発火を停止）する。
+    /// キュー再生中に不慮のTCが飛んできても他のキューが誤発火しないようにする運用向け。
+    /// </summary>
+    public bool AutoMuteOnFire { get; set; }
+
+    /// <summary>
+    /// 自動ミュートを解除するまでの時間（hh:mm:ss:ff）。null なら手動解除まで維持する。
+    /// <see cref="AutoMuteOnFire"/> が有効なときのみ意味を持つ。
+    /// </summary>
+    public TimecodeValue? AutoUnmuteAfter { get; set; }
+
+    /// <summary>
     /// 旧形式（送信秒数の補正オフセット）。プロジェクト読込時に
     /// <see cref="SendTimecode"/> へ変換され、以後は使われない。
     /// </summary>
