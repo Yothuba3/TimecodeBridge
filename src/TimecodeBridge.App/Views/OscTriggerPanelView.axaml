@@ -92,7 +92,8 @@
                 <ItemsControl Name="CellsControl" ItemsSource="{CompiledBinding Cells}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Name="CellsGrid" />
+                            <!-- 余白いっぱいに行が均等配置されないよう上詰めにする -->
+                            <UniformGrid Name="CellsGrid" VerticalAlignment="Top" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
