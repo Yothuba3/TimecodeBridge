@@ -247,7 +247,13 @@
                         <TextBlock Text="Cue-Sync アドレス" Classes="FieldLabel" Margin="0,0,0,3" />
                         <TextBox Text="{CompiledBinding CueSync.OscAddress, UpdateSourceTrigger=LostFocus}"
                                  FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="4,3" Margin="0,0,0,6" />
-                        <TextBlock Text="送信先ホスト" Classes="FieldLabel" Margin="0,0,0,3" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,3">
+                            <TextBlock Text="送信先ホスト" Classes="FieldLabel" Margin="0" />
+                            <Button Content="全選択" FontSize="10" Padding="6,1"
+                                    Command="{CompiledBinding CueSync.SelectAllHostsCommand}" />
+                            <Button Content="全解除" FontSize="10" Padding="6,1"
+                                    Command="{CompiledBinding CueSync.ClearAllHostsCommand}" />
+                        </StackPanel>
                         <!-- 固定高さの縦一列リスト。収まらない分はスクロール -->
                         <Border Height="118" Background="{StaticResource SecondaryBackgroundBrush}"
                                 BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">

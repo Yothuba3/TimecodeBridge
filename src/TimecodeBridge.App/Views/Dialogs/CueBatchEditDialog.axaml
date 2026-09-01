@@ -124,21 +124,27 @@
             <Grid Grid.Row="6" ColumnDefinitions="Auto,110,*">
                 <CheckBox Grid.Column="0" Name="ApplyTargetHosts" VerticalAlignment="Top" Margin="0,0,8,0" />
                 <TextBlock Grid.Column="1" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
-                <Border Grid.Column="2" Height="80"
-                        IsEnabled="{Binding #ApplyTargetHosts.IsChecked}"
-                        Background="{StaticResource SecondaryBackgroundBrush}"
-                        BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl Name="HostList" Margin="4">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:HostSelection">
-                                    <CheckBox Content="{CompiledBinding Name}"
-                                              IsChecked="{CompiledBinding IsSelected}" Margin="0,2" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Border>
+                <StackPanel Grid.Column="2" Spacing="4"
+                            IsEnabled="{Binding #ApplyTargetHosts.IsChecked}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="全選択" FontSize="10" Padding="6,1" Click="OnSelectAllHostsClick" />
+                        <Button Content="全解除" FontSize="10" Padding="6,1" Click="OnClearAllHostsClick" />
+                    </StackPanel>
+                    <Border Height="80"
+                            Background="{StaticResource SecondaryBackgroundBrush}"
+                            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl Name="HostList" Margin="4">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HostSelection">
+                                        <CheckBox Content="{CompiledBinding Name}"
+                                                  IsChecked="{CompiledBinding IsSelected}" Margin="0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
             </Grid>
 
             <!-- Trigger Offset -->

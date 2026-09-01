@@ -161,7 +161,12 @@
 
             <!-- Target Hosts -->
             <TextBlock Grid.Row="9" Grid.Column="0" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
-            <Border Grid.Row="9" Grid.Column="1" Height="80"
+            <StackPanel Grid.Row="9" Grid.Column="1" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="全選択" FontSize="10" Padding="6,1" Click="OnSelectAllHostsClick" />
+                    <Button Content="全解除" FontSize="10" Padding="6,1" Click="OnClearAllHostsClick" />
+                </StackPanel>
+                <Border Height="80"
                     Background="{StaticResource SecondaryBackgroundBrush}"
                     BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
                 <Grid>
@@ -180,7 +185,8 @@
                                Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="11"
                                HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
                 </Grid>
-            </Border>
+                </Border>
+            </StackPanel>
 
             <!-- Memo -->
             <TextBlock Grid.Row="10" Grid.Column="0" Text="メモ" Classes="Label" VerticalAlignment="Top" />

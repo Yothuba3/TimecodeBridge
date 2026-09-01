@@ -41,6 +41,21 @@ public partial class CueSyncViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void SelectAllHosts() => SetAllHosts(true);
+
+    [RelayCommand]
+    private void ClearAllHosts() => SetAllHosts(false);
+
+    private void SetAllHosts(bool selected)
+    {
+        foreach (var host in HostSelections)
+        {
+            host.IsSelected = selected;
+        }
+        UpdateHostSelections();
+    }
+
+    [RelayCommand]
     private void UpdateHostSelections()
     {
         var ids = HostSelections.Where(h => h.IsSelected).Select(h => h.Id).ToList();

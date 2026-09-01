@@ -100,6 +100,18 @@ public partial class CueEditDialog : Window
         return int.TryParse(text, out value) && value >= 0 && value <= max;
     }
 
+    private void OnSelectAllHostsClick(object? sender, RoutedEventArgs e) => SetAllHosts(true);
+
+    private void OnClearAllHostsClick(object? sender, RoutedEventArgs e) => SetAllHosts(false);
+
+    private void SetAllHosts(bool selected)
+    {
+        foreach (var host in _hostItems)
+        {
+            host.IsSelected = selected;
+        }
+    }
+
     private async void OnOkClick(object? sender, RoutedEventArgs e)
     {
         int maxFrames = _frameRate.FramesPerSecond() - 1;
