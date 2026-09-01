@@ -99,6 +99,88 @@ public class TimecodeEngineTests : IDisposable
     }
 
     [Fact]
+    public void 孤立したノイズ由来フレームは採用されない()
+    {
+        var updates = 0;
+        _engine.TimecodeUpdated += (_, _) => Interlocked.Increment(ref updates);
+
+        _engine.StartLtc(InputDevice.Id);
+
+        // 連続しない単発フレーム（ノイズが偶然フレームとして解析されたケース）
+        _engine.WriteLtcFrame(new TimecodeValue(3, 3, 3, 3, FrameRate.Fps30));
+        Thread.Sleep(200);
+
+        Assert.Equal(0, updates);
+        Assert.False(_engine.IsReceiving);
+    }
+
+    [Fact]
+    public void ノイズ音声の後でも実信号を正しく解析する()
+    {
+        var decoded = new List<TimecodeValue>();
+        var received = new ManualResetEventSlim();
+        _engine.TimecodeUpdated += (_, e) =>
+        {
+            lock (decoded) decoded.Add(e.RawTimecode);
+            received.Set();
+        };
+
+        _engine.StartLtc(InputDevice.Id);
+
+        // 長時間の無信号を模したノイズ（ランダム波形）を流す
+        var rng = new Random(12345);
+        var noise = new float[48000 * 2];
+        for (int i = 0; i < noise.Length; i++) noise[i] = (float)(rng.NextDouble() * 2 - 1) * 0.3f;
+        _capture.Feed(noise);
+
+        // その後に実信号
+        var encoder = new LtcEncoder();
+        encoder.Initialize(48000, FrameRate.Fps30);
+        var expected = new HashSet<long>();
+        for (int i = 0; i < 8; i++)
+        {
+            var tc = new TimecodeValue(10, 20, 30, i, FrameRate.Fps30);
+            expected.Add(tc.ToOrdinal());
+            encoder.EnqueueFrame(tc);
+        }
+        _capture.Feed(ReadAllAsFloat(encoder, frameCount: 8));
+
+        Assert.True(received.Wait(TimeSpan.FromSeconds(3)), "実信号がデコードされなかった");
+        SpinWait.SpinUntil(() => { lock (decoded) return decoded.Count >= 3; }, TimeSpan.FromSeconds(2));
+
+        lock (decoded)
+        {
+            Assert.NotEmpty(decoded);
+            // ノイズ由来のガベージが混ざらず、送った実フレームのみが採用される
+            Assert.All(decoded, tc => Assert.Contains(tc.ToOrdinal(), expected));
+        }
+    }
+
+    [Fact]
+    public void 信号が途切れて別位置から再開しても2フレームで再ロックする()
+    {
+        var decoded = new List<TimecodeValue>();
+        _engine.TimecodeUpdated += (_, e) => { lock (decoded) decoded.Add(e.RawTimecode); };
+
+        _engine.StartLtc(InputDevice.Id);
+
+        // 位置Aで2フレーム → 大きく離れた位置Bで2フレーム
+        _engine.WriteLtcFrame(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(1, 0, 0, 1, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(5, 0, 0, 10, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(5, 0, 0, 11, FrameRate.Fps30));
+
+        SpinWait.SpinUntil(() => { lock (decoded) return decoded.Count >= 4; }, TimeSpan.FromSeconds(2));
+
+        lock (decoded)
+        {
+            // フレームレートは自動判定で正規化されるため位置（序数）で比較する
+            Assert.Equal(4, decoded.Count);
+            Assert.Equal(new TimecodeValue(5, 0, 0, 11, FrameRate.Fps30).ToOrdinal(), decoded[^1].ToOrdinal());
+        }
+    }
+
+    [Fact]
     public void Stop_積み残しフレームが停止後に処理されても受信状態へ戻らない()
     {
         _engine.FreerunDurationSeconds = 5;

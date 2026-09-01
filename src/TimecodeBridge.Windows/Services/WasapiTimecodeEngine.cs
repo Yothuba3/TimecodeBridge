@@ -41,6 +41,14 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
     private CancellationTokenSource? _freerunCts;
     private Timer? _freerunExpiryTimer;
 
+    // LTC decode continuity gate:
+    // 長時間の無信号中はノイズが偶然フレームとして解析されることがあり、
+    // それがフレームレート自動判定を汚染すると本物のTC復帰後も誤解釈が続く。
+    // 前フレームと連続する2フレームが揃うまで採用しないことで孤立ノイズを排除する。
+    private long _ltcLastAcceptedOrdinal = -1;
+    private long _ltcPendingOrdinal = -1;
+    private TimecodeValue? _ltcPendingFrame;
+
     // LTC frame rate auto-detection
     private bool _ltcAutoDetectActive;
     private int _ltcMaxFrameSeen;
@@ -121,6 +129,49 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         _channel.Writer.TryWrite((Volatile.Read(ref _session), frame));
     }
 
+    /// <summary>
+    /// デコード済みLTCフレームを連続性ゲートを通してパイプラインへ渡す。
+    /// 直前の採用フレームと連続していれば即採用。連続しない場合は保留し、
+    /// 次フレームが保留と連続したとき（=2連続で整合）に再ロックして採用する。
+    /// 孤立したノイズ由来フレームは後続が続かないため決して採用されない。
+    /// </summary>
+    internal void WriteLtcFrame(TimecodeValue frame)
+    {
+        long ord = frame.ToOrdinal();
+
+        if (_ltcLastAcceptedOrdinal >= 0 && IsContinuousOrdinal(_ltcLastAcceptedOrdinal, ord))
+        {
+            _ltcLastAcceptedOrdinal = ord;
+            _ltcPendingOrdinal = -1;
+            _ltcPendingFrame = null;
+            WriteFrame(frame);
+            return;
+        }
+
+        if (_ltcPendingOrdinal >= 0 && IsContinuousOrdinal(_ltcPendingOrdinal, ord))
+        {
+            // 2連続で整合したので保留分から順に採用（再ロック）
+            var pending = _ltcPendingFrame!.Value;
+            _ltcLastAcceptedOrdinal = ord;
+            _ltcPendingOrdinal = -1;
+            _ltcPendingFrame = null;
+            WriteFrame(pending);
+            WriteFrame(frame);
+            return;
+        }
+
+        _ltcPendingOrdinal = ord;
+        _ltcPendingFrame = frame;
+    }
+
+    // ToOrdinalは1秒=30の固定基準。次フレームとの差は同一秒内で1、
+    // 秒境界では 30-(fps-1) となるため、24fps(フレーム23→0)の7までを連続とみなす
+    private static bool IsContinuousOrdinal(long previous, long next)
+    {
+        long diff = next - previous;
+        return diff >= 1 && diff <= 7;
+    }
+
     public void StartLtc(string audioDeviceId, bool isLoopback = false)
     {
         StopLtcCapture();
@@ -133,6 +184,9 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         _ltcAutoDetectActive = true;
         _ltcMaxFrameSeen = 0;
         _ltcDropFrameSeen = false;
+        _ltcLastAcceptedOrdinal = -1;
+        _ltcPendingOrdinal = -1;
+        _ltcPendingFrame = null;
         ActiveSource = TimecodeSourceType.Ltc;
 
         _ltcDecoder = new LtcDecoder();
@@ -151,7 +205,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         int bitsPerSample = waveFormat.BitsPerSample;
         int sampleRate = waveFormat.SampleRate;
 
-        _ltcDecoder.FrameDecoded += (_, timecodeValue) => WriteFrame(timecodeValue);
+        _ltcDecoder.FrameDecoded += (_, timecodeValue) => WriteLtcFrame(timecodeValue);
 
         _wasapiCapture.DataAvailable += (_, e) =>
         {

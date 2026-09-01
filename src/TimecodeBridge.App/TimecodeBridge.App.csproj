@@ -28,4 +28,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="TimecodeBridge.App.Tests" />
+  </ItemGroup>
+
 </Project>

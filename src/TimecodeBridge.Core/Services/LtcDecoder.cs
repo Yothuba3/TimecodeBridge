@@ -120,8 +120,11 @@ public class LtcDecoder : ILtcDecoder
         // Classify interval
         if (interval < _shortMin || interval > _longMax)
         {
-            // Out of range — noise or silence, reset biphase state
+            // Out of range — noise or silence, reset biphase state.
+            // ビット計数も仕切り直し、乱れを含む80bit窓からフレームを切り出さない
+            // （無信号復帰時にノイズと実信号が混ざったガベージフレームが出るのを防ぐ）
             _expectSecondHalf = false;
+            _totalBits = 0;
             return;
         }
 
