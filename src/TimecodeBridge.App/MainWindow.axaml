@@ -86,11 +86,26 @@
                 <!-- TC + Waveform (left) | Log (right) -->
                 <Grid Grid.Row="1" Margin="0,4,0,0" ColumnDefinitions="3*,2*">
 
-                    <!-- Left: Timecode + Waveform -->
-                    <Grid Grid.Column="0" Margin="0,0,4,0" RowDefinitions="*,Auto">
-                        <views:TimecodeDisplayView Grid.Row="0"
+                    <!-- Left: NEXTキュー + Timecode + Waveform -->
+                    <Grid Grid.Column="0" Margin="0,0,4,0" RowDefinitions="Auto,*,Auto">
+                        <Border Grid.Row="0" Background="{StaticResource CardBackgroundBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="14,6" Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Border Background="{StaticResource AccentSubtleBrush}" CornerRadius="3"
+                                        Padding="6,2" VerticalAlignment="Center">
+                                    <TextBlock Text="NEXT" FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                               FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                                </Border>
+                                <TextBlock Text="{CompiledBinding CueListViewModel.NextCueSummary}"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource PrimaryForegroundBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <views:TimecodeDisplayView Grid.Row="1"
                                                    DataContext="{CompiledBinding TimecodeViewModel}" />
-                        <views:AudioWaveformView Grid.Row="1" Name="AudioWaveform" Height="46" />
+                        <views:AudioWaveformView Grid.Row="2" Name="AudioWaveform" Height="46" />
                     </Grid>
 
                     <!-- Right: Log Panel -->

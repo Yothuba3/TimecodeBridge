@@ -71,10 +71,6 @@
                     <TextBlock Text="キューリスト" FontWeight="SemiBold" FontSize="13"
                                Foreground="{StaticResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
-                    <!-- 次キューの常時サマリー -->
-                    <TextBlock Text="{CompiledBinding NextCueSummary}" FontFamily="{StaticResource MonoFont}" FontSize="11"
-                               Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"
-                               VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Text="判定幅:" VerticalAlignment="Center" Margin="0,0,4,0"

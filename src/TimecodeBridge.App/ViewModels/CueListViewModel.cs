@@ -399,8 +399,8 @@ public partial class CueListViewModel : DispatcherViewModel
     private TimecodeValue? _lastTimecode;
     private CueItemViewModel? _currentNextCue;
 
-    /// <summary>ヘッダ常時表示用の次キュー要約。</summary>
-    [ObservableProperty] private string _nextCueSummary = "NEXT: なし";
+    /// <summary>タイムコード表示エリア上部に常時表示する次キュー要約（NEXTバッジは表示側）。</summary>
+    [ObservableProperty] private string _nextCueSummary = "なし";
 
     private void OnCueTriggered(object? sender, CueTriggeredEventArgs e)
     {
@@ -452,11 +452,11 @@ public partial class CueListViewModel : DispatcherViewModel
 
             // ordinalは30固定基準（1秒=30）なので、実FPSのフレーム数として復元せず秒に換算する
             var remaining = TimeSpan.FromSeconds((nextOrd - currentOrd) / 30.0);
-            NextCueSummary = $"NEXT {nextCue.GetEffectiveTriggerTime()} {nextCue.Name}（あと {remaining:hh\\:mm\\:ss}）";
+            NextCueSummary = $"{nextCue.GetEffectiveTriggerTime()} {nextCue.Name}（あと {remaining:hh\\:mm\\:ss}）";
         }
         else
         {
-            NextCueSummary = "NEXT: なし";
+            NextCueSummary = "なし";
         }
 
         if (!ReferenceEquals(nextCue, _currentNextCue))
