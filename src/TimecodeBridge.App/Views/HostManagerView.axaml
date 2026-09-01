@@ -22,7 +22,6 @@
             <!-- Host List -->
             <ListBox Grid.Row="1" Name="HostList"
                      ItemsSource="{CompiledBinding Hosts}"
-                     MaxHeight="200"
                      BorderThickness="1"
                      BorderBrush="{StaticResource BorderSubtleBrush}"
                      Background="Transparent">

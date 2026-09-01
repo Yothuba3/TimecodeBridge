@@ -71,16 +71,8 @@
                                        DataContext="{CompiledBinding CueListViewModel}" />
                     <GridSplitter Grid.Column="1" Width="3"
                                   HorizontalAlignment="Center" VerticalAlignment="Stretch" />
-                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Background="Transparent" Margin="4,0,0,0">
-                        <StackPanel>
-                            <views:HostManagerView DataContext="{CompiledBinding HostManagerViewModel}"
-                                                   Margin="0,0,0,4" />
-                            <views:RelayControlView DataContext="{CompiledBinding RelayViewModel}"
-                                                    Margin="0,0,0,4" />
-                        </StackPanel>
-                    </ScrollViewer>
+                    <views:HostManagerView Grid.Column="2" Margin="4,0,0,4"
+                                           DataContext="{CompiledBinding HostManagerViewModel}" />
                 </Grid>
 
                 <!-- TC + Waveform (left) | Log (right) -->
