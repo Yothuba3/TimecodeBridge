@@ -3,7 +3,7 @@
         xmlns:vm="using:TimecodeBridge.macOS.ViewModels"
         x:Class="TimecodeBridge.macOS.Views.Dialogs.CueEditDialog"
         Title="キュー編集"
-        Width="480" Height="700"
+        Width="500" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         Background="{StaticResource PrimaryBackgroundBrush}">
@@ -15,6 +15,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="TextBox.TimeField">
+            <Setter Property="MinWidth" Value="38" />
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="MaxLength" Value="2" />
             <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
@@ -57,7 +58,7 @@
             <TextBlock Grid.Row="2" Grid.Column="0" Text="トリガーオフセット" Classes="Label"
                        ToolTip.Tip="発火タイミングを±ずらします。実際の発火時刻 = トリガー時間 ± この値" />
             <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*">
-                <ComboBox Grid.Column="0" Name="OffsetSignBox" Width="56" SelectedIndex="0">
+                <ComboBox Grid.Column="0" Name="OffsetSignBox" Width="72" Padding="10,6,0,6" SelectedIndex="0">
                     <ComboBoxItem Content="+" />
                     <ComboBoxItem Content="-" />
                 </ComboBox>

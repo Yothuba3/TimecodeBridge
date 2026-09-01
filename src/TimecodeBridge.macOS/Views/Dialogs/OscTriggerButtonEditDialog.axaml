@@ -3,7 +3,7 @@
         xmlns:vm="using:TimecodeBridge.macOS.ViewModels"
         x:Class="TimecodeBridge.macOS.Views.Dialogs.OscTriggerButtonEditDialog"
         Title="ボタン編集"
-        Width="440" Height="430"
+        Width="440" Height="460"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         Background="{StaticResource PrimaryBackgroundBrush}">

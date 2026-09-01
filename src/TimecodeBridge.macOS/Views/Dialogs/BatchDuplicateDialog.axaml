@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="TimecodeBridge.macOS.Views.Dialogs.BatchDuplicateDialog"
         Title="連続複製"
-        Width="340" Height="220"
+        Width="360" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         Background="{StaticResource PrimaryBackgroundBrush}">
@@ -21,6 +21,7 @@
                     <Setter Property="FontSize" Value="12" />
                 </Style>
                 <Style Selector="TextBox.TimeField">
+                    <Setter Property="MinWidth" Value="38" />
                     <Setter Property="TextAlignment" Value="Center" />
                     <Setter Property="MaxLength" Value="2" />
                     <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
