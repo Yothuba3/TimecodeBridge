@@ -23,7 +23,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     private readonly Func<IAudioCapture> _captureFactory;
     private readonly Func<IAudioPlayback> _playbackFactory;
 
-    private readonly Channel<TimecodeValue> _channel;
+    private readonly Channel<(int Session, TimecodeValue Frame)> _channel;
+
+    // Start/Stopのたびに増える世代番号。停止前に積まれた古いフレームが
+    // 停止後に処理されて受信状態へ戻るのを防ぐ（フレームに世代を付けて破棄する）
+    private int _session;
     private readonly CancellationTokenSource _cts;
     private readonly Thread _workerThread;
     private readonly object _lock = new();
@@ -114,7 +118,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         FrameRate = frameRate;
         _offset = TimecodeOffset.Zero(frameRate);
 
-        _channel = Channel.CreateUnbounded<TimecodeValue>(
+        _channel = Channel.CreateUnbounded<(int Session, TimecodeValue Frame)>(
             new UnboundedChannelOptions { SingleWriter = true });
 
         _cts = new CancellationTokenSource();
@@ -131,7 +135,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     internal void WriteFrame(TimecodeValue frame)
     {
         if (_disposed) return;
-        _channel.Writer.TryWrite(frame);
+        _channel.Writer.TryWrite((Volatile.Read(ref _session), frame));
     }
 
     public void StartLtc(string audioDeviceId, bool isLoopback = false)
@@ -140,6 +144,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             ?? throw new ArgumentException($"オーディオデバイスが見つかりません: {audioDeviceId}", nameof(audioDeviceId));
 
         StopLtcCapture();
+
+        lock (_lock)
+        {
+            _session++;
+        }
 
         _ltcAutoDetectActive = true;
         _ltcMaxFrameSeen = 0;
@@ -170,6 +179,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     public void StartGenerator(GeneratorSettings settings)
     {
         Stop();
+
+        lock (_lock)
+        {
+            _session++;
+        }
 
         FrameRate = settings.FrameRate;
         _ltcAutoDetectActive = false;
@@ -218,6 +232,10 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     public void StopGenerator()
     {
         // Pause: stop the timer but keep the generator and its position
+        lock (_lock)
+        {
+            _session++;
+        }
         _generator?.Stop();
         TransitionToNotReceiving();
     }
@@ -234,6 +252,12 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public void Stop()
     {
+        // 以降に処理される積み残しフレームを無効化してから状態を落とす
+        lock (_lock)
+        {
+            _session++;
+        }
+
         DisposeGenerator();
         StopLtcCapture();
         TransitionToNotReceiving();
@@ -406,9 +430,9 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
                     break;
                 }
 
-                while (reader.TryRead(out var frame))
+                while (reader.TryRead(out var item))
                 {
-                    ProcessFrame(frame);
+                    ProcessFrame(item.Session, item.Frame);
                 }
             }
         }
@@ -420,8 +444,10 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         }
     }
 
-    private void ProcessFrame(TimecodeValue rawFrame)
+    private void ProcessFrame(int session, TimecodeValue rawFrame)
     {
+        if (session != Volatile.Read(ref _session)) return;
+
         if (_ltcAutoDetectActive)
         {
             if (rawFrame.FrameRate.IsDropFrame())
@@ -442,23 +468,24 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
         var offsetFrame = rawFrame.Add(currentOffset);
 
+        bool becameReceiving;
         lock (_lock)
         {
+            // Stop()と競合した場合は状態を書き換えない（Stopはロック内で世代を進める）
+            if (session != _session) return;
+
             _currentRawTimecode = rawFrame;
             _currentOffsetTimecode = offsetFrame;
+
+            becameReceiving = _isFreerunning || !_isReceiving;
+            if (_isFreerunning) StopFreerun();
+            _isReceiving = true;
         }
 
         _signalLossTimer.Change(SignalLossTimeoutMs, Timeout.Infinite);
 
-        if (_isFreerunning)
+        if (becameReceiving)
         {
-            StopFreerun();
-            _isReceiving = true;
-            StatusChanged?.Invoke(this, new TimecodeStatusChangedEventArgs(TimecodeReceiveStatus.Receiving));
-        }
-        else if (!_isReceiving)
-        {
-            _isReceiving = true;
             StatusChanged?.Invoke(this, new TimecodeStatusChangedEventArgs(TimecodeReceiveStatus.Receiving));
         }
 

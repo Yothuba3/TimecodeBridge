@@ -99,6 +99,26 @@ public class TimecodeEngineTests : IDisposable
     }
 
     [Fact]
+    public void Stop_積み残しフレームが停止後に処理されても受信状態へ戻らない()
+    {
+        _engine.FreerunDurationSeconds = 5;
+        _engine.StartLtc(InputDevice.Id);
+
+        var encoder = new LtcEncoder();
+        encoder.Initialize(48000, FrameRate.Fps30);
+        for (int i = 0; i < 6; i++) encoder.EnqueueFrame(new TimecodeValue(0, 0, 2, i, FrameRate.Fps30));
+
+        // フレーム投入直後に停止し、チャネルに積まれた残りをワーカーが後処理する状況を作る
+        _capture.Feed(ReadAllAsFloat(encoder, frameCount: 6));
+        _engine.Stop();
+
+        // 信号喪失タイマー(500ms)経過後も停止のまま（旧実装では復帰→フリーラン開始していた）
+        Thread.Sleep(800);
+        Assert.False(_engine.IsReceiving);
+        Assert.False(_engine.IsFreerunning);
+    }
+
+    [Fact]
     public void StartGenerator_フレームを生成しLTC音声を出力デバイスに書き込む()
     {
         var received = new ManualResetEventSlim();
