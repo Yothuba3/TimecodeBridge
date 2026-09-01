@@ -9,6 +9,22 @@
         Background="{StaticResource PrimaryBackgroundBrush}">
 
     <Window.Styles>
+        <!-- ダイアログ共通: フォントに対して枠が大きくならないよう入力欄をコンパクトにし、
+             行内で引き伸ばされないよう上下センターに揃える -->
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+
         <Style Selector="TextBlock.Label">
             <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
             <Setter Property="FontSize" Value="12" />
@@ -16,6 +32,8 @@
         </Style>
         <Style Selector="TextBox.TimeField">
             <Setter Property="MinWidth" Value="38" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,4" />
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="MaxLength" Value="2" />
             <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
@@ -55,7 +73,7 @@
                 <TextBlock Grid.Column="1" Text="追加アドレス" Classes="Label" VerticalAlignment="Top"
                            ToolTip.Tip="2個目以降のOSCアドレス（引数なしで一緒に送信）。1行1件、空にすると全解除" />
                 <TextBox Grid.Column="2" Name="AdditionalAddressesBox" FontFamily="{StaticResource MonoFont}"
-                         AcceptsReturn="True" Height="44"
+                         AcceptsReturn="True" Height="44" VerticalContentAlignment="Top"
                          ToolTip.Tip="1行に1アドレス。空のまま適用すると全キューの追加アドレスを解除"
                          IsEnabled="{Binding #ApplyAdditionalAddresses.IsChecked}" />
             </Grid>
@@ -148,7 +166,7 @@
                 <CheckBox Grid.Column="0" Name="ApplyMemo" VerticalAlignment="Top" Margin="0,0,8,0" />
                 <TextBlock Grid.Column="1" Text="メモ" Classes="Label" VerticalAlignment="Top" />
                 <TextBox Grid.Column="2" Name="MemoBox" Height="50"
-                         AcceptsReturn="True" TextWrapping="Wrap"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
                          IsEnabled="{Binding #ApplyMemo.IsChecked}" />
             </Grid>
 

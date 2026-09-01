@@ -9,6 +9,22 @@
         Background="{StaticResource PrimaryBackgroundBrush}">
 
     <Window.Styles>
+        <!-- ダイアログ共通: フォントに対して枠が大きくならないよう入力欄をコンパクトにし、
+             行内で引き伸ばされないよう上下センターに揃える -->
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+
         <Style Selector="TextBlock.Label">
             <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
             <Setter Property="FontSize" Value="12" />
@@ -16,6 +32,8 @@
         </Style>
         <Style Selector="TextBox.TimeField">
             <Setter Property="MinWidth" Value="38" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,4" />
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="MaxLength" Value="2" />
             <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
@@ -79,7 +97,7 @@
                            FontSize="10" Margin="0,6,0,2"
                            Foreground="{StaticResource SecondaryForegroundBrush}" />
                 <TextBox Name="AdditionalAddressesBox" FontFamily="{StaticResource MonoFont}"
-                         AcceptsReturn="True" Height="48" />
+                         AcceptsReturn="True" Height="48" VerticalContentAlignment="Top" />
             </StackPanel>
 
             <!-- Send Trigger Time as Seconds -->
@@ -166,7 +184,7 @@
             <!-- Memo -->
             <TextBlock Grid.Row="10" Grid.Column="0" Text="メモ" Classes="Label" VerticalAlignment="Top" />
             <TextBox Grid.Row="10" Grid.Column="1" Name="MemoBox" Height="50"
-                     AcceptsReturn="True" TextWrapping="Wrap" />
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" />
 
             <!-- Enabled -->
             <CheckBox Grid.Row="11" Grid.Column="1" Name="EnabledBox" Content="有効" />

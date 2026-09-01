@@ -8,6 +8,25 @@
         CanResize="False"
         Background="{StaticResource PrimaryBackgroundBrush}">
 
+    <Window.Styles>
+        <!-- ダイアログ共通: フォントに対して枠が大きくならないよう入力欄をコンパクトにし、
+             行内で引き伸ばされないよう上下センターに揃える -->
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+    </Window.Styles>
+
+
     <Border Margin="12" Background="{StaticResource CardBackgroundBrush}"
             BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
             CornerRadius="8" Padding="20">
