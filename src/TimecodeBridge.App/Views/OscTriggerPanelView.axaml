@@ -75,14 +75,16 @@
                                  IsChecked="{CompiledBinding IsEditMode}" />
                     <TextBlock Text="行" VerticalAlignment="Center" Margin="0,0,4,0"
                                Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="12" />
-                    <TextBox Text="{CompiledBinding Rows, UpdateSourceTrigger=LostFocus}" Width="40"
+                    <TextBox Name="RowsBox" Text="{CompiledBinding Rows, Mode=OneWay}" Width="40"
                              TextAlignment="Center" FontFamily="{StaticResource MonoFont}"
-                             IsEnabled="{CompiledBinding IsEditMode}" />
+                             IsEnabled="{CompiledBinding IsEditMode}"
+                             KeyDown="OnSizeBoxKeyDown" LostFocus="OnSizeBoxLostFocus" />
                     <TextBlock Text="列" VerticalAlignment="Center" Margin="8,0,4,0"
                                Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="12" />
-                    <TextBox Text="{CompiledBinding Columns, UpdateSourceTrigger=LostFocus}" Width="40"
+                    <TextBox Name="ColumnsBox" Text="{CompiledBinding Columns, Mode=OneWay}" Width="40"
                              TextAlignment="Center" FontFamily="{StaticResource MonoFont}"
-                             IsEnabled="{CompiledBinding IsEditMode}" />
+                             IsEnabled="{CompiledBinding IsEditMode}"
+                             KeyDown="OnSizeBoxKeyDown" LostFocus="OnSizeBoxLostFocus" />
                 </StackPanel>
             </StackPanel>
 
