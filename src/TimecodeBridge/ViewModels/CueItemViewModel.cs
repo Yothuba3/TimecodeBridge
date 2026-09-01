@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 namespace TimecodeBridge.ViewModels;
 

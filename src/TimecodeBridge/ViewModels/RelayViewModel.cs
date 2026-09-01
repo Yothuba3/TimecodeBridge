@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TimecodeBridge.Models;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services.Interfaces;
 
 namespace TimecodeBridge.ViewModels;
 

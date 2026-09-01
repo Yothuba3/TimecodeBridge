@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
-using TimecodeBridge.Models;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services.Interfaces;
 
 namespace TimecodeBridge.Services;
 

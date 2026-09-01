@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFrameworks>net8.0-windows;net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <UseWPF>true</UseWPF>
+    <UseWPF Condition="'$(TargetFramework)' == 'net8.0-windows'">true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,7 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TimecodeBridge\TimecodeBridge.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge\TimecodeBridge.csproj" Condition="'$(TargetFramework)' == 'net8.0-windows'" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.macOS\TimecodeBridge.macOS.csproj" />
   </ItemGroup>
 
 </Project>

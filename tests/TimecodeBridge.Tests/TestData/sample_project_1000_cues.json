@@ -1,0 +1,38 @@
+{
+  "cues": [],
+  "hosts": [
+    {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "name": "Performance Test Host",
+      "ipAddress": "127.0.0.1",
+      "port": 9000,
+      "isEnabled": true
+    }
+  ],
+  "relaySettings": {
+    "inputDeviceId": "default-input",
+    "outputDeviceId": "default-output"
+  },
+  "offset": {
+    "hours": 0,
+    "minutes": 0,
+    "seconds": 0,
+    "frames": 0
+  },
+  "sourceSettings": {
+    "frameRate": {
+      "rate": 30.0,
+      "dropFrame": false
+    },
+    "startTime": {
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0,
+      "frames": 0,
+      "frameRate": {
+        "rate": 30.0,
+        "dropFrame": false
+      }
+    }
+  }
+}

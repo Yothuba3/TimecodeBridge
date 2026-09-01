@@ -1,8 +1,8 @@
 using System.Threading.Channels;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
-using TimecodeBridge.Models;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services.Interfaces;
 
 namespace TimecodeBridge.Services;
 

@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.ViewModels;
 
 namespace TimecodeBridge.Views;

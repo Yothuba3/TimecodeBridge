@@ -1,4 +1,4 @@
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 namespace TimecodeBridge.Services;
 

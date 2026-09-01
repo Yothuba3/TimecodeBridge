@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TimecodeBridge.macOS.Views.Dialogs.BatchDuplicateDialog"
+        Title="連続複製"
+        Width="340" Height="190"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Grid Margin="16" ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,*,Auto">
+        <Grid.Styles>
+            <Style Selector="Grid > :is(Control)">
+                <Setter Property="Margin" Value="0,0,0,8" />
+            </Style>
+            <Style Selector="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" />
+        <TextBox Grid.Row="0" Grid.Column="1" Name="CountBox" Text="23" Width="100" HorizontalAlignment="Left" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔 (時間)" />
+        <TextBox Grid.Row="1" Grid.Column="1" Name="IntervalHoursBox" Text="1" Width="100" HorizontalAlignment="Left" />
+
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0">
+            <Button Content="OK" Width="90" IsDefault="True" Click="OnOkClick" />
+            <Button Content="キャンセル" Width="90" IsCancel="True" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

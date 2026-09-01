@@ -1,5 +1,5 @@
-using TimecodeBridge.Services;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 
 namespace TimecodeBridge.ViewModels;
 

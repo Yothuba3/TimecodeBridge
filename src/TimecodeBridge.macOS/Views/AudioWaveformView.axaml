@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TimecodeBridge.macOS.Views.AudioWaveformView"
+             Background="Transparent">
+    <Border Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
+            BorderThickness="1" Padding="10,4" CornerRadius="8">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+
+            <!-- Label -->
+            <Border Grid.Column="0" Background="{StaticResource AccentSubtleBrush}" CornerRadius="4"
+                    Padding="10,3" Margin="0,0,10,0" VerticalAlignment="Center">
+                <TextBlock Text="WAVE" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                           FontWeight="Bold" Foreground="#4ADE80" />
+            </Border>
+
+            <!-- Waveform -->
+            <Border Grid.Column="1" Background="#0C0C18" CornerRadius="6" ClipToBounds="True">
+                <Grid>
+                    <!-- Center line -->
+                    <Border Height="1" VerticalAlignment="Center" Background="#1A1A30" />
+                    <!-- Waveform polyline rendered in code-behind -->
+                    <Canvas Name="WaveformCanvas">
+                        <Polyline Name="WaveformLine"
+                                  Stroke="{StaticResource AccentBrush}" StrokeThickness="1.2" />
+                    </Canvas>
+                </Grid>
+            </Border>
+
+            <!-- Peak meter -->
+            <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center"
+                        Margin="10,0,0,0" Width="28">
+                <Border Background="#0C0C18" CornerRadius="4" Height="46">
+                    <Grid>
+                        <Border Name="PeakBar" CornerRadius="4" VerticalAlignment="Bottom" Height="0" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="dB" FontSize="9" HorizontalAlignment="Center"
+                           Foreground="{StaticResource SecondaryForegroundBrush}" Margin="0,3,0,0" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

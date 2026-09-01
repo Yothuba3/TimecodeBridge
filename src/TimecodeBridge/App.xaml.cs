@@ -1,6 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.ViewModels;
 
 namespace TimecodeBridge;

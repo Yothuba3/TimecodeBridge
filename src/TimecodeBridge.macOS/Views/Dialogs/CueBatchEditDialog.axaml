@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TimecodeBridge.macOS.ViewModels"
+        x:Class="TimecodeBridge.macOS.Views.Dialogs.CueBatchEditDialog"
+        Title="キュー一括編集"
+        Width="520" Height="560"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Window.Styles>
+        <Style Selector="CheckBox.Apply">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style Selector="TextBox.TimeField">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="TextAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.Sep">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="3,0" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" ColumnDefinitions="150,*"
+          RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
+        <Grid.Styles>
+            <Style Selector="Grid > :is(Control)">
+                <Setter Property="Margin" Value="0,0,0,8" />
+            </Style>
+        </Grid.Styles>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Name="HeaderText"
+                   FontWeight="Bold" Margin="0,0,0,12" />
+
+        <CheckBox Grid.Row="1" Grid.Column="0" Name="ApplyOscAddress" Content="OSCアドレス" Classes="Apply" />
+        <TextBox Grid.Row="1" Grid.Column="1" Name="OscAddressBox" Watermark="/cue/1" />
+
+        <CheckBox Grid.Row="2" Grid.Column="0" Name="ApplySendTcSeconds" Content="TC秒数送信" Classes="Apply" />
+        <CheckBox Grid.Row="2" Grid.Column="1" Name="SendTcSecondsBox"
+                  Content="トリガー時間を秒数(float)で先頭引数に追加" />
+
+        <CheckBox Grid.Row="3" Grid.Column="0" Name="ApplyOscArgs" Content="OSC引数" Classes="Apply" />
+        <TextBox Grid.Row="3" Grid.Column="1" Name="OscArgsBox" Watermark="i:1 f:0.5 s:text" />
+
+        <CheckBox Grid.Row="4" Grid.Column="0" Name="ApplyTargetHosts" Content="送信先ホスト" Classes="Apply" VerticalAlignment="Top" />
+        <Border Grid.Row="4" Grid.Column="1" BorderBrush="#60808080" BorderThickness="1" CornerRadius="3" MinHeight="80">
+            <ScrollViewer>
+                <ItemsControl Name="HostList" Margin="6">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HostSelection">
+                            <CheckBox Content="{CompiledBinding Name}" IsChecked="{CompiledBinding IsSelected}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <CheckBox Grid.Row="5" Grid.Column="0" Name="ApplyOffset" Content="キューオフセット" Classes="Apply" />
+        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
+            <ComboBox Name="OffsetSignBox" Width="60" Margin="0,0,6,0" SelectedIndex="0">
+                <ComboBoxItem Content="+" />
+                <ComboBoxItem Content="-" />
+            </ComboBox>
+            <TextBox Name="OffsetHoursBox" Classes="TimeField" Text="00" />
+            <TextBlock Text=":" Classes="Sep" />
+            <TextBox Name="OffsetMinutesBox" Classes="TimeField" Text="00" />
+            <TextBlock Text=":" Classes="Sep" />
+            <TextBox Name="OffsetSecondsBox" Classes="TimeField" Text="00" />
+            <TextBlock Text=":" Classes="Sep" />
+            <TextBox Name="OffsetFramesBox" Classes="TimeField" Text="00" />
+        </StackPanel>
+
+        <CheckBox Grid.Row="6" Grid.Column="0" Name="ApplyMemo" Content="メモ" Classes="Apply" VerticalAlignment="Top" />
+        <TextBox Grid.Row="6" Grid.Column="1" Name="MemoBox" Height="60" AcceptsReturn="True" TextWrapping="Wrap" />
+
+        <CheckBox Grid.Row="7" Grid.Column="0" Name="ApplyEnabled" Content="有効" Classes="Apply" />
+        <CheckBox Grid.Row="7" Grid.Column="1" Name="EnabledBox" Content="有効" IsChecked="True" />
+
+        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0">
+            <Button Content="適用" Width="90" IsDefault="True" Click="OnOkClick" />
+            <Button Content="キャンセル" Width="90" IsCancel="True" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

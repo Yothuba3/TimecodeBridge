@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.Services.Interfaces;
 
 namespace TimecodeBridge.ViewModels;
@@ -26,6 +27,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private IReadOnlyList<string> _recentProjects = [];
+
+    [ObservableProperty]
+    private string _statusMessage = "Ready";
 
     public MainViewModel(
         IProjectService projectService,

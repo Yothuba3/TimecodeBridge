@@ -1,11 +1,14 @@
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 namespace TimecodeBridge.Services.Interfaces;
 
 /// <summary>
-/// ホスト関連のダイアログ表示を担当するサービス
+/// OSCホスト編集ダイアログサービス
 /// </summary>
 public interface IHostDialogService
 {
+    /// <summary>
+    /// ホスト編集ダイアログを表示する
+    /// </summary>
     OscHost? ShowEditDialog(OscHost template);
 }

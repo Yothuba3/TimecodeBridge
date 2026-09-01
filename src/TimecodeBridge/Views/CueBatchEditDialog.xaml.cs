@@ -1,5 +1,5 @@
 using System.Windows;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.ViewModels;
 
 namespace TimecodeBridge.Views;

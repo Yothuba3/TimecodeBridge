@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TimecodeBridge.macOS.ViewModels"
+        xmlns:views="using:TimecodeBridge.macOS.Views"
+        x:Class="TimecodeBridge.macOS.MainWindow"
+        Title="{CompiledBinding Title}"
+        Height="768" Width="1200"
+        MinHeight="600" MinWidth="900"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PrimaryBackgroundBrush}"
+        x:DataType="vm:MainViewModel">
+
+    <Grid Background="{StaticResource PrimaryBackgroundBrush}" RowDefinitions="Auto,3*,2*">
+
+        <!-- Row 0: Menu Bar -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="新規プロジェクト(_N)" Command="{CompiledBinding NewProjectCommand}" />
+                <Separator />
+                <MenuItem Header="開く(_O)" Command="{CompiledBinding OpenProjectCommand}" />
+                <MenuItem Header="保存(_S)" Command="{CompiledBinding SaveProjectCommand}" />
+                <MenuItem Header="名前を付けて保存(_A)" Command="{CompiledBinding SaveProjectAsCommand}" />
+                <Separator />
+                <MenuItem Header="最近のプロジェクト"
+                          ItemsSource="{CompiledBinding RecentProjects}">
+                    <MenuItem.Styles>
+                        <Style Selector="MenuItem MenuItem">
+                            <Setter Property="Header" Value="{Binding}" />
+                            <Setter Property="Command" Value="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenRecentProjectCommand}" />
+                            <Setter Property="CommandParameter" Value="{Binding}" />
+                        </Style>
+                    </MenuItem.Styles>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+
+        <!-- Row 1: CueList (left) + HostManager / RelayControl (right) -->
+        <Grid Grid.Row="1" Margin="4,4,4,0" ColumnDefinitions="4*,Auto,3*">
+
+            <!-- Left: CueList -->
+            <views:CueListView Grid.Column="0"
+                               DataContext="{CompiledBinding CueListViewModel}" />
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="3"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+            <!-- Right: HostManager + RelayControl -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Background="Transparent" Margin="4,0,0,0">
+                <StackPanel>
+                    <views:HostManagerView DataContext="{CompiledBinding HostManagerViewModel}"
+                                           Margin="0,0,0,4" />
+                    <views:RelayControlView DataContext="{CompiledBinding RelayViewModel}"
+                                            Margin="0,0,0,4" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Row 2: TC + Waveform (left) | Log (right) -->
+        <Grid Grid.Row="2" Margin="4,4,4,4" ColumnDefinitions="3*,2*">
+
+            <!-- Left: Timecode + Waveform -->
+            <Grid Grid.Column="0" Margin="0,0,4,0" RowDefinitions="*,Auto">
+                <views:TimecodeDisplayView Grid.Row="0"
+                                           DataContext="{CompiledBinding TimecodeViewModel}" />
+                <views:AudioWaveformView Grid.Row="1" Name="AudioWaveform" Height="46" />
+            </Grid>
+
+            <!-- Right: Log Panel -->
+            <Border Grid.Column="1" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+                    CornerRadius="8" Background="{StaticResource CardBackgroundBrush}">
+                <Grid RowDefinitions="Auto,*">
+                    <DockPanel Grid.Row="0" Margin="12,8,12,4">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="3" Height="14" Background="{StaticResource AccentBrush}"
+                                    CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{StaticResource PrimaryForegroundBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Content="クリア" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                Padding="10,4" FontSize="11"
+                                Command="{CompiledBinding LogViewModel.ClearLogsCommand}" />
+                    </DockPanel>
+                    <ListBox Grid.Row="1" Name="LogListBox"
+                             ItemsSource="{CompiledBinding LogViewModel.Logs}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Margin="4,0,4,4">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="8,2" />
+                                <Setter Property="MinHeight" Value="0" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LogEntry">
+                                <TextBlock Text="{CompiledBinding Message}"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                           Foreground="{StaticResource SecondaryForegroundBrush}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
