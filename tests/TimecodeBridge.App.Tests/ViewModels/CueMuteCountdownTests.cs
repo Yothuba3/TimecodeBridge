@@ -95,7 +95,8 @@ public class CueMuteCountdownTests
         manager.ManualTrigger("c1");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.StartsWith("解除まで 00:00:2", vm.CueItems[0].MuteCountdownText);
+        Assert.Equal("解除まで", vm.CueItems[0].MuteStatusLabel);
+        Assert.StartsWith("00:00:2", vm.CueItems[0].MuteCountdownText);
     }
 
     [AvaloniaFact]
@@ -106,7 +107,8 @@ public class CueMuteCountdownTests
         manager.ManualTrigger("c1");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("MUTE中", vm.CueItems[0].MuteCountdownText);
+        Assert.Equal("MUTE中", vm.CueItems[0].MuteStatusLabel);
+        Assert.Equal("", vm.CueItems[0].MuteCountdownText);
     }
 
     [AvaloniaFact]
@@ -116,11 +118,12 @@ public class CueMuteCountdownTests
 
         manager.ManualTrigger("c1");
         Dispatcher.UIThread.RunJobs();
-        Assert.NotEqual("", vm.CueItems[0].MuteCountdownText);
+        Assert.NotEqual("", vm.CueItems[0].MuteStatusLabel);
 
         manager.IsMuted = false;
         Dispatcher.UIThread.RunJobs();
 
+        Assert.Equal("", vm.CueItems[0].MuteStatusLabel);
         Assert.Equal("", vm.CueItems[0].MuteCountdownText);
     }
 }

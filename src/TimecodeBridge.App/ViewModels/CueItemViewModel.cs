@@ -24,7 +24,11 @@ public partial class CueItemViewModel : ObservableObject
     [ObservableProperty] private bool _isTriggered;
     [ObservableProperty] private bool _isNextCue;
 
-    /// <summary>このキュー起因のオートミュート状況（例: "解除まで 00:00:11:29" / "MUTE中"）。空なら非表示。</summary>
+    /// <summary>オートミュート状況のラベル（"解除まで" / "MUTE中"）。空なら非表示。
+    /// 等幅フォントに日本語グリフが無くベースラインがずれるため、数字とは別要素で描画する。</summary>
+    [ObservableProperty] private string _muteStatusLabel = "";
+
+    /// <summary>ミュート解除までの残り時間（hh:mm:ss:ff、等幅表示）。時限解除でなければ空。</summary>
     [ObservableProperty] private string _muteCountdownText = "";
 
     public CueItemViewModel(Cue cue)

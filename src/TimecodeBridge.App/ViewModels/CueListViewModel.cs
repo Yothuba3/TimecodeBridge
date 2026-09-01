@@ -74,6 +74,7 @@ public partial class CueListViewModel : DispatcherViewModel
         {
             if (item.Id != mutedCueId)
             {
+                if (item.MuteStatusLabel.Length > 0) item.MuteStatusLabel = "";
                 if (item.MuteCountdownText.Length > 0) item.MuteCountdownText = "";
                 continue;
             }
@@ -82,11 +83,13 @@ public partial class CueListViewModel : DispatcherViewModel
             {
                 var remaining = at - DateTime.UtcNow;
                 if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-                item.MuteCountdownText = $"解除まで {FormatRemaining(remaining, item.TriggerTime.FrameRate.FramesPerSecond())}";
+                item.MuteStatusLabel = "解除まで";
+                item.MuteCountdownText = FormatRemaining(remaining, item.TriggerTime.FrameRate.FramesPerSecond());
             }
             else
             {
-                item.MuteCountdownText = "MUTE中";
+                item.MuteStatusLabel = "MUTE中";
+                item.MuteCountdownText = "";
             }
         }
 
