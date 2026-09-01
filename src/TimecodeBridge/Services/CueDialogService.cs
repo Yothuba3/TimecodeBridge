@@ -23,13 +23,13 @@ public class CueDialogService : ICueDialogService
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 
-    public (int Count, int IntervalHours)? ShowBatchDuplicateDialog()
+    public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog()
     {
         var dialog = new BatchDuplicateDialog();
         if (Application.Current?.MainWindow is { } mainWindow)
             dialog.Owner = mainWindow;
         if (dialog.ShowDialog() != true)
             return null;
-        return (dialog.Count, dialog.IntervalHours);
+        return (dialog.Count, dialog.Interval);
     }
 }

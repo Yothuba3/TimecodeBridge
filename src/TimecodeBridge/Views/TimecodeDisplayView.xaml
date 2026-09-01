@@ -8,13 +8,26 @@ mc:Ignorable="d"
              d:DesignHeight="200" d:DesignWidth="1000"
              Background="Transparent">
     <UserControl.Resources>
+        <!-- 状態別色分け: 受信/生成=緑, フリーラン=黄, 喪失/エラー=赤, 停止=灰 -->
         <Style x:Key="StatusIndicatorStyle" TargetType="Ellipse">
-            <Setter Property="Width" Value="8" />
-            <Setter Property="Height" Value="8" />
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
             <Setter Property="Fill" Value="#4A4A68" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsReceiving}" Value="True">
-                    <Setter Property="Fill" Value="#4ADE80" />
+                <DataTrigger Binding="{Binding StatusText}" Value="受信中">
+                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="生成中">
+                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="フリーラン">
+                    <Setter Property="Fill" Value="{DynamicResource WarningBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="信号喪失">
+                    <Setter Property="Fill" Value="{DynamicResource ErrorBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="エラー">
+                    <Setter Property="Fill" Value="{DynamicResource ErrorBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -35,15 +48,31 @@ mc:Ignorable="d"
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,6,0" />
+            <Style.Triggers>
+                <!-- モード切替で無効なフィールドのラベルをグレーアウトする -->
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
-
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
     <Border Background="{DynamicResource CardBackgroundBrush}"
-            BorderBrush="{DynamicResource BorderSubtleBrush}"
-            BorderThickness="1" Margin="0,0,0,2" Padding="14,10" CornerRadius="8"
+            Margin="0,0,0,2" Padding="14,10" CornerRadius="8"
             VerticalAlignment="Stretch">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Style.Triggers>
+                    <!-- 信号喪失をタイムコード表示部全体でも警告する -->
+                    <DataTrigger Binding="{Binding StatusText}" Value="信号喪失">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                        <Setter Property="BorderThickness" Value="2" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -72,6 +101,11 @@ mc:Ignorable="d"
                                FontFamily="Consolas" FontSize="32" FontWeight="Bold"
                                Foreground="{DynamicResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
+                    <!-- 検出フレームレート -->
+                    <TextBlock Text="{Binding DetectedFrameRateText}"
+                               FontFamily="Consolas" FontSize="11"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                               VerticalAlignment="Bottom" Margin="6,0,0,4" />
                 </StackPanel>
 
                 <!-- OFFSET -->
@@ -87,56 +121,16 @@ mc:Ignorable="d"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
-                <!-- Status + Source + Mute (right-aligned) -->
+                <!-- Status + Source (right-aligned) -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Mute Toggle -->
-                    <ToggleButton IsChecked="{Binding IsTriggerMuted}"
-                                  ToolTip="OSCトリガーのミュート切替"
-                                  Margin="0,0,14,0" VerticalAlignment="Center">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Cursor" Value="Hand" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border x:Name="MuteBorder"
-                                                    Background="#2A2040" BorderBrush="#4A4068"
-                                                    BorderThickness="1.5" CornerRadius="6"
-                                                    Padding="10,5" SnapsToDevicePixels="True">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Ellipse x:Name="MuteDot" Width="8" Height="8"
-                                                             Fill="{DynamicResource SuccessBrush}"
-                                                             Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                    <TextBlock x:Name="MuteLabel" Text="LIVE"
-                                                               FontFamily="Consolas" FontSize="11"
-                                                               FontWeight="Bold"
-                                                               Foreground="{DynamicResource SuccessBrush}"
-                                                               VerticalAlignment="Center" />
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="MuteBorder" Property="Background" Value="#401A1A" />
-                                                    <Setter TargetName="MuteBorder" Property="BorderBrush" Value="#EF5A6F" />
-                                                    <Setter TargetName="MuteDot" Property="Fill" Value="#EF5A6F" />
-                                                    <Setter TargetName="MuteLabel" Property="Text" Value="MUTE" />
-                                                    <Setter TargetName="MuteLabel" Property="Foreground" Value="#EF5A6F" />
-                                                </Trigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="MuteBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ToggleButton.Style>
-                    </ToggleButton>
-
-                    <Ellipse Style="{StaticResource StatusIndicatorStyle}" Margin="0,0,4,0" />
+                    <Ellipse Style="{StaticResource StatusIndicatorStyle}" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding StatusText, FallbackValue='停止'}"
-                               Foreground="{DynamicResource PrimaryForegroundBrush}"
-                               VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0" />
+                               Style="{StaticResource ReceiveStatusTextStyle}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,4,0" />
+                    <!-- 信号喪失時の補足（最終受信からの経過秒） -->
+                    <TextBlock Text="{Binding SignalDetailText}"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               VerticalAlignment="Center" FontSize="10" Margin="0,0,12,0" />
                     <RadioButton Content="LTC" GroupName="Source"
                                  IsChecked="{Binding IsLtcMode}"
                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
@@ -163,6 +157,7 @@ mc:Ignorable="d"
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -170,16 +165,19 @@ mc:Ignorable="d"
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="6" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: 入力デバイス | フレームレート | オフセット -->
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="入力デバイス" Style="{StaticResource FieldLabelStyle}"
                            IsEnabled="{Binding IsLtcMode}" />
-                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
-                            IsEnabled="{Binding IsLtcMode}">
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
                     <ComboBox ItemsSource="{Binding AudioDevices}"
                               SelectedItem="{Binding SelectedDevice}"
+                              IsEnabled="{Binding IsLtcMode}"
                               MinWidth="140" HorizontalAlignment="Stretch" />
+                    <!-- 更新ボタンは出力デバイス一覧も更新するため生成モードでも有効のまま -->
                     <Button Content="↻" Command="{Binding RefreshAudioDevicesCommand}"
                             Padding="5,2" Margin="4,0,0,0" ToolTip="デバイス一覧を更新"
                             FontSize="12" VerticalAlignment="Center" />
@@ -190,6 +188,7 @@ mc:Ignorable="d"
                 <ComboBox Grid.Row="0" Grid.Column="4" ItemsSource="{Binding AvailableFrameRates}"
                           SelectedItem="{Binding GeneratorFrameRate}"
                           IsEnabled="{Binding IsGeneratorMode}"
+                          ToolTip="生成中の変更は次回リセット時に反映されます"
                           HorizontalAlignment="Left" MinWidth="80" />
 
                 <TextBlock Grid.Row="0" Grid.Column="6" Text="オフセット" Style="{StaticResource FieldLabelStyle}" />
@@ -205,6 +204,7 @@ mc:Ignorable="d"
                             IsEnabled="{Binding IsGeneratorMode}">
                     <ComboBox ItemsSource="{Binding OutputDevices}"
                               SelectedItem="{Binding SelectedOutputDevice}"
+                              ToolTip="生成中の変更は次回リセット時に反映されます"
                               MinWidth="140" HorizontalAlignment="Stretch" />
                     <Ellipse Style="{StaticResource LtcOutputIndicatorStyle}" Margin="6,0,0,0"
                              VerticalAlignment="Center" />
@@ -224,6 +224,7 @@ mc:Ignorable="d"
                 <Slider Grid.Row="2" Grid.Column="7"
                         Value="{Binding OutputVolumeLevel}" Minimum="0" Maximum="1"
                         Width="100" VerticalAlignment="Center"
+                        ToolTip="生成中の変更は次回リセット時に反映されます"
                         IsEnabled="{Binding IsGeneratorMode}" />
 
                 <!-- Row 4: Generator buttons -->
@@ -237,6 +238,133 @@ mc:Ignorable="d"
                             Padding="10,4" Margin="0,0,6,0" FontSize="11" />
                     <Button Content="↺ リセット" Command="{Binding ResetGeneratorCommand}"
                             Padding="10,4" FontSize="11" />
+                </StackPanel>
+                <!-- Row 6: Cue-Syncワンショット + Mute -->
+                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="9" Orientation="Horizontal">
+
+                    <!-- CUE SYNC（押した瞬間に1回送信するワンショット） -->
+                    <Button Command="{Binding CueSync.SendCueSyncCommand}"
+                            Width="96" Height="96" VerticalAlignment="Top"
+                            ToolTipService.ShowDuration="20000"
+                            ToolTip="Cue-Syncワンショット送信。&#10;直前の有効なキューを基準に、送信タイムコード + (現在TC − 実効発火時刻) を秒数(float)で1回送信します。&#10;送信タイムコード未指定のキューはトリガー時間を送信軸とみなします。&#10;基準キューがない場合は 0.0 を送ります">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="SyncBorder"
+                                                    Background="#182840" BorderBrush="{DynamicResource AccentBrush}"
+                                                    BorderThickness="2" CornerRadius="10"
+                                                    SnapsToDevicePixels="True">
+                                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                    <TextBlock Text="CUE" FontFamily="Consolas" FontSize="20" FontWeight="Bold"
+                                                               Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="SYNC" FontFamily="Consolas" FontSize="20" FontWeight="Bold"
+                                                               Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="SyncBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="SyncBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <!-- Cue-Sync 設定（アドレス + 送信先） -->
+                    <StackPanel Margin="12,0,0,0" Width="340" VerticalAlignment="Top">
+                        <TextBlock Text="Cue-Sync アドレス" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding CueSync.OscAddress, UpdateSourceTrigger=LostFocus}"
+                                 FontFamily="Consolas" FontSize="11" Padding="4,3" Margin="0,0,0,6" />
+                        <TextBlock Text="送信先ホスト" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3" />
+                        <!-- 固定高さの縦一列リスト（枠サイズ一定でボタン位置がずれない）。収まらない分はスクロール -->
+                        <Border Height="118" Background="{DynamicResource SecondaryBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding CueSync.HostSelections}" Margin="4,2">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Name}" FontSize="11" Margin="0,1"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Checked="OnCueSyncHostCheckChanged"
+                                                          Unchecked="OnCueSyncHostCheckChanged"
+                                                          Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock Text="(ホスト未登録)" FontSize="10"
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CueSync.HostSelections.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                <!-- Mute Toggle -->
+                <ToggleButton IsChecked="{Binding IsTriggerMuted}"
+                              VerticalAlignment="Top"
+                              Width="96" Height="96" Margin="16,0,0,0"
+                              ToolTipService.ShowDuration="20000"
+                              ToolTip="タイムコードによる自動キュー発火のミュート切替。&#10;※手動発火（▶）・OSCポン出し・リレー送信は止まりません">
+                <ToggleButton.Style>
+                    <Style TargetType="ToggleButton">
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="MuteBorder"
+                                            Background="#2A2040" BorderBrush="#4A4068"
+                                            BorderThickness="2" CornerRadius="10"
+                                            SnapsToDevicePixels="True">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <Ellipse x:Name="MuteDot" Width="14" Height="14"
+                                                     Fill="{DynamicResource SuccessBrush}"
+                                                     Margin="0,0,0,8" HorizontalAlignment="Center" />
+                                            <TextBlock x:Name="MuteLabel" Text="LIVE"
+                                                       FontFamily="Consolas" FontSize="20"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource SuccessBrush}"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="MuteBorder" Property="Background" Value="#401A1A" />
+                                            <Setter TargetName="MuteBorder" Property="BorderBrush" Value="#EF5A6F" />
+                                            <Setter TargetName="MuteDot" Property="Fill" Value="#EF5A6F" />
+                                            <Setter TargetName="MuteLabel" Property="Text" Value="MUTE" />
+                                            <Setter TargetName="MuteLabel" Property="Foreground" Value="#EF5A6F" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="MuteBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ToggleButton.Style>
+                </ToggleButton>
                 </StackPanel>
             </Grid>
         </Grid>

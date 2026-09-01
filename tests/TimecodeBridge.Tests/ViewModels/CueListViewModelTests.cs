@@ -28,7 +28,7 @@ public class CueListViewModelTests
     private static CueListViewModel CreateVm(StubCueManager cueManager, StubTimecodeEngine engine)
     {
         var stubCueDialogService = new StubCueDialogService();
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), stubCueDialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), stubCueDialogService, new StubProjectService());
         return vm;
     }
 
@@ -123,14 +123,18 @@ public class CueListViewModelTests
 
     // --- ToggleCueEnabledCommand ---
 
+    // CheckBoxのTwoWayバインディングが先に item.IsEnabled を反転し、
+    // コマンドはその値をManagerへ同期する契約（二重反転バグ修正後の仕様）
+
     [Fact]
-    public void ToggleCueEnabledCommand_TogglesEnabledState()
+    public void ToggleCueEnabledCommand_SyncsDisabledStateToManager()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: true));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
+        vm.CueItems[0].IsEnabled = false; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
         Assert.Single(cueManager.SetCueEnabledCalls);
@@ -139,13 +143,14 @@ public class CueListViewModelTests
     }
 
     [Fact]
-    public void ToggleCueEnabledCommand_DisabledCue_EnablesIt()
+    public void ToggleCueEnabledCommand_SyncsEnabledStateToManager()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: false));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
+        vm.CueItems[0].IsEnabled = true; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
         Assert.Single(cueManager.SetCueEnabledCalls);
@@ -154,18 +159,86 @@ public class CueListViewModelTests
     }
 
     [Fact]
-    public void ToggleCueEnabledCommand_UpdatesCueItemViewModelEnabled()
+    public void ToggleCueEnabledCommand_DoesNotRevertCueItemEnabled()
     {
         var cueManager = new StubCueManager();
         cueManager.AddCue(CreateCue("c1", enabled: true));
         var engine = new StubTimecodeEngine();
         var vm = CreateVm(cueManager, engine);
 
-        Assert.True(vm.CueItems[0].IsEnabled);
-
+        vm.CueItems[0].IsEnabled = false; // バインディングによる反転を模倣
         vm.ToggleCueEnabledCommand.Execute("c1");
 
+        // コマンドが再反転して元に戻さないこと
         Assert.False(vm.CueItems[0].IsEnabled);
+    }
+
+    // --- BatchDuplicateCueCommand（分・秒単位の間隔） ---
+
+    [Fact]
+    public void BatchDuplicateCue_MinuteSecondInterval_AddsAtEachStep()
+    {
+        var cueManager = new StubCueManager();
+        cueManager.AddCue(CreateCue("c1", "Base", "/base", 10)); // 00:00:10:00
+        var engine = new StubTimecodeEngine();
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchDuplicateStubDialogService(2, new TimeSpan(0, 1, 30)), new StubProjectService());
+
+        vm.BatchDuplicateCueCommand.Execute("c1");
+
+        Assert.Equal(3, cueManager.Cues.Count);
+        // +1分30秒 ずつ
+        Assert.Equal(TC(0, 1, 40, 0), cueManager.Cues[1].TriggerTime);
+        Assert.Equal(TC(0, 3, 10, 0), cueManager.Cues[2].TriggerTime);
+    }
+
+    // --- BatchEditCuesCommand（送信タイムコード・追加アドレスの一括適用） ---
+
+    [Fact]
+    public void BatchEditCues_AppliesSendTimecodeAndAdditionalAddresses()
+    {
+        var cueManager = new StubCueManager();
+        cueManager.AddCue(CreateCue("c1"));
+        cueManager.AddCue(CreateCue("c2"));
+        var engine = new StubTimecodeEngine();
+
+        var edit = new CueBatchEditResult
+        {
+            ApplySendTimecode = true,
+            SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30),
+            AdditionalOscAddresses = ["/extra"],
+        };
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchEditStubDialogService(edit), new StubProjectService());
+
+        var selected = new List<CueItemViewModel> { vm.CueItems[0], vm.CueItems[1] };
+        vm.BatchEditCuesCommand.Execute(selected);
+
+        Assert.All(cueManager.Cues, c =>
+        {
+            Assert.Equal(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), c.SendTimecode);
+            Assert.Equal(["/extra"], c.AdditionalOscAddresses);
+        });
+    }
+
+    [Fact]
+    public void BatchEditCues_SendTimecodeUnset_ClearsValue()
+    {
+        var cueManager = new StubCueManager();
+        var cue = CreateCue("c1");
+        cue.SendTimecode = new TimecodeValue(2, 0, 0, 0, FrameRate.Fps30);
+        cueManager.AddCue(cue);
+        cueManager.AddCue(CreateCue("c2"));
+        var engine = new StubTimecodeEngine();
+
+        var edit = new CueBatchEditResult { ApplySendTimecode = true, SendTimecode = null };
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(),
+            new BatchEditStubDialogService(edit), new StubProjectService());
+
+        var selected = new List<CueItemViewModel> { vm.CueItems[0], vm.CueItems[1] };
+        vm.BatchEditCuesCommand.Execute(selected);
+
+        Assert.All(cueManager.Cues, c => Assert.Null(c.SendTimecode));
     }
 
     // --- CueTriggered event ---
@@ -271,7 +344,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new RecordingCueDialogService();
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -290,7 +363,7 @@ public class CueListViewModelTests
 
         var editedCue = CreateCue("c1", "Edited", "/edited", 20);
         var dialogService = new FixedResultCueDialogService(editedCue);
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -307,7 +380,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new FixedResultCueDialogService(null); // cancel
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.EditCueCommand.Execute("c1");
 
@@ -322,7 +395,7 @@ public class CueListViewModelTests
         var engine = new StubTimecodeEngine();
 
         var dialogService = new FixedResultCueDialogService(null); // cancel
-        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService);
+        var vm = new CueListViewModel(cueManager, engine, new StubHostRegistry(), dialogService, new StubProjectService());
 
         vm.AddCueCommand.Execute(null);
 
@@ -438,7 +511,7 @@ public class CueListViewModelTests
 
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
 
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog()
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog()
         {
             return null;
         }
@@ -457,7 +530,21 @@ public class CueListViewModelTests
         }
 
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
+    }
+
+    private class BatchEditStubDialogService(CueBatchEditResult result) : ICueDialogService
+    {
+        public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => null;
+        public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => result;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
+    }
+
+    private class BatchDuplicateStubDialogService(int count, TimeSpan interval) : ICueDialogService
+    {
+        public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => null;
+        public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => (count, interval);
     }
 
     private class FixedResultCueDialogService : ICueDialogService
@@ -468,7 +555,7 @@ public class CueListViewModelTests
 
         public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => _result;
         public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-        public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
     }
 
     private class StubCueManager : ICueManager
@@ -503,6 +590,8 @@ public class CueListViewModelTests
 
         public void ManualTrigger(string cueId) => ManualTriggerCalls.Add(cueId);
 
+        public void ResetTracking() { }
+        public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;
 

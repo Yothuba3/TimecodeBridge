@@ -17,8 +17,6 @@ public interface ICueDialogService
     /// </summary>
     CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate);
 
-    /// <summary>
-    /// 一括複製ダイアログを表示する
-    /// </summary>
-    (int count, double intervalHours)? ShowBatchDuplicateDialog();
+    /// <summary>連続複製ダイアログ。間隔は時:分:秒で指定される。</summary>
+    (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog();
 }

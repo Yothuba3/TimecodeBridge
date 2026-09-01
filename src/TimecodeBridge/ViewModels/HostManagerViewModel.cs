@@ -12,15 +12,17 @@ public partial class HostManagerViewModel : ObservableObject, IDisposable
     private readonly IOscSender _oscSender;
     private readonly ITimecodeEngine _timecodeEngine;
     private readonly IHostDialogService _hostDialogService;
+    private readonly IProjectService _projectService;
 
     public ObservableCollection<OscHost> Hosts { get; } = [];
 
-    public HostManagerViewModel(IHostRegistry hostRegistry, IOscSender oscSender, ITimecodeEngine timecodeEngine, IHostDialogService hostDialogService)
+    public HostManagerViewModel(IHostRegistry hostRegistry, IOscSender oscSender, ITimecodeEngine timecodeEngine, IHostDialogService hostDialogService, IProjectService projectService)
     {
         _hostRegistry = hostRegistry;
         _oscSender = oscSender;
         _timecodeEngine = timecodeEngine;
         _hostDialogService = hostDialogService;
+        _projectService = projectService;
 
         // Sync existing hosts
         foreach (var host in _hostRegistry.Hosts)
@@ -90,6 +92,7 @@ public partial class HostManagerViewModel : ObservableObject, IDisposable
         {
             result.Id = Guid.NewGuid().ToString();
             _hostRegistry.AddHost(result);
+            _projectService.MarkAsChanged();
         }
     }
 
@@ -104,13 +107,30 @@ public partial class HostManagerViewModel : ObservableObject, IDisposable
         {
             result.Id = hostId;
             _hostRegistry.UpdateHost(hostId, result);
+            _projectService.MarkAsChanged();
         }
     }
 
     [RelayCommand]
     private void RemoveHost(string hostId)
     {
+        var host = _hostRegistry.Hosts.FirstOrDefault(h => h.Id == hostId);
+        if (host is null) return;
+
+        if (!ConfirmRemoveHost(host)) return;
+
         _hostRegistry.RemoveHost(hostId);
+        _projectService.MarkAsChanged();
+    }
+
+    /// <summary>ホスト削除の確認。テスト時に差し替え可能。</summary>
+    protected virtual bool ConfirmRemoveHost(OscHost host)
+    {
+        var result = System.Windows.MessageBox.Show(
+            $"ホスト「{host.Name}」({host.IpAddress}:{host.Port}) を削除しますか？\n\n" +
+            "このホストを送信先にしているキュー・OSCポン出しボタン・リレー設定からは送信できなくなります。",
+            "ホスト削除の確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        return result == System.Windows.MessageBoxResult.OK;
     }
 
     [RelayCommand]
@@ -120,6 +140,7 @@ public partial class HostManagerViewModel : ObservableObject, IDisposable
         if (host is not null)
         {
             _hostRegistry.SetHostEnabled(hostId, !host.IsEnabled);
+            _projectService.MarkAsChanged();
         }
     }
 

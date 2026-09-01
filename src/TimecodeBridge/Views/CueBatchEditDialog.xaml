@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="キュー一括編集"
-        Width="480" Height="520"
+        Width="480" Height="660"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource PrimaryBackgroundBrush}"
@@ -13,6 +13,8 @@
             CornerRadius="8" Padding="20">
         <Grid>
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -43,8 +45,25 @@
                          IsEnabled="{Binding IsChecked, ElementName=ApplyOscAddress}" />
             </Grid>
 
-            <!-- Send TC as Seconds -->
+            <!-- Additional OSC Addresses -->
             <Grid Grid.Row="2" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" x:Name="ApplyAdditionalAddresses" VerticalAlignment="Top" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="追加アドレス" VerticalAlignment="Top"
+                           ToolTip="2個目以降のOSCアドレス（引数なしで一緒に送信）。1行1件、空にすると全解除"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+                <TextBox Grid.Column="2" x:Name="AdditionalAddressesBox" FontFamily="Consolas"
+                         AcceptsReturn="True" Height="44" VerticalScrollBarVisibility="Auto"
+                         ToolTip="1行に1アドレス。空のまま適用すると全キューの追加アドレスを解除"
+                         IsEnabled="{Binding IsChecked, ElementName=ApplyAdditionalAddresses}" />
+            </Grid>
+
+            <!-- Send TC as Seconds -->
+            <Grid Grid.Row="3" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
@@ -54,12 +73,54 @@
                 <TextBlock Grid.Column="1" Text="TC秒数送信" VerticalAlignment="Center"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                 <CheckBox Grid.Column="2" x:Name="SendTcSecondsBox"
-                          Content="トリガー時間を秒数(float)で先頭引数に追加"
+                          Content="タイムコードを秒数(float)で先頭引数に追加"
                           IsEnabled="{Binding IsChecked, ElementName=ApplySendTcSeconds}" />
             </Grid>
 
+            <!-- Send Timecode -->
+            <Grid Grid.Row="4" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" x:Name="ApplySendTimecode" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="送信タイムコード" VerticalAlignment="Center"
+                           ToolTipService.ShowDuration="20000"
+                           ToolTip="秒数送信で送るタイムコード。&#10;「指定」OFFのまま適用すると全キューで解除（トリガー時間を送る）"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+                <Grid Grid.Column="2" IsEnabled="{Binding IsChecked, ElementName=ApplySendTimecode}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" x:Name="UseSendTimecodeBox" Content="指定"
+                              VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Grid.Column="1" x:Name="SendTcHoursBox" TextAlignment="Center" MaxLength="2" FontFamily="Consolas" Text="00"
+                             IsEnabled="{Binding IsChecked, ElementName=UseSendTimecodeBox}" />
+                    <TextBlock Grid.Column="2" Text=":" VerticalAlignment="Center" Margin="4,0"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                    <TextBox Grid.Column="3" x:Name="SendTcMinutesBox" TextAlignment="Center" MaxLength="2" FontFamily="Consolas" Text="00"
+                             IsEnabled="{Binding IsChecked, ElementName=UseSendTimecodeBox}" />
+                    <TextBlock Grid.Column="4" Text=":" VerticalAlignment="Center" Margin="4,0"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                    <TextBox Grid.Column="5" x:Name="SendTcSecondsFieldBox" TextAlignment="Center" MaxLength="2" FontFamily="Consolas" Text="00"
+                             IsEnabled="{Binding IsChecked, ElementName=UseSendTimecodeBox}" />
+                    <TextBlock Grid.Column="6" Text=":" VerticalAlignment="Center" Margin="4,0"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                    <TextBox Grid.Column="7" x:Name="SendTcFramesBox" TextAlignment="Center" MaxLength="2" FontFamily="Consolas" Text="00"
+                             IsEnabled="{Binding IsChecked, ElementName=UseSendTimecodeBox}" />
+                </Grid>
+            </Grid>
+
             <!-- OSC Arguments -->
-            <Grid Grid.Row="3" Margin="0,0,0,8">
+            <Grid Grid.Row="5" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
@@ -69,12 +130,12 @@
                 <TextBlock Grid.Column="1" Text="OSC引数" VerticalAlignment="Center"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                 <TextBox Grid.Column="2" x:Name="OscArgsBox" FontFamily="Consolas"
-                         ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り)"
+                         ToolTip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)"
                          IsEnabled="{Binding IsChecked, ElementName=ApplyOscArgs}" />
             </Grid>
 
             <!-- Target Hosts -->
-            <Grid Grid.Row="4" Margin="0,0,0,8">
+            <Grid Grid.Row="6" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
@@ -83,39 +144,45 @@
                 <CheckBox Grid.Column="0" x:Name="ApplyTargetHosts" VerticalAlignment="Top" Margin="0,0,8,0" />
                 <TextBlock Grid.Column="1" Text="送信先ホスト" VerticalAlignment="Top"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-                <ListBox Grid.Column="2" x:Name="HostListBox"
-                         Height="80" SelectionMode="Multiple"
-                         IsHitTestVisible="{Binding IsChecked, ElementName=ApplyTargetHosts}"
-                         Background="{DynamicResource SecondaryBackgroundBrush}"
-                         BorderBrush="{DynamicResource BorderSubtleBrush}">
-                    <ListBox.Style>
-                        <Style TargetType="ListBox">
+                <!-- IsEnabledで無効化（擬似無効化だとTabキーで貫通して操作できてしまう） -->
+                <Border Grid.Column="2" Height="80"
+                        IsEnabled="{Binding IsChecked, ElementName=ApplyTargetHosts}"
+                        Background="{DynamicResource SecondaryBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsChecked, ElementName=ApplyTargetHosts}" Value="False">
+                                <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.4" />
-                                </DataTrigger>
+                                </Trigger>
                             </Style.Triggers>
                         </Style>
-                    </ListBox.Style>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
-                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                      Foreground="{DynamicResource PrimaryForegroundBrush}" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                    </Border.Style>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="HostListBox" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" Tag="{Binding Id}"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,2"
+                                              Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
             </Grid>
 
-            <!-- Cue Offset -->
-            <Grid Grid.Row="5" Margin="0,0,0,8">
+            <!-- Trigger Offset -->
+            <Grid Grid.Row="7" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <CheckBox Grid.Column="0" x:Name="ApplyOffset" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="1" Text="キューオフセット" VerticalAlignment="Center"
+                <TextBlock Grid.Column="1" Text="トリガーオフセット" VerticalAlignment="Center"
+                           ToolTipService.ShowDuration="20000"
+                           ToolTip="発火タイミングを±ずらします。実際の発火時刻 = トリガー時間 ± この値"
                            Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
                 <Grid Grid.Column="2" IsEnabled="{Binding IsChecked, ElementName=ApplyOffset}">
                     <Grid.ColumnDefinitions>
@@ -146,7 +213,7 @@
             </Grid>
 
             <!-- Memo -->
-            <Grid Grid.Row="6" Margin="0,0,0,8">
+            <Grid Grid.Row="8" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
@@ -162,7 +229,7 @@
             </Grid>
 
             <!-- Enabled -->
-            <Grid Grid.Row="7" Margin="0,0,0,8">
+            <Grid Grid.Row="9" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
@@ -176,7 +243,7 @@
             </Grid>
 
             <!-- Buttons -->
-            <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <StackPanel Grid.Row="11" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button Content="適用" Padding="24,8" Margin="0,0,8,0"
                         Style="{StaticResource AccentButtonStyle}"
                         Click="OnOkClick" IsDefault="True" />

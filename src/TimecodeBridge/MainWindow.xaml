@@ -7,25 +7,32 @@
         xmlns:views="clr-namespace:TimecodeBridge.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
-        Height="768" Width="1200"
-        MinHeight="600" MinWidth="900"
+        Height="840" Width="1600"
+        MinHeight="720" MinWidth="1380"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PrimaryBackgroundBrush}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoCommand}" />
+        <KeyBinding Key="Y" Modifiers="Control" Command="{Binding RedoCommand}" />
+    </Window.InputBindings>
     <Grid Background="{DynamicResource PrimaryBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="3*" />
-            <RowDefinition Height="2*" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Row 0: Menu Bar -->
         <Menu Grid.Row="0">
             <MenuItem Header="ファイル(_F)">
-                <MenuItem Header="新規プロジェクト(_N)" Command="{Binding NewProjectCommand}" />
+                <MenuItem Header="新規プロジェクト(_N)" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N" />
                 <Separator />
-                <MenuItem Header="開く(_O)" x:Name="OpenMenuItem" Click="OpenMenuItem_Click" />
-                <MenuItem Header="保存(_S)" Command="{Binding SaveProjectCommand}" />
-                <MenuItem Header="名前を付けて保存(_A)" x:Name="SaveAsMenuItem" Click="SaveAsMenuItem_Click" />
+                <MenuItem Header="開く(_O)" x:Name="OpenMenuItem" Click="OpenMenuItem_Click" InputGestureText="Ctrl+O" />
+                <MenuItem Header="保存(_S)" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S" />
+                <MenuItem Header="名前を付けて保存(_A)" x:Name="SaveAsMenuItem" Click="SaveAsMenuItem_Click" InputGestureText="Ctrl+Shift+S" />
                 <Separator />
                 <MenuItem Header="最近のプロジェクト" x:Name="RecentProjectsMenuItem"
                           ItemsSource="{Binding RecentProjects}">
@@ -39,85 +46,166 @@
                     </MenuItem.ItemContainerStyle>
                 </MenuItem>
             </MenuItem>
+            <MenuItem Header="編集(_E)">
+                <MenuItem Header="元に戻す(_U)" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z" />
+                <MenuItem Header="やり直し(_R)" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y" />
+            </MenuItem>
         </Menu>
 
-        <!-- Row 1: CueList (left) + HostManager / RelayControl (right) -->
-        <Grid Grid.Row="1" Margin="4,4,4,0">
+        <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->
+        <Grid Grid.Row="1" Margin="4,4,4,4">
+            <!-- 両列とも比率指定にする: 固定px列だとGridSplitterが
+                 ウィンドウ幅を超えて列を広げ続けられてしまう -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4*" />
+                <ColumnDefinition Width="3.2*" MinWidth="1080" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="*" MinWidth="260" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left: CueList -->
-            <views:CueListView Grid.Column="0" x:Name="CueList" />
+            <!-- Left: Timecode (existing full feature set) -->
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- CueList (left) + HostManager / RelayControl (right) -->
+                    <Grid Grid.Row="0" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="4*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="3*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: CueList -->
+                        <views:CueListView Grid.Column="0" x:Name="CueList" />
+
+                        <!-- Splitter -->
+                        <GridSplitter Grid.Column="1" Width="3"
+                                      HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+                        <!-- Right: HostManager + RelayControl -->
+                        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Background="Transparent" Margin="4,0,0,0">
+                            <StackPanel>
+                                <views:HostManagerView x:Name="HostManager" Margin="0,0,0,4" />
+                                <views:RelayControlView x:Name="RelayControl" Margin="0,0,0,4" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- TC + Waveform (left) | Log (right) -->
+                    <Grid Grid.Row="1" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Timecode + Waveform (stretch to fill row height) -->
+                        <Grid Grid.Column="0" Margin="0,0,4,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
+                            <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" />
+                        </Grid>
+
+                        <!-- Right: Log Panel -->
+                        <Border Grid.Column="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <DockPanel Grid.Row="0" Margin="12,8,12,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                        <CheckBox x:Name="FailOnlyCheck" Content="失敗のみ" FontSize="11"
+                                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                  Checked="FailOnlyCheck_Changed" Unchecked="FailOnlyCheck_Changed" />
+                                        <Button Content="クリア" Padding="10,4" FontSize="11"
+                                                x:Name="ClearLogButton" />
+                                    </StackPanel>
+                                </DockPanel>
+                                <ListView Grid.Row="1" x:Name="LogListView"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Margin="4,0,4,4">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.fff}'}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                           Margin="0,0,8,0" />
+                                                <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSuccess}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
 
             <!-- Splitter -->
             <GridSplitter Grid.Column="1" Width="3"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
-            <!-- Right: HostManager + RelayControl + Background Image -->
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Background="Transparent" Margin="4,0,0,0">
-                <StackPanel>
-                    <views:HostManagerView x:Name="HostManager" Margin="0,0,0,4" />
-                    <views:RelayControlView x:Name="RelayControl" Margin="0,0,0,4" />
+            <!-- Right: OSC Trigger Panel (pon-out) -->
+            <views:OscTriggerPanelView Grid.Column="2" x:Name="OscTriggerPanel" />
+        </Grid>
 
+        <!-- Row 2: 運用ステータスバー（送信に関わる状態を常時一目で確認できる） -->
+        <Border Grid.Row="2" Background="{DynamicResource SecondaryBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="10,4">
+                <TextBlock Text="{Binding ProjectDisplayName}" ToolTip="{Binding ProjectFilePath}"
+                           FontSize="11" VerticalAlignment="Center"
+                           Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Border x:Name="StatusPlayModeBadge" Background="{DynamicResource ErrorBrush}"
+                            Visibility="{Binding IsPlayMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="ポン出し実行中" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <Border x:Name="StatusMuteBadge" Background="{DynamicResource ErrorBrush}"
+                            Visibility="{Binding IsTriggerMuted, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="AUTO MUTE" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <Border x:Name="StatusRelayBadge" Background="{DynamicResource AccentBrush}"
+                            Visibility="{Binding IsContinuousEnabled, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="RELAY ON" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <TextBlock x:Name="StatusSourceText"
+                               Text="{Binding SourceStatusSummary}"
+                               Style="{StaticResource ReceiveStatusTextStyle}"
+                               FontSize="11" VerticalAlignment="Center" />
                 </StackPanel>
-            </ScrollViewer>
-        </Grid>
-
-        <!-- Row 2: TC + Waveform (left) | Log (right) -->
-        <Grid Grid.Row="2" Margin="4,4,4,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="2*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Left: Timecode + Waveform (stretch to fill row height) -->
-            <Grid Grid.Column="0" Margin="0,0,4,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
-                <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" Height="46" />
-            </Grid>
-
-            <!-- Right: Log Panel -->
-            <Border Grid.Column="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                    CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="12,8,12,4">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="3" Height="14" Background="{DynamicResource AccentBrush}"
-                                    CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
-                                       Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                        <Button Content="クリア" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                                Padding="10,4" FontSize="11"
-                                x:Name="ClearLogButton" />
-                    </DockPanel>
-                    <ListView Grid.Row="1" x:Name="LogListView"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              Margin="4,0,4,4">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11"
-                                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-            </Border>
-        </Grid>
+            </DockPanel>
+        </Border>
     </Grid>
 </Window>

@@ -172,35 +172,86 @@ public class CueManagerTests
     }
 
     [Fact]
-    public void TimecodeUpdated_FrameSkip_MultipleCuesInRangeTriggered()
+    public void TimecodeUpdated_FrameSkipWithinWindow_CueInRangeTriggered()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender); // 判定幅 既定3
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 5, 1, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30));
+
+        // 判定幅(3)以内の3フレームスキップ: 5:00 → 5:03。間の 5:01 のキューは発火する
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 5, 3, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 5, 3, FrameRate.Fps30));
+
+        Assert.Single(spySender.SendCalls);
+    }
+
+    [Fact]
+    public void TimecodeUpdated_JumpBeyondWindow_IntermediateCuesNotTriggered()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender); // 判定幅 既定3
+
+        var cue1 = CreateCue("c1");
+        cue1.TriggerTime = new TimecodeValue(4, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cue1);
+
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(3, 50, 0, 0, FrameRate.Fps30),
+            new TimecodeValue(3, 50, 0, 0, FrameRate.Fps30));
+
+        // 判定幅を超える前方ジャンプ(3:50 → 4:30)はシーク扱い: 途中の 4:00 のキューは発火しない
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(4, 30, 0, 0, FrameRate.Fps30),
+            new TimecodeValue(4, 30, 0, 0, FrameRate.Fps30));
+
+        Assert.Empty(spySender.SendCalls);
+
+        // ジャンプ後、通常再生で前を通過すれば以後のキューは普通に発火する
+        var cue2 = CreateCue("c2");
+        cue2.TriggerTime = new TimecodeValue(4, 30, 0, 2, FrameRate.Fps30);
+        manager.AddCue(cue2);
+
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(4, 30, 0, 1, FrameRate.Fps30),
+            new TimecodeValue(4, 30, 0, 1, FrameRate.Fps30));
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(4, 30, 0, 2, FrameRate.Fps30),
+            new TimecodeValue(4, 30, 0, 2, FrameRate.Fps30));
+
+        Assert.Single(spySender.SendCalls);
+    }
+
+    [Fact]
+    public void TimecodeUpdated_JumpLandsExactlyOnCue_Triggered()
     {
         var stubEngine = new StubTimecodeEngine();
         var spySender = new SpyOscSender();
         var manager = new CueManager(stubEngine, spySender);
 
-        var cue1 = CreateCue("c1");
-        cue1.TriggerTime = new TimecodeValue(0, 0, 3, 0, FrameRate.Fps30);
-        manager.AddCue(cue1);
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(4, 30, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
 
-        var cue2 = CreateCue("c2");
-        cue2.TriggerTime = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
-        manager.AddCue(cue2);
-
-        var cue3 = CreateCue("c3");
-        cue3.TriggerTime = new TimecodeValue(0, 0, 8, 0, FrameRate.Fps30);
-        manager.AddCue(cue3);
-
-        // First update: set _lastTimecode to 0:0:1:0
         stubEngine.SimulateTimecodeUpdate(
-            new TimecodeValue(0, 0, 1, 0, FrameRate.Fps30),
-            new TimecodeValue(0, 0, 1, 0, FrameRate.Fps30));
+            new TimecodeValue(3, 50, 0, 0, FrameRate.Fps30),
+            new TimecodeValue(3, 50, 0, 0, FrameRate.Fps30));
 
-        // Skip frames: jump from 0:0:1:0 to 0:0:9:0 -> cue1(3:0) and cue2(5:0) and cue3(8:0) all in range
+        // ジャンプの着地フレームちょうどのキューは（受信開始時の完全一致と同様に）発火する
         stubEngine.SimulateTimecodeUpdate(
-            new TimecodeValue(0, 0, 9, 0, FrameRate.Fps30),
-            new TimecodeValue(0, 0, 9, 0, FrameRate.Fps30));
+            new TimecodeValue(4, 30, 0, 0, FrameRate.Fps30),
+            new TimecodeValue(4, 30, 0, 0, FrameRate.Fps30));
 
-        Assert.Equal(3, spySender.SendCalls.Count);
+        Assert.Single(spySender.SendCalls);
     }
 
     [Fact]
@@ -248,10 +299,13 @@ public class CueManagerTests
             new TimecodeValue(0, 0, 3, 0, FrameRate.Fps30),
             new TimecodeValue(0, 0, 3, 0, FrameRate.Fps30));
 
-        // Forward to 0:0:6:0 — cue at 5:0 is in range (3:0, 6:0]
+        // 4:29までシーク後、判定幅内の前進(4:29→5:01)でキュー5:0を通過発火
         stubEngine.SimulateTimecodeUpdate(
-            new TimecodeValue(0, 0, 6, 0, FrameRate.Fps30),
-            new TimecodeValue(0, 0, 6, 0, FrameRate.Fps30));
+            new TimecodeValue(0, 0, 4, 29, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 4, 29, FrameRate.Fps30));
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 5, 1, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 5, 1, FrameRate.Fps30));
 
         Assert.Single(spySender.SendCalls);
     }
@@ -432,6 +486,303 @@ public class CueManagerTests
 
         Assert.Single(spySender.SendCalls);
         Assert.Equal("/disabled-manual", spySender.SendCalls[0].OscAddress);
+    }
+
+    // --- TriggerOffset（発火タイミングのオフセット） ---
+
+    [Fact]
+    public void TriggerOffset_Positive_ShiftsFiringLater()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
+        cue.TriggerOffset = new TimecodeOffset(false, 0, 0, 2, 0, FrameRate.Fps30); // +2秒
+        manager.AddCue(cue);
+
+        // トリガー時間(5秒)を過ぎた6:28に位置しても、実効発火時刻(7秒)前なので発火しない
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 6, 28, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 6, 28, FrameRate.Fps30));
+        Assert.Empty(spySender.SendCalls);
+
+        // 実効発火時刻(7秒)を判定幅内の前進で跨いだら発火する
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 7, 1, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 7, 1, FrameRate.Fps30));
+        Assert.Single(spySender.SendCalls);
+    }
+
+    [Fact]
+    public void TriggerOffset_Negative_ShiftsFiringEarlier()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
+        cue.TriggerOffset = new TimecodeOffset(true, 0, 0, 2, 0, FrameRate.Fps30); // -2秒
+        manager.AddCue(cue);
+
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 2, 28, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 2, 28, FrameRate.Fps30));
+
+        // 実効発火時刻(3秒)を跨いだら、トリガー時間(5秒)前でも発火する
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 3, 1, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 3, 1, FrameRate.Fps30));
+        Assert.Single(spySender.SendCalls);
+    }
+
+    [Fact]
+    public void UpdateCue_FiredCueMovedToFuture_FiresAgain()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 9, 28, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 9, 28, FrameRate.Fps30));
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 10, 1, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 10, 1, FrameRate.Fps30));
+        Assert.Single(spySender.SendCalls); // 1回目の発火
+
+        // 発火済みキューをオフセット編集で未来(0:0:20)へ移す
+        var updated = CreateCue("c1");
+        updated.TriggerTime = new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30);
+        updated.TriggerOffset = new TimecodeOffset(false, 0, 0, 10, 0, FrameRate.Fps30);
+        manager.UpdateCue("c1", updated);
+
+        // 19:28までシーク後、判定幅内の前進で新しい実効時刻(20:0)を跨ぐ
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 19, 28, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 19, 28, FrameRate.Fps30));
+        stubEngine.SimulateTimecodeUpdate(
+            new TimecodeValue(0, 0, 20, 1, FrameRate.Fps30),
+            new TimecodeValue(0, 0, 20, 1, FrameRate.Fps30));
+
+        Assert.Equal(2, spySender.SendCalls.Count); // 新しい実効時刻で再発火
+    }
+
+    // --- SendTimecode（秒数送信で送るタイムコード） ---
+
+    [Fact]
+    public void SendTimecode_Specified_SentAsSecondsInsteadOfTriggerTime()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
+        cue.SendTriggerTimeAsSeconds = true;
+        cue.SendTimecode = new TimecodeValue(0, 10, 0, 0, FrameRate.Fps30); // 600秒
+        manager.AddCue(cue);
+
+        manager.ManualTrigger("c1");
+
+        var call = Assert.Single(spySender.SendCalls);
+        var seconds = Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value;
+        Assert.Equal(600f, seconds);
+    }
+
+    [Fact]
+    public void SendTimecode_NotSpecified_TriggerTimeSentAsSeconds()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
+        cue.SendTriggerTimeAsSeconds = true;
+        manager.AddCue(cue);
+
+        manager.ManualTrigger("c1");
+
+        var call = Assert.Single(spySender.SendCalls);
+        var seconds = Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value;
+        Assert.Equal(5f, seconds);
+    }
+
+    // --- AdditionalOscAddresses（追加アドレスは引数なしで送信） ---
+
+    [Fact]
+    public void ManualTrigger_AdditionalAddresses_SentWithoutArguments()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("c1");
+        cue.OscAddress = "/main";
+        cue.Arguments = [new OscInt32Argument(1)];
+        cue.AdditionalOscAddresses = ["/extra/1", "/extra/2"];
+        cue.TargetHostIds = ["host1"];
+        manager.AddCue(cue);
+
+        manager.ManualTrigger("c1");
+
+        Assert.Equal(3, spySender.SendCalls.Count);
+        Assert.Equal("/main", spySender.SendCalls[0].OscAddress);
+        Assert.Single(spySender.SendCalls[0].Arguments);
+        Assert.Equal("/extra/1", spySender.SendCalls[1].OscAddress);
+        Assert.Empty(spySender.SendCalls[1].Arguments); // 追加アドレスは引数なし
+        Assert.Equal("/extra/2", spySender.SendCalls[2].OscAddress);
+        Assert.Empty(spySender.SendCalls[2].Arguments);
+        Assert.All(spySender.SendCalls, c => Assert.Equal("host1", c.TargetHostIds[0]));
+    }
+
+    // --- SendCueSync（Cue-Syncワンショット送信） ---
+
+    [Fact]
+    public void SendCueSync_NearestPrecedingCueUsedAsBase()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cueA = CreateCue("a");
+        cueA.TriggerTime = new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30);
+        cueA.SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cueA);
+
+        var cueB = CreateCue("b");
+        cueB.TriggerTime = new TimecodeValue(0, 0, 20, 0, FrameRate.Fps30);
+        cueB.SendTimecode = new TimecodeValue(2, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cueB);
+
+        // 現在 0:00:25 → 直前は cueB(20秒)。送信値 = 2:00:00:00 + 5秒 = 7205秒
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal("/cuesync", call.OscAddress);
+        Assert.Equal("host1", call.TargetHostIds[0]);
+        Assert.Equal(7205f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_DisabledCue_Ignored()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // 無効 → 基準候補にならない
+        var disabled = CreateCue("disabled", enabled: false);
+        disabled.TriggerTime = new TimecodeValue(0, 0, 23, 0, FrameRate.Fps30);
+        disabled.SendTimecode = new TimecodeValue(9, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(disabled);
+
+        var baseCue = CreateCue("base");
+        baseCue.TriggerTime = new TimecodeValue(0, 0, 20, 0, FrameRate.Fps30);
+        baseCue.SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(baseCue);
+
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(3605f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_BaseCueWithoutSendTimecode_UsesTriggerTimeAsAxis()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // 送信TC未指定・トリガーオフセット+2秒 → 実効22秒、送信軸はトリガー時間(20秒)
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 20, 0, FrameRate.Fps30);
+        cue.TriggerOffset = new TimecodeOffset(false, 0, 0, 2, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        // 現在25秒 → 20 + (25 - 22) = 23秒（= 現在TCからオフセット分を差し引いた値）
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(23f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_NoSendTimecodeCueIsNearest_TakesPrecedence()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // 送信TC指定ありだが遠いキュー
+        var withSendTc = CreateCue("with");
+        withSendTc.TriggerTime = new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30);
+        withSendTc.SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(withSendTc);
+
+        // 送信TC未指定だが直前のキュー → こちらが基準
+        var nearest = CreateCue("nearest");
+        nearest.TriggerTime = new TimecodeValue(0, 0, 24, 0, FrameRate.Fps30);
+        manager.AddCue(nearest);
+
+        // 現在25秒 → 24 + (25 - 24) = 25秒
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 25, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(25f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_NoPrecedingCue_SendsZero()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        var cue = CreateCue("future");
+        cue.TriggerTime = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        cue.SendTimecode = new TimecodeValue(2, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(0f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
+    }
+
+    [Fact]
+    public void SendCueSync_TriggerOffsetShiftsBaseTime()
+    {
+        var stubEngine = new StubTimecodeEngine();
+        var spySender = new SpyOscSender();
+        var manager = new CueManager(stubEngine, spySender);
+
+        // トリガー20秒 + オフセット+5秒 → 実効25秒
+        var cue = CreateCue("c1");
+        cue.TriggerTime = new TimecodeValue(0, 0, 20, 0, FrameRate.Fps30);
+        cue.TriggerOffset = new TimecodeOffset(false, 0, 0, 5, 0, FrameRate.Fps30);
+        cue.SendTimecode = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        manager.AddCue(cue);
+
+        // 現在27秒 → 実効25秒から2秒経過 → 3602秒
+        stubEngine.SetCurrentOffsetTimecode(new TimecodeValue(0, 0, 27, 0, FrameRate.Fps30));
+        manager.SendCueSync("/cuesync", ["host1"]);
+
+        var call = Assert.Single(spySender.SendCalls);
+        Assert.Equal(3602f, Assert.IsType<OscFloat32Argument>(call.Arguments[0]).Value);
     }
 
     // --- Test Doubles ---

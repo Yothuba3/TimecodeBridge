@@ -100,13 +100,13 @@
                            Foreground="{DynamicResource SecondaryForegroundBrush}" />
                 <StackPanel Orientation="Horizontal">
                     <ComboBox x:Name="IntervalModeCombo"
-                              SelectedIndex="0"
+                              SelectedIndex="{Binding IntervalModeIndex}"
                               Width="140"
                               Margin="0,0,8,0">
                         <ComboBoxItem Content="EveryFrame" />
                         <ComboBoxItem Content="Custom" />
                     </ComboBox>
-                    <TextBox Text="{Binding ContinuousInterval.IntervalMs, Mode=OneWay}"
+                    <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=LostFocus}"
                              Width="80"
                              IsEnabled="{Binding SelectedIndex, ElementName=IntervalModeCombo, Converter={x:Static converters:IndexToBoolConverter.Instance}}" />
                     <TextBlock Text="ms"

@@ -22,4 +22,10 @@ public class DialogServiceTests
     {
         Assert.True(typeof(IFileDialogService).IsAssignableFrom(typeof(FileDialogService)));
     }
+
+    [Fact]
+    public void OscTriggerDialogService_IOscTriggerDialogServiceを実装している()
+    {
+        Assert.True(typeof(IOscTriggerDialogService).IsAssignableFrom(typeof(OscTriggerDialogService)));
+    }
 }

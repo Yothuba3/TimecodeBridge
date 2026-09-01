@@ -14,6 +14,7 @@ public partial class CueListViewModel : DispatcherViewModel
     private readonly ITimecodeEngine _timecodeEngine;
     private readonly IHostRegistry _hostRegistry;
     private readonly ICueDialogService _cueDialogService;
+    private readonly IProjectService _projectService;
 
     public ObservableCollection<CueItemViewModel> CueItems { get; } = [];
 
@@ -22,20 +23,24 @@ public partial class CueListViewModel : DispatcherViewModel
         get => _cueManager.TriggerWindowFrames;
         set
         {
-            if (_cueManager.TriggerWindowFrames != value)
+            // 負数は巻き戻し判定を壊すため0未満は受け付けない（プロジェクト非永続の実行時設定）
+            var clamped = Math.Max(0, value);
+            if (_cueManager.TriggerWindowFrames != clamped)
             {
-                _cueManager.TriggerWindowFrames = value;
-                OnPropertyChanged();
+                _cueManager.TriggerWindowFrames = clamped;
             }
+            // バインディング更新中の同期通知はTextBoxへ書き戻されないため、補正値の表示反映はDispatcher経由で行う
+            Dispatcher.BeginInvoke(() => OnPropertyChanged(nameof(TriggerWindowFrames)));
         }
     }
 
-    public CueListViewModel(ICueManager cueManager, ITimecodeEngine timecodeEngine, IHostRegistry hostRegistry, ICueDialogService cueDialogService)
+    public CueListViewModel(ICueManager cueManager, ITimecodeEngine timecodeEngine, IHostRegistry hostRegistry, ICueDialogService cueDialogService, IProjectService projectService)
     {
         _cueManager = cueManager;
         _timecodeEngine = timecodeEngine;
         _hostRegistry = hostRegistry;
         _cueDialogService = cueDialogService;
+        _projectService = projectService;
 
         // Populate from existing cues
         foreach (var cue in _cueManager.Cues)
@@ -72,8 +77,7 @@ public partial class CueListViewModel : DispatcherViewModel
         if (result is not null)
         {
             result.Id = Guid.NewGuid().ToString();
-            _cueManager.AddCue(result);
-            CueItems.Add(new CueItemViewModel(result));
+            AddCueInternal(result);
         }
     }
 
@@ -90,15 +94,10 @@ public partial class CueListViewModel : DispatcherViewModel
             result.Id = cueId;
             _cueManager.UpdateCue(cueId, result);
 
-            var index = -1;
-            for (int i = 0; i < CueItems.Count; i++)
-            {
-                if (CueItems[i].Id == cueId) { index = i; break; }
-            }
-            if (index >= 0)
-            {
-                CueItems[index] = new CueItemViewModel(result);
-            }
+            // 項目を差し替えず更新して選択状態を維持する
+            CueItems.FirstOrDefault(c => c.Id == cueId)?.Update(result);
+            RefreshNextCue();
+            _projectService.MarkAsChanged();
         }
     }
 
@@ -113,30 +112,63 @@ public partial class CueListViewModel : DispatcherViewModel
         var result = _cueDialogService.ShowBatchEditDialog(cueIds.Count, _hostRegistry.Hosts, _timecodeEngine.FrameRate);
         if (result is null) return;
 
+        int offsetSkipped = 0;
         foreach (var cueId in cueIds)
         {
             var cue = _cueManager.Cues.FirstOrDefault(c => c.Id == cueId);
             if (cue is null) continue;
 
-            ApplyBatchEdit(cue, result);
+            // トリガーオフセット適用で発火時刻が0〜24時の範囲外になるキューには適用しない
+            if (result.ApplyTriggerOffset &&
+                !Cue.TryApplyTriggerOffset(cue.TriggerTime, result.TriggerOffset, out _))
+            {
+                offsetSkipped++;
+                var withoutOffset = new CueBatchEditResult
+                {
+                    OscAddress = result.OscAddress,
+                    Arguments = result.Arguments,
+                    TargetHostIds = result.TargetHostIds,
+                    IsEnabled = result.IsEnabled,
+                    SendTriggerTimeAsSeconds = result.SendTriggerTimeAsSeconds,
+                    ApplyMemo = result.ApplyMemo,
+                    Memo = result.Memo,
+                };
+                ApplyBatchEdit(cue, withoutOffset);
+            }
+            else
+            {
+                ApplyBatchEdit(cue, result);
+            }
+
             _cueManager.UpdateCue(cueId, cue);
 
-            var index = -1;
-            for (int i = 0; i < CueItems.Count; i++)
-            {
-                if (CueItems[i].Id == cueId) { index = i; break; }
-            }
-            if (index >= 0)
-            {
-                CueItems[index] = new CueItemViewModel(cue);
-            }
+            // 項目を差し替えず更新して選択状態を維持する
+            CueItems.FirstOrDefault(c => c.Id == cueId)?.Update(cue);
         }
+
+        if (offsetSkipped > 0)
+        {
+            NotifyTriggerOffsetSkipped(offsetSkipped);
+        }
+
+        RefreshNextCue();
+        _projectService.MarkAsChanged();
+    }
+
+    /// <summary>範囲外のためトリガーオフセットを適用しなかったキューの通知。テスト時に差し替え可能。</summary>
+    protected virtual void NotifyTriggerOffsetSkipped(int count)
+    {
+        System.Windows.MessageBox.Show(
+            $"{count} 件のキューは、トリガーオフセット適用後の発火時刻が 0〜24時 の範囲を超えるため、オフセットを適用しませんでした（他の項目は適用済み）。",
+            "一括編集", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
     }
 
     private static void ApplyBatchEdit(Cue cue, CueBatchEditResult edit)
     {
         if (edit.OscAddress is not null)
             cue.OscAddress = edit.OscAddress;
+        if (edit.AdditionalOscAddresses is not null)
+            cue.AdditionalOscAddresses = edit.AdditionalOscAddresses.ToList();
         if (edit.Arguments is not null)
             cue.Arguments = edit.Arguments.ToList();
         if (edit.TargetHostIds is not null)
@@ -145,8 +177,10 @@ public partial class CueListViewModel : DispatcherViewModel
             cue.IsEnabled = edit.IsEnabled.Value;
         if (edit.SendTriggerTimeAsSeconds.HasValue)
             cue.SendTriggerTimeAsSeconds = edit.SendTriggerTimeAsSeconds.Value;
-        if (edit.ApplyOffset)
-            cue.CueOffset = edit.CueOffset;
+        if (edit.ApplySendTimecode)
+            cue.SendTimecode = edit.SendTimecode;
+        if (edit.ApplyTriggerOffset)
+            cue.TriggerOffset = edit.TriggerOffset;
         if (edit.ApplyMemo)
             cue.Memo = edit.Memo ?? string.Empty;
     }
@@ -172,9 +206,9 @@ public partial class CueListViewModel : DispatcherViewModel
         var batchResult = _cueDialogService.ShowBatchDuplicateDialog();
         if (batchResult is null) return;
 
-        var (count, intervalHours) = batchResult.Value;
+        var (count, interval) = batchResult.Value;
         int fps = source.TriggerTime.FrameRate.FramesPerSecond();
-        long framesPerInterval = (long)intervalHours * 3600 * fps;
+        long framesPerInterval = (long)interval.TotalSeconds * fps;
         long baseFrames = source.TriggerTime.TotalFrames();
 
         for (int i = 1; i <= count; i++)
@@ -196,11 +230,13 @@ public partial class CueListViewModel : DispatcherViewModel
             Memo = source.Memo,
             TriggerTime = triggerTime,
             OscAddress = source.OscAddress,
+            AdditionalOscAddresses = source.AdditionalOscAddresses.ToList(),
             Arguments = source.Arguments.ToList(),
             TargetHostIds = source.TargetHostIds.ToList(),
             IsEnabled = source.IsEnabled,
             SendTriggerTimeAsSeconds = source.SendTriggerTimeAsSeconds,
-            CueOffset = source.CueOffset,
+            SendTimecode = source.SendTimecode,
+            TriggerOffset = source.TriggerOffset,
         };
     }
 
@@ -208,6 +244,7 @@ public partial class CueListViewModel : DispatcherViewModel
     {
         _cueManager.AddCue(cue);
         CueItems.Add(new CueItemViewModel(cue));
+        _projectService.MarkAsChanged();
     }
 
     [RelayCommand]
@@ -220,6 +257,54 @@ public partial class CueListViewModel : DispatcherViewModel
         {
             CueItems.Remove(item);
         }
+        _projectService.MarkAsChanged();
+    }
+
+    [RelayCommand]
+    private void RemoveCues(IList? selectedItems)
+    {
+        if (selectedItems is null || selectedItems.Count == 0) return;
+
+        // SelectedItemsは削除中に変化するためコピーしてから処理する
+        var items = selectedItems.OfType<CueItemViewModel>().ToList();
+        if (items.Count == 0) return;
+
+        if (!ConfirmRemoveCues(items)) return;
+
+        foreach (var item in items)
+        {
+            _cueManager.RemoveCue(item.Id);
+            CueItems.Remove(item);
+        }
+        _projectService.MarkAsChanged();
+    }
+
+    /// <summary>キュー削除の確認。テスト時に差し替え可能。</summary>
+    protected virtual bool ConfirmRemoveCues(IReadOnlyList<CueItemViewModel> items)
+    {
+        var names = string.Join("\n", items.Take(5).Select(i => $"・{i.TriggerTime}  {i.Name}"));
+        if (items.Count > 5) names += $"\n… ほか {items.Count - 5} 件";
+
+        var result = System.Windows.MessageBox.Show(
+            $"{items.Count} 件のキューを削除しますか？\n\n{names}",
+            "キュー削除の確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        return result == System.Windows.MessageBoxResult.OK;
+    }
+
+    [RelayCommand]
+    private void SortCuesByTime()
+    {
+        // 表示上のトリガー時間ではなく、オフセット適用後の実際の発火順に並べる
+        var ordered = CueItems.OrderBy(c => c.GetEffectiveTriggerTime().ToOrdinal()).ToList();
+        if (ordered.SequenceEqual(CueItems)) return;
+
+        _cueManager.ReorderCues(ordered.Select(c => c.Id).ToList());
+        CueItems.Clear();
+        foreach (var item in ordered)
+        {
+            CueItems.Add(item);
+        }
+        _projectService.MarkAsChanged();
     }
 
     [RelayCommand]
@@ -234,37 +319,43 @@ public partial class CueListViewModel : DispatcherViewModel
         var item = CueItems.FirstOrDefault(c => c.Id == cueId);
         if (item != null)
         {
-            var newEnabled = !item.IsEnabled;
-            _cueManager.SetCueEnabled(cueId, newEnabled);
-            item.IsEnabled = newEnabled;
+            // CheckBoxのTwoWayバインディングが先にitem.IsEnabledを反転済みなので、
+            // ここで再反転せずManagerへ同期するだけにする（二重反転で元に戻るバグの修正）
+            _cueManager.SetCueEnabled(cueId, item.IsEnabled);
+            _projectService.MarkAsChanged();
         }
     }
+
+    /// <summary>次キューが変わったとき（画面外なら表示位置を追従させる用途）。UIスレッドで発火。</summary>
+    public event EventHandler<CueItemViewModel>? NextCueChanged;
+
+    private TimecodeValue? _lastTimecode;
+    private CueItemViewModel? _currentNextCue;
+
+    /// <summary>ヘッダ常時表示用の次キュー要約（例: "NEXT 00:10:00:00 Cue3（あと 00:00:12:10）"）。</summary>
+    [ObservableProperty] private string _nextCueSummary = "NEXT: なし";
 
     private void OnCueTriggered(object? sender, CueTriggeredEventArgs e)
     {
         RunOnUiThread(() =>
         {
-            var item = CueItems.FirstOrDefault(c => c.Id == e.Cue.Id);
-            if (item == null) return;
-
-            item.IsTriggered = true;
-
-            var timer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(500),
-            };
-            timer.Tick += (_, _) =>
-            {
-                timer.Stop();
-                item.IsTriggered = false;
-            };
-            timer.Start();
+            CueItems.FirstOrDefault(c => c.Id == e.Cue.Id)?.FlashTriggered();
         });
     }
 
     private void OnTimecodeUpdated(object? sender, TimecodeUpdatedEventArgs e)
     {
-        RunOnUiThread(() => UpdateNextCue(e.OffsetTimecode));
+        RunOnUiThread(() =>
+        {
+            _lastTimecode = e.OffsetTimecode;
+            UpdateNextCue(e.OffsetTimecode);
+        });
+    }
+
+    /// <summary>編集後などに次キューハイライトを再計算する（タイムコード未受信なら何もしない）。</summary>
+    private void RefreshNextCue()
+    {
+        if (_lastTimecode is { } tc) UpdateNextCue(tc);
     }
 
     private void UpdateNextCue(TimecodeValue currentTimecode)
@@ -279,7 +370,8 @@ public partial class CueListViewModel : DispatcherViewModel
 
             if (!item.IsEnabled) continue;
 
-            long cueOrd = item.TriggerTime.ToOrdinal();
+            // トリガーオフセット適用後の実際の発火時刻で判定する
+            long cueOrd = item.GetEffectiveTriggerTime().ToOrdinal();
             if (cueOrd > currentOrd && cueOrd < nextOrd)
             {
                 nextCue = item;
@@ -290,6 +382,23 @@ public partial class CueListViewModel : DispatcherViewModel
         if (nextCue != null)
         {
             nextCue.IsNextCue = true;
+
+            // ordinalは30固定基準（1秒=30）なので、実FPSのフレーム数として復元せず秒に換算する
+            var remaining = TimeSpan.FromSeconds((nextOrd - currentOrd) / 30.0);
+            NextCueSummary = $"NEXT {nextCue.GetEffectiveTriggerTime()} {nextCue.Name}（あと {remaining:hh\\:mm\\:ss}）";
+        }
+        else
+        {
+            NextCueSummary = "NEXT: なし";
+        }
+
+        if (!ReferenceEquals(nextCue, _currentNextCue))
+        {
+            _currentNextCue = nextCue;
+            if (nextCue is not null)
+            {
+                NextCueChanged?.Invoke(this, nextCue);
+            }
         }
     }
 

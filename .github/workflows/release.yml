@@ -29,6 +29,12 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
 
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          iscc /DAppVersion=$version installer\TimecodeBridge.iss
+
       - name: Rename exe
         run: Rename-Item publish/TimecodeBridge.exe "TimecodeBridge-${{ github.ref_name }}.exe"
 
@@ -36,4 +42,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: publish/TimecodeBridge-${{ github.ref_name }}.exe
+          files: |
+            publish/TimecodeBridge-${{ github.ref_name }}.exe
+            installer-output/*.exe

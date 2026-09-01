@@ -10,6 +10,8 @@ public class ProjectData
     public RelaySettings RelaySettings { get; set; } = new();
     public TimecodeOffset Offset { get; set; }
     public TimecodeSourceSettings SourceSettings { get; set; } = new();
+    public OscTriggerPanelSettings OscTriggerPanel { get; set; } = new();
+    public CueSyncSettings CueSync { get; set; } = new();
 
     public static JsonSerializerOptions CreateJsonOptions()
     {

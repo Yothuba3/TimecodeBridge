@@ -23,16 +23,27 @@
                     <TextBlock Text="キューリスト" FontWeight="SemiBold" FontSize="13"
                                Foreground="{DynamicResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
+                    <!-- 次キューの常時サマリー -->
+                    <TextBlock Text="{Binding NextCueSummary}" FontFamily="Consolas" FontSize="11"
+                               Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- Trigger Window -->
                     <TextBlock Text="判定幅:" VerticalAlignment="Center" Margin="0,0,4,0"
-                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" />
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11"
+                               ToolTipService.ShowDuration="20000"
+                               ToolTip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBox Text="{Binding TriggerWindowFrames, UpdateSourceTrigger=PropertyChanged}"
                              Width="36" FontSize="11" VerticalAlignment="Center"
-                             HorizontalContentAlignment="Center" Padding="4,3" />
+                             HorizontalContentAlignment="Center" Padding="4,3"
+                             ToolTipService.ShowDuration="20000"
+                             ToolTip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBlock Text="f" VerticalAlignment="Center" Margin="3,0,16,0"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" />
+                    <Button Content="時間順" Padding="10,4" Margin="3,0"
+                            Command="{Binding SortCuesByTimeCommand}" FontSize="11"
+                            ToolTip="キューをトリガー時間順に並べ替える" />
                     <Button Content="＋ 追加" Padding="10,4" Margin="3,0"
                             Command="{Binding AddCueCommand}" FontSize="11"
                             Style="{StaticResource AccentButtonStyle}" />
@@ -53,8 +64,8 @@
                             CommandParameter="{Binding SelectedItem.Id, ElementName=CueDataGrid}"
                             FontSize="11" />
                     <Button Content="－ 削除" Padding="10,4" Margin="3,0"
-                            Command="{Binding RemoveCueCommand}"
-                            CommandParameter="{Binding SelectedItem.Id, ElementName=CueDataGrid}"
+                            Command="{Binding RemoveCuesCommand}"
+                            CommandParameter="{Binding SelectedItems, ElementName=CueDataGrid}"
                             FontSize="11" />
                 </StackPanel>
             </DockPanel>
@@ -106,7 +117,7 @@
                         <GridViewColumn Header="OSCアドレス" Width="150">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding OscAddress}"
+                                    <TextBlock Text="{Binding OscAddressDisplay}"
                                                FontFamily="Consolas" FontSize="12"
                                                Foreground="{DynamicResource SecondaryForegroundBrush}" />
                                 </DataTemplate>
@@ -148,14 +159,18 @@
                                                 BorderBrush="{DynamicResource BorderSubtleBrush}">
                                             <GridViewRowPresenter />
                                         </Border>
+                                        <!-- Next cue indicator (left accent bar) -->
+                                        <Border x:Name="NextCueIndicator" Width="3" HorizontalAlignment="Left"
+                                                Margin="0,3,0,3" CornerRadius="2"
+                                                Background="{DynamicResource AccentBrush}"
+                                                Visibility="Collapsed" IsHitTestVisible="False" />
                                         <!-- Flash overlay -->
                                         <Border x:Name="FlashOverlay" Background="#DD3333"
                                                 Opacity="0" IsHitTestVisible="False" />
                                     </Grid>
                                     <ControlTemplate.Triggers>
                                         <DataTrigger Binding="{Binding IsNextCue}" Value="True">
-                                            <Setter TargetName="RowBorder" Property="Background"
-                                                    Value="{DynamicResource SelectionBackgroundBrush}" />
+                                            <Setter TargetName="NextCueIndicator" Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsTriggered}" Value="True">
                                             <DataTrigger.EnterActions>

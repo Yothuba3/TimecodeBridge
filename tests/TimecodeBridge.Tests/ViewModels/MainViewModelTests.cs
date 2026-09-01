@@ -20,6 +20,7 @@ internal class StubProjectService : IProjectService
     public string? LastSavedPath => _lastSavedPath;
 
     public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+    public event EventHandler<EventArgs>? ChangeCommitted;
 
     public ProjectData? ProjectDataToLoad { get; set; }
 
@@ -42,6 +43,13 @@ internal class StubProjectService : IProjectService
     public void MarkAsChanged()
     {
         SetHasUnsavedChanges(true);
+        ChangeCommitted?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void Reset()
+    {
+        CurrentFilePath = null;
+        SetHasUnsavedChanges(false);
     }
 
     public void SimulateUnsavedChanges(bool value)
@@ -96,6 +104,8 @@ internal class StubCueManagerForMain : ICueManager
     public void ReorderCues(IReadOnlyList<string> orderedCueIds) { }
     public void SetCueEnabled(string cueId, bool enabled) { }
     public void ManualTrigger(string cueId) { }
+    public void ResetTracking() { }
+    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
 
     public void ClearAll()
@@ -163,7 +173,7 @@ internal class StubCueDialogServiceForMain : ICueDialogService
 {
     public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => template;
     public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
-    public (int Count, int IntervalHours)? ShowBatchDuplicateDialog() => null;
+    public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
 }
 
 internal class StubTimecodeEngineForMain : ITimecodeEngine
@@ -190,6 +200,27 @@ internal class StubTimecodeEngineForMain : ITimecodeEngine
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
 }
 
+internal class StubOscSenderForMain : IOscSender
+{
+    public void Send(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds) { }
+    public void SendPing(string hostId) { }
+    public Task SendIcmpPingAsync(string hostId, int framesPerSecond) => Task.CompletedTask;
+    public event EventHandler<OscSendResultEventArgs>? SendCompleted;
+}
+
+internal class StubOscTriggerDialogServiceForMain : IOscTriggerDialogService
+{
+    public OscTriggerEditResult ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title, bool canDelete)
+        => new(OscTriggerEditAction.Save, template);
+}
+
+internal class StubFileDialogServiceForMain : IFileDialogService
+{
+    public string? SaveDialogResult { get; set; }
+    public string? ShowOpenFileDialog(string filter, string? initialDirectory = null) => null;
+    public string? ShowSaveFileDialog(string filter, string? defaultFileName = null, string? initialDirectory = null) => SaveDialogResult;
+}
+
 // --- Tests ---
 
 public class MainViewModelTests
@@ -203,15 +234,43 @@ public class MainViewModelTests
     private readonly TimecodeViewModel _timecodeViewModel;
     private readonly CueListViewModel _cueListViewModel;
     private readonly RelayViewModel _relayViewModel;
+    private readonly OscTriggerPanelManager _oscTriggerPanelManager;
+    private readonly OscTriggerPanelViewModel _oscTriggerPanelViewModel;
 
     public MainViewModelTests()
     {
-        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager);
-        _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain());
-        _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry);
+        _timecodeViewModel = new TimecodeViewModel(_timecodeEngine, _cueManager, _projectService,
+            new CueSyncViewModel(_cueManager, _hostRegistry, _projectService));
+        _cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain(), _projectService);
+        _relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry, _projectService);
+        _oscTriggerPanelManager = new OscTriggerPanelManager(new StubOscSenderForMain(), _hostRegistry);
+        _oscTriggerPanelViewModel = new OscTriggerPanelViewModel(
+            _oscTriggerPanelManager, new StubOscTriggerDialogServiceForMain(), _hostRegistry, _projectService);
     }
 
-    private MainViewModel CreateVm() => new(
+    // 確認ダイアログ(MessageBox)をヘッドレス環境で表示しないテスト用サブクラス
+    private class TestMainViewModel(
+        IProjectService projectService,
+        IRecentProjectsService recentProjectsService,
+        ICueManager cueManager,
+        IHostRegistry hostRegistry,
+        ITimecodeRelay timecodeRelay,
+        ITimecodeEngine timecodeEngine,
+        TimecodeViewModel timecodeViewModel,
+        CueListViewModel cueListViewModel,
+        RelayViewModel relayViewModel,
+        IOscTriggerPanelManager oscTriggerPanelManager,
+        OscTriggerPanelViewModel oscTriggerPanelViewModel,
+        IFileDialogService fileDialogService)
+        : MainViewModel(projectService, recentProjectsService, cueManager, hostRegistry,
+            timecodeRelay, timecodeEngine, timecodeViewModel, cueListViewModel,
+            relayViewModel, oscTriggerPanelManager, oscTriggerPanelViewModel, fileDialogService)
+    {
+        protected override bool ConfirmDiscardIfDirty() => true;
+        protected override void NotifyLoadError(string filePath, Exception ex) { }
+    }
+
+    private MainViewModel CreateVm() => new TestMainViewModel(
         _projectService,
         _recentProjectsService,
         _cueManager,
@@ -220,7 +279,10 @@ public class MainViewModelTests
         _timecodeEngine,
         _timecodeViewModel,
         _cueListViewModel,
-        _relayViewModel);
+        _relayViewModel,
+        _oscTriggerPanelManager,
+        _oscTriggerPanelViewModel,
+        new StubFileDialogServiceForMain());
 
     // --- Initial Title ---
 
@@ -588,5 +650,87 @@ public class MainViewModelTests
 
         var data = _projectService.LastSavedData!;
         Assert.NotNull(data.SourceSettings);
+    }
+
+    // --- Undo/Redo ---
+
+    private Cue CreateCueForUndo(string id) => new()
+    {
+        Id = id,
+        Name = $"Cue {id}",
+        OscAddress = "/test",
+        TriggerTime = new TimecodeValue(0, 0, 1, 0, FrameRate.Fps30),
+    };
+
+    [Fact]
+    public void Undo_RestoresPreviousCueState()
+    {
+        var vm = CreateVm();
+        Assert.False(vm.CanUndo);
+
+        // 編集操作を模倣: キュー追加 + MarkAsChanged（VMの編集コマンドと同じ流れ）
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+
+        Assert.True(vm.CanUndo);
+
+        vm.UndoCommand.Execute(null);
+
+        Assert.Empty(_cueManager.Cues);
+        Assert.True(vm.CanRedo);
+    }
+
+    [Fact]
+    public void Redo_ReappliesUndoneChange()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+
+        vm.UndoCommand.Execute(null);
+        Assert.Empty(_cueManager.Cues);
+
+        vm.RedoCommand.Execute(null);
+
+        Assert.Single(_cueManager.Cues);
+        Assert.Equal("c1", _cueManager.Cues[0].Id);
+        Assert.False(vm.CanRedo);
+    }
+
+    [Fact]
+    public void NewProject_ResetsUndoHistory()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+        Assert.True(vm.CanUndo);
+
+        vm.NewProjectCommand.Execute(null);
+
+        Assert.False(vm.CanUndo);
+        Assert.False(vm.CanRedo);
+    }
+
+    [Fact]
+    public void Undo_NewEditAfterUndo_DiscardsRedoHistory()
+    {
+        var vm = CreateVm();
+
+        _cueManager.AddCue(CreateCueForUndo("c1"));
+        _projectService.MarkAsChanged();
+        System.Threading.Thread.Sleep(600); // 連続編集の集約ウィンドウを跨ぐ
+        _cueManager.AddCue(CreateCueForUndo("c2"));
+        _projectService.MarkAsChanged();
+
+        vm.UndoCommand.Execute(null);
+        Assert.Single(_cueManager.Cues);
+
+        System.Threading.Thread.Sleep(600);
+        _cueManager.AddCue(CreateCueForUndo("c3"));
+        _projectService.MarkAsChanged();
+
+        Assert.False(vm.CanRedo);
     }
 }

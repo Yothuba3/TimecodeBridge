@@ -26,9 +26,9 @@ public partial class HostEditDialog : Window
         }
 
         var ip = IpAddressBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(ip))
+        if (string.IsNullOrWhiteSpace(ip) || Uri.CheckHostName(ip) == UriHostNameType.Unknown)
         {
-            MessageBox.Show("IPアドレスを入力してください。", "入力エラー",
+            MessageBox.Show("IPアドレス（またはホスト名）を正しい形式で入力してください。", "入力エラー",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

@@ -24,6 +24,8 @@ public class DiContainerTests
     [InlineData(typeof(IProjectService))]
     [InlineData(typeof(IAppSettingsService))]
     [InlineData(typeof(IRecentProjectsService))]
+    [InlineData(typeof(IOscTriggerPanelManager))]
+    [InlineData(typeof(IOscTriggerDialogService))]
     public void Service_ShouldBeResolvable(Type serviceType)
     {
         var service = _serviceProvider.GetService(serviceType);
@@ -37,6 +39,7 @@ public class DiContainerTests
     [InlineData(typeof(HostManagerViewModel))]
     [InlineData(typeof(RelayViewModel))]
     [InlineData(typeof(LogViewModel))]
+    [InlineData(typeof(OscTriggerPanelViewModel))]
     public void ViewModel_ShouldBeResolvable(Type viewModelType)
     {
         var viewModel = _serviceProvider.GetService(viewModelType);
