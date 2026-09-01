@@ -1,3 +1,5 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.Core.Models;
 using Xunit;
 
@@ -54,7 +56,13 @@ public class DataModelsMovedTests
     public void Cue_ShouldBeInCoreModels()
     {
         // Arrange & Act
-        var cue = new Cue();
+        var cue = new Cue
+        {
+            Id = "test",
+            Name = "test",
+            TriggerTime = new TimecodeValue(0, 0, 0, 0, FrameRate.Fps30),
+            OscAddress = "/test",
+        };
 
         // Assert
         Assert.NotNull(cue);
@@ -65,7 +73,13 @@ public class DataModelsMovedTests
     public void OscHost_ShouldBeInCoreModels()
     {
         // Arrange & Act
-        var host = new OscHost();
+        var host = new OscHost
+        {
+            Id = "test",
+            Name = "test",
+            IpAddress = "127.0.0.1",
+            Port = 9000,
+        };
 
         // Assert
         Assert.NotNull(host);

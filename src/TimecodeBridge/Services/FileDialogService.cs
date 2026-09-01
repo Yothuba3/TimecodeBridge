@@ -1,3 +1,5 @@
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services;
 using Microsoft.Win32;
 using TimecodeBridge.Core.Services.Interfaces;
 

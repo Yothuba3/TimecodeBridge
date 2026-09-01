@@ -5,7 +5,7 @@ using TimecodeBridge.macOS.Services;
 namespace TimecodeBridge.macOS.Views.Dialogs;
 
 /// <summary>
-/// 連続複製ダイアログ。OKで (複製数, 間隔時間)、キャンセルで null を返す。
+/// 連続複製ダイアログ。OKで (複製数, 間隔) 、キャンセルで null を返す。
 /// </summary>
 public partial class BatchDuplicateDialog : Window
 {
@@ -16,19 +16,40 @@ public partial class BatchDuplicateDialog : Window
 
     private async void OnOkClick(object? sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(CountBox.Text, out var count) || count < 1)
+        // 上限は大量キュー一括生成によるUIフリーズ防止
+        if (!int.TryParse(CountBox.Text, out var count) || count < 1 || count > 999)
         {
-            await ModalDialog.ShowMessageAsync(this, "入力エラー", "複製数は1以上の整数を入力してください。");
+            await ModalDialog.ShowMessageAsync(this, "入力エラー", "複製数は 1〜999 の整数を入力してください。");
             return;
         }
 
-        if (!double.TryParse(IntervalHoursBox.Text, out var intervalHours) || intervalHours <= 0)
+        if (!TryParseField(IntervalHoursBox.Text, 23, out var hours) ||
+            !TryParseField(IntervalMinutesBox.Text, 59, out var minutes) ||
+            !TryParseField(IntervalSecondsBox.Text, 59, out var seconds))
         {
-            await ModalDialog.ShowMessageAsync(this, "入力エラー", "間隔は0より大きい数値を入力してください。");
+            await ModalDialog.ShowMessageAsync(this, "入力エラー", "間隔を正しい形式で入力してください。\n時(0-23) 分(0-59) 秒(0-59)");
             return;
         }
 
-        Close(((int count, double intervalHours)?)(count, intervalHours));
+        var interval = new TimeSpan(hours, minutes, seconds);
+        if (interval <= TimeSpan.Zero)
+        {
+            await ModalDialog.ShowMessageAsync(this, "入力エラー", "間隔は1秒以上を指定してください。");
+            return;
+        }
+
+        Close(((int Count, TimeSpan Interval)?)(count, interval));
+    }
+
+    // 空欄は0扱い、非数値・範囲外はエラー
+    private static bool TryParseField(string? text, int max, out int value)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = 0;
+            return true;
+        }
+        return int.TryParse(text, out value) && value >= 0 && value <= max;
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

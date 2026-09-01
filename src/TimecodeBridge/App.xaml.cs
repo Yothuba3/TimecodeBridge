@@ -1,3 +1,5 @@
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using TimecodeBridge.Core.Services.Interfaces;

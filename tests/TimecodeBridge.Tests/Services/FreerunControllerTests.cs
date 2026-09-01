@@ -1,4 +1,6 @@
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
 
 namespace TimecodeBridge.Tests.Services;

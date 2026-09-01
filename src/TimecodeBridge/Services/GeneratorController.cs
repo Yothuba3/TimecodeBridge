@@ -1,3 +1,5 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using TimecodeBridge.Core.Models;
@@ -41,7 +43,7 @@ internal class GeneratorController : IDisposable
                 var enumerator = new MMDeviceEnumerator();
                 var device = enumerator.GetDevice(settings.OutputDeviceId);
                 _wasapiOut = new WasapiOut(device, AudioClientShareMode.Shared, true, 100);
-                _wasapiOut.Init(_ltcEncoder);
+                _wasapiOut.Init(new LtcEncoderWaveProvider(_ltcEncoder));
                 _wasapiOut.Play();
             }
             catch (Exception ex)

@@ -1,7 +1,9 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.ViewModels;
 
 using System.Collections.ObjectModel;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
 using TimecodeBridge.Services.Interfaces;
 using TimecodeBridge.ViewModels;
@@ -137,11 +139,11 @@ public class HostManagerViewModelTests
 
     // 削除確認ダイアログを常に承認するテスト用サブクラス
     private class TestHostManagerViewModel(
-        TimecodeBridge.Services.Interfaces.IHostRegistry hostRegistry,
-        TimecodeBridge.Services.Interfaces.IOscSender oscSender,
-        TimecodeBridge.Services.Interfaces.ITimecodeEngine timecodeEngine,
-        TimecodeBridge.Services.Interfaces.IHostDialogService hostDialogService,
-        TimecodeBridge.Services.Interfaces.IProjectService projectService)
+        TimecodeBridge.Core.Services.Interfaces.IHostRegistry hostRegistry,
+        TimecodeBridge.Core.Services.Interfaces.IOscSender oscSender,
+        TimecodeBridge.Core.Services.Interfaces.ITimecodeEngine timecodeEngine,
+        TimecodeBridge.Core.Services.Interfaces.IHostDialogService hostDialogService,
+        TimecodeBridge.Core.Services.Interfaces.IProjectService projectService)
         : HostManagerViewModel(hostRegistry, oscSender, timecodeEngine, hostDialogService, projectService)
     {
         protected override bool ConfirmRemoveHost(OscHost host) => true;

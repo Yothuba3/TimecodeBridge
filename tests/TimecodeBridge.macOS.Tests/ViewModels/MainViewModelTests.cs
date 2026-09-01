@@ -26,6 +26,13 @@ internal class StubProjectService : IProjectService
     public string? LastSavedPath => _lastSavedPath;
 
     public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+    public event EventHandler<EventArgs>? ChangeCommitted;
+
+    public void Reset()
+    {
+        CurrentFilePath = null;
+        SetHasUnsavedChanges(false);
+    }
 
     public ProjectData? ProjectDataToLoad { get; set; }
 
@@ -96,6 +103,8 @@ internal class StubCueManagerForMain : ICueManager
     public void ReorderCues(IReadOnlyList<string> orderedCueIds) { }
     public void SetCueEnabled(string cueId, bool enabled) { }
     public void ManualTrigger(string cueId) { }
+    public void ResetTracking() { }
+    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
     public void ClearAll()
     {
@@ -236,24 +245,73 @@ public class MainViewModelTests
     private readonly StubHostRegistryForMain _hostRegistry = new();
     private readonly StubTimecodeRelayForMain _timecodeRelay = new();
     private readonly StubTimecodeEngineForMain _timecodeEngine = new();
-    private readonly StubTimecodeViewModel _timecodeViewModel = new();
-    private readonly StubCueListViewModel _cueListViewModel = new();
-    private readonly StubRelayViewModel _relayViewModel = new();
     private readonly StubFileDialogService _fileDialogService = new();
 
-    private MainViewModel CreateVm() => new(
-        _projectService,
-        _fileDialogService,
-        _recentProjectsService,
-        _cueManager,
-        _hostRegistry,
-        _timecodeRelay,
-        _timecodeEngine,
-        _timecodeViewModel,
-        _cueListViewModel,
-        _relayViewModel,
-        new HostManagerViewModel(_hostRegistry, new StubOscSenderForMain(), _timecodeEngine, new StubHostDialogServiceForMain()),
-        new LogViewModel(new StubOscSenderForMain()));
+    private class StubAudioDeviceServiceForMain : IAudioDeviceService
+    {
+        public IReadOnlyList<AudioDeviceInfo> GetCaptureDevices() => [];
+        public IReadOnlyList<AudioDeviceInfo> GetRenderDevices() => [];
+    }
+
+    private class StubCueDialogServiceForMain : ICueDialogService
+    {
+        public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title) => null;
+        public CueBatchEditResult? ShowBatchEditDialog(int cueCount, IReadOnlyList<OscHost> hosts, FrameRate frameRate) => null;
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog() => null;
+    }
+
+    private class StubOscTriggerDialogServiceForMain : IOscTriggerDialogService
+    {
+        public OscTriggerEditResult ShowEditDialog(OscTriggerButton template, IReadOnlyList<OscHost> hosts, string title, bool canDelete)
+            => new(OscTriggerEditAction.Cancel, null);
+    }
+
+    // ヘッドレス環境ではダイアログを出せないため、確認は常に許可・通知は無視する
+    private class TestableMainViewModel : MainViewModel
+    {
+        public TestableMainViewModel(
+            IProjectService projectService, TimecodeBridge.Core.Services.Interfaces.IFileDialogService fileDialogService,
+            IRecentProjectsService recentProjectsService, ICueManager cueManager, IHostRegistry hostRegistry,
+            ITimecodeRelay timecodeRelay, ITimecodeEngine timecodeEngine, IOscTriggerPanelManager oscTriggerPanelManager,
+            TimecodeViewModel timecodeViewModel, CueListViewModel cueListViewModel, RelayViewModel relayViewModel,
+            HostManagerViewModel hostManagerViewModel, OscTriggerPanelViewModel oscTriggerPanelViewModel, LogViewModel logViewModel)
+            : base(projectService, fileDialogService, recentProjectsService, cueManager, hostRegistry, timecodeRelay,
+                   timecodeEngine, oscTriggerPanelManager, timecodeViewModel, cueListViewModel, relayViewModel,
+                   hostManagerViewModel, oscTriggerPanelViewModel, logViewModel)
+        {
+        }
+
+        protected override bool ConfirmDiscardIfDirty() => true;
+        protected override void NotifyLoadError(string filePath, Exception ex) { }
+    }
+
+    private MainViewModel CreateVm()
+    {
+        var oscSender = new StubOscSenderForMain();
+        var cueSync = new CueSyncViewModel(_cueManager, _hostRegistry, _projectService);
+        var timecodeViewModel = new TimecodeViewModel(_timecodeEngine, new StubAudioDeviceServiceForMain(), _cueManager, _projectService, cueSync);
+        var cueListViewModel = new CueListViewModel(_cueManager, _timecodeEngine, _hostRegistry, new StubCueDialogServiceForMain(), _projectService);
+        var relayViewModel = new RelayViewModel(_timecodeRelay, _hostRegistry, _projectService);
+        var hostManagerViewModel = new HostManagerViewModel(_hostRegistry, oscSender, _timecodeEngine, new StubHostDialogServiceForMain(), _projectService);
+        var panelManager = new TimecodeBridge.Core.Services.OscTriggerPanelManager(oscSender, _hostRegistry);
+        var panelViewModel = new OscTriggerPanelViewModel(panelManager, new StubOscTriggerDialogServiceForMain(), _hostRegistry, _projectService);
+
+        return new TestableMainViewModel(
+            _projectService,
+            _fileDialogService,
+            _recentProjectsService,
+            _cueManager,
+            _hostRegistry,
+            _timecodeRelay,
+            _timecodeEngine,
+            panelManager,
+            timecodeViewModel,
+            cueListViewModel,
+            relayViewModel,
+            hostManagerViewModel,
+            panelViewModel,
+            new LogViewModel(oscSender));
+    }
 
     // --- Initial State ---
 
@@ -303,7 +361,7 @@ public class MainViewModelTests
 
         var vm = CreateVm();
 
-        await vm.NewProjectCommand.ExecuteAsync(null);
+        vm.NewProjectCommand.Execute(null);
 
         Assert.Empty(_cueManager.Cues);
         Assert.Empty(_hostRegistry.Hosts);
@@ -314,10 +372,10 @@ public class MainViewModelTests
     {
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
         Assert.Contains("project.json", vm.Title);
 
-        await vm.NewProjectCommand.ExecuteAsync(null);
+        vm.NewProjectCommand.Execute(null);
 
         Assert.Equal("TimecodeBridge", vm.Title);
     }
@@ -331,7 +389,7 @@ public class MainViewModelTests
 
         var vm = CreateVm();
 
-        await vm.NewProjectCommand.ExecuteAsync(null);
+        vm.NewProjectCommand.Execute(null);
 
         Assert.Equal("/timecode", _timecodeRelay.OscAddressPattern);
         Assert.False(_timecodeRelay.IsContinuousEnabled);
@@ -346,7 +404,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         Assert.Equal("/test/project.json", _projectService.LastSavedPath);
     }
@@ -357,7 +415,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = null;
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         Assert.Null(_projectService.LastSavedPath);
     }
@@ -388,7 +446,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         var data = _projectService.LastSavedData!;
         Assert.Single(data.Cues);
@@ -408,7 +466,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/myproject.json";
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         Assert.Equal("TimecodeBridge - myproject.json", vm.Title);
     }
@@ -419,7 +477,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         Assert.Single(vm.RecentProjects);
         Assert.Equal("/test/project.json", vm.RecentProjects[0]);
@@ -431,7 +489,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
 
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         var data = _projectService.LastSavedData!;
         Assert.NotNull(data.SourceSettings);
@@ -444,9 +502,9 @@ public class MainViewModelTests
     {
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/existing.json";
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
-        await vm.SaveProjectCommand.ExecuteAsync(null);
+        vm.SaveProjectCommand.Execute(null);
 
         Assert.Equal("/test/existing.json", _projectService.LastSavedPath);
     }
@@ -457,7 +515,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/new.json";
 
-        await vm.SaveProjectCommand.ExecuteAsync(null);
+        vm.SaveProjectCommand.Execute(null);
 
         Assert.Equal("/test/new.json", _projectService.LastSavedPath);
     }
@@ -473,7 +531,7 @@ public class MainViewModelTests
 
         var vm = CreateVm();
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Equal("/test/loaded.json", _projectService.CurrentFilePath);
     }
@@ -484,7 +542,7 @@ public class MainViewModelTests
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = null;
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Null(_projectService.CurrentFilePath);
     }
@@ -528,7 +586,7 @@ public class MainViewModelTests
 
         var vm = CreateVm();
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Single(_cueManager.Cues);
         Assert.Equal("c1", _cueManager.Cues[0].Id);
@@ -588,7 +646,7 @@ public class MainViewModelTests
 
         var vm = CreateVm();
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Single(_cueManager.Cues);
         Assert.Equal("new-cue", _cueManager.Cues[0].Id);
@@ -603,7 +661,7 @@ public class MainViewModelTests
         _fileDialogService.FilePathToReturn = "/projects/show.json";
         var vm = CreateVm();
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Equal("TimecodeBridge - show.json", vm.Title);
     }
@@ -615,7 +673,7 @@ public class MainViewModelTests
         _fileDialogService.FilePathToReturn = "/projects/show.json";
         var vm = CreateVm();
 
-        await vm.OpenProjectCommand.ExecuteAsync(null);
+        vm.OpenProjectWithDialogCommand.Execute(null);
 
         Assert.Single(vm.RecentProjects);
         Assert.Equal("/projects/show.json", vm.RecentProjects[0]);
@@ -640,7 +698,7 @@ public class MainViewModelTests
     {
         var vm = CreateVm();
         _fileDialogService.FilePathToReturn = "/test/project.json";
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         _projectService.SimulateUnsavedChanges(true);
 
@@ -671,7 +729,7 @@ public class MainViewModelTests
         Assert.Empty(vm.RecentProjects);
 
         _fileDialogService.FilePathToReturn = "/test/a.json";
-        await vm.SaveProjectAsCommand.ExecuteAsync(null);
+        vm.SaveProjectAsCommand.Execute(null);
 
         Assert.Single(vm.RecentProjects);
         Assert.Equal("/test/a.json", vm.RecentProjects[0]);

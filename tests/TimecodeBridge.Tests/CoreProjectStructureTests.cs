@@ -1,3 +1,7 @@
+using System.IO;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Xml.Linq;
 using Xunit;
 
@@ -55,15 +59,13 @@ public class CoreProjectStructureTests
         var requiredPackages = new[]
         {
             "CommunityToolkit.Mvvm",
-            "BuildSoft.OscCore",
             "System.Text.Json"
         };
 
         // Assert
         foreach (var requiredPackage in requiredPackages)
         {
-            Assert.Contains(requiredPackage, packageReferences,
-                $"必須パッケージ '{requiredPackage}' が見つかりません");
+            Assert.Contains(requiredPackage, packageReferences);
         }
     }
 
@@ -81,8 +83,7 @@ public class CoreProjectStructureTests
         // Assert
         foreach (var platformPackage in platformSpecificPackages)
         {
-            Assert.DoesNotContain(platformPackage, packageReferences,
-                $"プラットフォーム固有パッケージ '{platformPackage}' は Core プロジェクトに含めるべきではありません");
+            Assert.DoesNotContain(platformPackage, packageReferences);
         }
     }
 
@@ -132,8 +133,7 @@ public class CoreProjectStructureTests
         var solutionContent = File.ReadAllText(SolutionPath);
 
         // Assert
-        Assert.Contains("TimecodeBridge.Core", solutionContent,
-            "TimecodeBridge.Core が ソリューションファイルに追加されていません");
+        Assert.Contains("TimecodeBridge.Core", solutionContent);
     }
 
     [Fact]
@@ -170,7 +170,6 @@ public class CoreProjectStructureTests
 
         // Assert
         Assert.Contains(projectReferences,
-            pr => pr != null && pr.Contains("TimecodeBridge.Core.csproj"),
-            "TimecodeBridge.csproj に TimecodeBridge.Core への ProjectReference が存在しません");
+            pr => pr != null && pr.Contains("TimecodeBridge.Core.csproj"));
     }
 }

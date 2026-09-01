@@ -33,6 +33,18 @@ public partial class LogViewModel : DispatcherViewModel
 
     private void AddEntry(LogEntry entry)
     {
+        // 継続リレー等で毎フレーム同一内容の成功ログが積まれると重要ログが流れ去るため、
+        // 直前と同一メッセージの成功ログはタイムスタンプ更新（置換）に留める
+        if (entry.IsSuccess && Logs.Count > 0)
+        {
+            var last = Logs[^1];
+            if (last.IsSuccess && last.Message == entry.Message)
+            {
+                Logs[^1] = entry;
+                return;
+            }
+        }
+
         Logs.Add(entry);
 
         while (Logs.Count > MaxLogEntries)

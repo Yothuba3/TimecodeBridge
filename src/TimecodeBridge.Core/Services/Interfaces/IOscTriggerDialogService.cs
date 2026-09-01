@@ -1,6 +1,6 @@
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
-namespace TimecodeBridge.Services.Interfaces;
+namespace TimecodeBridge.Core.Services.Interfaces;
 
 /// <summary>
 /// OSCポン出しボタンの編集ダイアログ表示を担当するサービス。

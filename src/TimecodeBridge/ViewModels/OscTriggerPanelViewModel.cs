@@ -1,8 +1,10 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services.Interfaces;
 
 namespace TimecodeBridge.ViewModels;
@@ -82,8 +84,8 @@ public partial class OscTriggerPanelViewModel : ObservableObject
     {
         if (_suppressSizeApply) return;
 
-        var newRows = Math.Clamp(Rows, Services.OscTriggerPanelManager.MinSize, Services.OscTriggerPanelManager.MaxSize);
-        var newColumns = Math.Clamp(Columns, Services.OscTriggerPanelManager.MinSize, Services.OscTriggerPanelManager.MaxSize);
+        var newRows = Math.Clamp(Rows, Core.Services.OscTriggerPanelManager.MinSize, Core.Services.OscTriggerPanelManager.MaxSize);
+        var newColumns = Math.Clamp(Columns, Core.Services.OscTriggerPanelManager.MinSize, Core.Services.OscTriggerPanelManager.MaxSize);
 
         // 範囲外が入力された場合は表示値も補正
         if (newRows != Rows || newColumns != Columns)

@@ -1,3 +1,4 @@
+using System.IO;
 using TimecodeBridge.macOS.Services;
 
 namespace TimecodeBridge.macOS.Tests.Services;

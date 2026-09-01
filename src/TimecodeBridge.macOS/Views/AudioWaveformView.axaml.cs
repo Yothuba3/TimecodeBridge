@@ -54,8 +54,8 @@ public partial class AudioWaveformView : UserControl
 
         WaveformLine.Points = points;
 
-        // Update peak bar
-        PeakBar.Height = Math.Clamp(peakLevel, 0, 1) * 50;
+        // Update peak bar（コンテナ実高さに合わせて100%が枠内に収まるようにする）
+        PeakBar.Height = Math.Clamp(peakLevel, 0, 1) * PeakContainer.Bounds.Height;
         PeakBar.Background = peakLevel switch
         {
             >= 0.85f => PeakBrushRed,

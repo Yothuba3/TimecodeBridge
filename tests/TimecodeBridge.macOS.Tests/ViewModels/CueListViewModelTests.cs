@@ -15,6 +15,18 @@ namespace TimecodeBridge.macOS.Tests.ViewModels;
 
 public class CueListViewModelTests
 {
+    internal class StubCueListProjectService : IProjectService
+    {
+        public string? CurrentFilePath => null;
+        public bool HasUnsavedChanges => false;
+        public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+        public event EventHandler<EventArgs>? ChangeCommitted;
+        public ProjectData LoadProject(string filePath) => new();
+        public void SaveProject(string filePath, ProjectData data) { }
+        public void MarkAsChanged() { }
+        public void Reset() { }
+    }
+
     private class MockCueManager : ICueManager
     {
         private readonly List<Cue> _cues = new();
@@ -66,6 +78,9 @@ public class CueListViewModelTests
                 RaiseCueTriggered(cue, cue.TriggerTime, true);
             }
         }
+
+        public void ResetTracking() { }
+        public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
 
         public void RaiseCueTriggered(Cue cue, TimecodeValue triggerTimecode, bool isManual)
         {
@@ -151,7 +166,7 @@ public class CueListViewModelTests
     {
         public Cue? DialogResult { get; set; }
         public CueBatchEditResult? BatchEditResult { get; set; }
-        public (int count, double intervalHours)? BatchDuplicateResult { get; set; }
+        public (int Count, TimeSpan Interval)? BatchDuplicateResult { get; set; }
 
         public Cue? ShowEditDialog(Cue template, IReadOnlyList<OscHost> hosts, FrameRate frameRate, string title)
         {
@@ -163,7 +178,7 @@ public class CueListViewModelTests
             return BatchEditResult;
         }
 
-        public (int count, double intervalHours)? ShowBatchDuplicateDialog()
+        public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog()
         {
             return BatchDuplicateResult;
         }
@@ -180,7 +195,7 @@ public class CueListViewModelTests
             var hostRegistry = new MockHostRegistry();
             var cueDialogService = new MockCueDialogService();
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Assert
             Assert.IsAssignableFrom<DispatcherViewModel>(viewModel);
@@ -217,7 +232,7 @@ public class CueListViewModelTests
             cueManager.AddCue(cue2);
 
             // Act
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Assert
             Assert.Equal(2, viewModel.CueItems.Count);
@@ -249,7 +264,7 @@ public class CueListViewModelTests
 
             cueDialogService.DialogResult = newCue;
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             viewModel.AddCueCommand.Execute(null);
@@ -282,7 +297,7 @@ public class CueListViewModelTests
 
             cueManager.AddCue(cue);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             viewModel.RemoveCueCommand.Execute("cue1");
@@ -324,7 +339,7 @@ public class CueListViewModelTests
 
             cueDialogService.DialogResult = updatedCue;
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             viewModel.EditCueCommand.Execute("cue1");
@@ -367,7 +382,7 @@ public class CueListViewModelTests
             cueManager.AddCue(cue1);
             cueManager.AddCue(cue2);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act - Update timecode to 00:00:05:00 (before first cue)
             var currentTimecode = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
@@ -411,7 +426,7 @@ public class CueListViewModelTests
             cueManager.AddCue(cue1);
             cueManager.AddCue(cue2);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act - Update timecode to 00:00:05:00
             var currentTimecode = new TimecodeValue(0, 0, 5, 0, FrameRate.Fps30);
@@ -444,7 +459,7 @@ public class CueListViewModelTests
 
             cueManager.AddCue(cue);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             cueManager.RaiseCueTriggered(cue, cue.TriggerTime, false);
@@ -476,7 +491,7 @@ public class CueListViewModelTests
 
             cueManager.AddCue(cue);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             viewModel.ToggleCueEnabledCommand.Execute("cue1");
@@ -508,7 +523,7 @@ public class CueListViewModelTests
 
             cueManager.AddCue(cue);
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             var triggeredEventFired = false;
             cueManager.CueTriggered += (s, e) => { triggeredEventFired = true; };
@@ -532,7 +547,7 @@ public class CueListViewModelTests
             var hostRegistry = new MockHostRegistry();
             var cueDialogService = new MockCueDialogService();
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Add cues directly to manager (bypassing ViewModel)
             var cue = new Cue
@@ -564,7 +579,7 @@ public class CueListViewModelTests
             var hostRegistry = new MockHostRegistry();
             var cueDialogService = new MockCueDialogService();
 
-            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService);
+            var viewModel = new CueListViewModel(cueManager, timecodeEngine, hostRegistry, cueDialogService, new StubCueListProjectService());
 
             // Act
             viewModel.Dispose();

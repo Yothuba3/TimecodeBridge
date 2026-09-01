@@ -4,7 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:TimecodeBridge.ViewModels"
-             xmlns:models="clr-namespace:TimecodeBridge.Models"
+             xmlns:models="clr-namespace:TimecodeBridge.Core.Models;assembly=TimecodeBridge.Core"
              xmlns:local="clr-namespace:TimecodeBridge.Views"
              xmlns:converters="clr-namespace:TimecodeBridge.Converters"
              mc:Ignorable="d"

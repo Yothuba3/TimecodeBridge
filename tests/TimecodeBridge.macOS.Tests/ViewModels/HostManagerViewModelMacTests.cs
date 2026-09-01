@@ -1,3 +1,5 @@
+using Avalonia.Headless.XUnit;
+using TimecodeBridge.Core.Services;
 namespace TimecodeBridge.Tests.ViewModels;
 
 using TimecodeBridge.Core.Models;
@@ -5,6 +7,18 @@ using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.macOS.ViewModels;
 
 // --- Stubs for macOS ViewModel ---
+
+internal class StubHostMgrProjectService : IProjectService
+{
+    public string? CurrentFilePath => null;
+    public bool HasUnsavedChanges => false;
+    public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+    public event EventHandler<EventArgs>? ChangeCommitted;
+    public ProjectData LoadProject(string filePath) => new();
+    public void SaveProject(string filePath, ProjectData data) { }
+    public void MarkAsChanged() { }
+    public void Reset() { }
+}
 
 internal class StubHostRegistryMac : IHostRegistry
 {
@@ -138,15 +152,26 @@ public class HostManagerViewModelMacTests
     private readonly StubTimecodeEngineMac _timecodeEngine = new();
     private readonly StubHostDialogServiceMac _hostDialogService = new();
 
+    // ヘッドレス環境では確認ダイアログを出せないため常に許可する
+    private class TestableHostManagerViewModel : HostManagerViewModel
+    {
+        public TestableHostManagerViewModel(IHostRegistry hostRegistry, IOscSender oscSender, ITimecodeEngine timecodeEngine, IHostDialogService hostDialogService, IProjectService projectService)
+            : base(hostRegistry, oscSender, timecodeEngine, hostDialogService, projectService)
+        {
+        }
+
+        protected override bool ConfirmRemoveHost(OscHost host) => true;
+    }
+
     private HostManagerViewModel CreateVm()
     {
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService);
+        var vm = new TestableHostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, _hostDialogService, new StubHostMgrProjectService());
         return vm;
     }
 
     // --- Constructor ---
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_InitializesEmptyHosts()
     {
         var vm = CreateVm();
@@ -154,7 +179,7 @@ public class HostManagerViewModelMacTests
         Assert.Empty(vm.Hosts);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_SyncsExistingHosts()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "A", IpAddress = "1.2.3.4", Port = 8000 });
@@ -169,7 +194,7 @@ public class HostManagerViewModelMacTests
 
     // --- AddHostCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void AddHostCommand_AddsHostWithDefaults()
     {
         var vm = CreateVm();
@@ -182,7 +207,7 @@ public class HostManagerViewModelMacTests
         Assert.Equal(9000, vm.Hosts[0].Port);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AddHostCommand_GeneratesUniqueId()
     {
         var vm = CreateVm();
@@ -196,7 +221,7 @@ public class HostManagerViewModelMacTests
 
     // --- RemoveHostCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void RemoveHostCommand_RemovesHost()
     {
         var vm = CreateVm();
@@ -210,7 +235,7 @@ public class HostManagerViewModelMacTests
 
     // --- ToggleHostEnabledCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ToggleHostEnabledCommand_TogglesEnabled()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "A", IpAddress = "1.2.3.4", Port = 8000, IsEnabled = true });
@@ -222,7 +247,7 @@ public class HostManagerViewModelMacTests
         Assert.False(_hostRegistry.Hosts[0].IsEnabled);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ToggleHostEnabledCommand_TogglesBackToEnabled()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "A", IpAddress = "1.2.3.4", Port = 8000, IsEnabled = false });
@@ -235,7 +260,7 @@ public class HostManagerViewModelMacTests
 
     // --- PingHostCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public async Task PingHostCommand_CallsIcmpPing()
     {
         var vm = CreateVm();
@@ -249,7 +274,7 @@ public class HostManagerViewModelMacTests
 
     // --- ObservableCollection sync via HostChanged ---
 
-    [Fact]
+    [AvaloniaFact]
     public void HostChanged_Added_SyncsObservableCollection()
     {
         var vm = CreateVm();
@@ -260,7 +285,7 @@ public class HostManagerViewModelMacTests
         Assert.Equal("h1", vm.Hosts[0].Id);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HostChanged_Removed_SyncsObservableCollection()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "A", IpAddress = "1.2.3.4", Port = 8000 });
@@ -271,7 +296,7 @@ public class HostManagerViewModelMacTests
         Assert.Empty(vm.Hosts);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HostChanged_Updated_SyncsObservableCollection()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "Old", IpAddress = "1.2.3.4", Port = 8000 });
@@ -285,7 +310,7 @@ public class HostManagerViewModelMacTests
 
     // --- EditHostCommand via IHostDialogService ---
 
-    [Fact]
+    [AvaloniaFact]
     public void EditHostCommand_DialogConfirmed_UpdatesHostInRegistry()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "Old", IpAddress = "1.2.3.4", Port = 8000 });
@@ -297,23 +322,23 @@ public class HostManagerViewModelMacTests
         Assert.Equal("Old", _hostRegistry.Hosts[0].Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EditHostCommand_DialogCancelled_DoesNotModifyHost()
     {
         _hostRegistry.AddHost(new OscHost { Id = "h1", Name = "Original", IpAddress = "1.2.3.4", Port = 8000 });
         var cancelDialogService = new CancellingHostDialogServiceMac();
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService);
+        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService, new StubHostMgrProjectService());
 
         vm.EditHostCommand.Execute("h1");
 
         Assert.Equal("Original", _hostRegistry.Hosts[0].Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AddHostCommand_DialogCancelled_DoesNotAddHost()
     {
         var cancelDialogService = new CancellingHostDialogServiceMac();
-        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService);
+        var vm = new HostManagerViewModel(_hostRegistry, _oscSender, _timecodeEngine, cancelDialogService, new StubHostMgrProjectService());
 
         vm.AddHostCommand.Execute(null);
 
@@ -322,7 +347,7 @@ public class HostManagerViewModelMacTests
 
     // --- Dispose (event unsubscription) ---
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_UnsubscribesFromHostChanged()
     {
         var vm = CreateVm();
@@ -338,7 +363,7 @@ public class HostManagerViewModelMacTests
 
     // --- Inheritance from DispatcherViewModel ---
 
-    [Fact]
+    [AvaloniaFact]
     public void HostManagerViewModel_InheritsFromDispatcherViewModel()
     {
         var vm = CreateVm();

@@ -1,7 +1,9 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Models;
 
 using System.Text.Json;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 public class ProjectDataSerializationTests
 {

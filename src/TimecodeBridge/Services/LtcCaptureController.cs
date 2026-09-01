@@ -1,3 +1,5 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using TimecodeBridge.Core.Models;

@@ -1,3 +1,7 @@
+using System.IO;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Xml.Linq;
 
 namespace TimecodeBridge.Tests;
@@ -7,7 +11,7 @@ namespace TimecodeBridge.Tests;
 /// </summary>
 public class MacOSProjectStructureTests
 {
-    private const string MacOSProjectPath = "../../src/TimecodeBridge.macOS/TimecodeBridge.macOS.csproj";
+    private const string MacOSProjectPath = "../../../../../src/TimecodeBridge.macOS/TimecodeBridge.macOS.csproj";
 
     [Fact]
     public void MacOSProject_ShouldExist()
@@ -82,7 +86,7 @@ public class MacOSProjectStructureTests
     public void InfoPlist_ShouldExist()
     {
         // Arrange
-        var infoPlistPath = Path.GetFullPath("../../src/TimecodeBridge.macOS/Info.plist");
+        var infoPlistPath = Path.GetFullPath("../../../../../src/TimecodeBridge.macOS/Info.plist");
 
         // Act & Assert
         Assert.True(File.Exists(infoPlistPath), $"Info.plistが存在しません: {infoPlistPath}");
@@ -92,7 +96,7 @@ public class MacOSProjectStructureTests
     public void InfoPlist_ShouldContainCFBundleIdentifier()
     {
         // Arrange
-        var infoPlistPath = Path.GetFullPath("../../src/TimecodeBridge.macOS/Info.plist");
+        var infoPlistPath = Path.GetFullPath("../../../../../src/TimecodeBridge.macOS/Info.plist");
         var content = File.ReadAllText(infoPlistPath);
 
         // Act & Assert
@@ -103,7 +107,7 @@ public class MacOSProjectStructureTests
     public void InfoPlist_ShouldContainNSMicrophoneUsageDescription()
     {
         // Arrange
-        var infoPlistPath = Path.GetFullPath("../../src/TimecodeBridge.macOS/Info.plist");
+        var infoPlistPath = Path.GetFullPath("../../../../../src/TimecodeBridge.macOS/Info.plist");
         var content = File.ReadAllText(infoPlistPath);
 
         // Act & Assert

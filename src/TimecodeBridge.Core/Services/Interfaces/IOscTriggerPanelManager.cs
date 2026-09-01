@@ -1,6 +1,6 @@
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
-namespace TimecodeBridge.Services.Interfaces;
+namespace TimecodeBridge.Core.Services.Interfaces;
 
 /// <summary>
 /// OSCポン出しパネルのグリッド構成・ボタン集合の状態を保持し、

@@ -1,8 +1,10 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Services;
 
 using System.IO;
 using System.Text.Json;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
 using TimecodeBridge.Services.Interfaces;
 

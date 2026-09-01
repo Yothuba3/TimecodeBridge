@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Services;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;

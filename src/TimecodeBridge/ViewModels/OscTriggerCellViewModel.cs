@@ -1,6 +1,8 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 namespace TimecodeBridge.ViewModels;
 

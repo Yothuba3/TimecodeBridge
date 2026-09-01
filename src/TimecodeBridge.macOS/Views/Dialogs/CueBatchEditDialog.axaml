@@ -3,84 +3,167 @@
         xmlns:vm="using:TimecodeBridge.macOS.ViewModels"
         x:Class="TimecodeBridge.macOS.Views.Dialogs.CueBatchEditDialog"
         Title="キュー一括編集"
-        Width="520" Height="560"
+        Width="520" Height="700"
         WindowStartupLocation="CenterOwner"
-        CanResize="False">
+        CanResize="False"
+        Background="{StaticResource PrimaryBackgroundBrush}">
 
     <Window.Styles>
-        <Style Selector="CheckBox.Apply">
+        <Style Selector="TextBlock.Label">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,0,8,0" />
         </Style>
         <Style Selector="TextBox.TimeField">
-            <Setter Property="Width" Value="48" />
             <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="MaxLength" Value="2" />
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
         </Style>
         <Style Selector="TextBlock.Sep">
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="3,0" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
         </Style>
     </Window.Styles>
 
-    <Grid Margin="16" ColumnDefinitions="150,*"
-          RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
-        <Grid.Styles>
-            <Style Selector="Grid > :is(Control)">
-                <Setter Property="Margin" Value="0,0,0,8" />
-            </Style>
-        </Grid.Styles>
+    <Border Margin="12" Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+            CornerRadius="8" Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+            <Grid.Styles>
+                <Style Selector="Grid > Grid">
+                    <Setter Property="Margin" Value="0,0,0,8" />
+                </Style>
+            </Grid.Styles>
 
-        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Name="HeaderText"
-                   FontWeight="Bold" Margin="0,0,0,12" />
+            <!-- Header -->
+            <TextBlock Grid.Row="0" Name="HeaderText" FontSize="13" FontWeight="SemiBold"
+                       Foreground="{StaticResource PrimaryForegroundBrush}" Margin="0,0,0,12" />
 
-        <CheckBox Grid.Row="1" Grid.Column="0" Name="ApplyOscAddress" Content="OSCアドレス" Classes="Apply" />
-        <TextBox Grid.Row="1" Grid.Column="1" Name="OscAddressBox" Watermark="/cue/1" />
+            <!-- OSC Address -->
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyOscAddress" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="OSCアドレス" Classes="Label" />
+                <TextBox Grid.Column="2" Name="OscAddressBox" FontFamily="{StaticResource MonoFont}"
+                         IsEnabled="{Binding #ApplyOscAddress.IsChecked}" />
+            </Grid>
 
-        <CheckBox Grid.Row="2" Grid.Column="0" Name="ApplySendTcSeconds" Content="TC秒数送信" Classes="Apply" />
-        <CheckBox Grid.Row="2" Grid.Column="1" Name="SendTcSecondsBox"
-                  Content="トリガー時間を秒数(float)で先頭引数に追加" />
+            <!-- Additional OSC Addresses -->
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyAdditionalAddresses" VerticalAlignment="Top" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="追加アドレス" Classes="Label" VerticalAlignment="Top"
+                           ToolTip.Tip="2個目以降のOSCアドレス（引数なしで一緒に送信）。1行1件、空にすると全解除" />
+                <TextBox Grid.Column="2" Name="AdditionalAddressesBox" FontFamily="{StaticResource MonoFont}"
+                         AcceptsReturn="True" Height="44"
+                         ToolTip.Tip="1行に1アドレス。空のまま適用すると全キューの追加アドレスを解除"
+                         IsEnabled="{Binding #ApplyAdditionalAddresses.IsChecked}" />
+            </Grid>
 
-        <CheckBox Grid.Row="3" Grid.Column="0" Name="ApplyOscArgs" Content="OSC引数" Classes="Apply" />
-        <TextBox Grid.Row="3" Grid.Column="1" Name="OscArgsBox" Watermark="i:1 f:0.5 s:text" />
+            <!-- Send TC as Seconds -->
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplySendTcSeconds" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="TC秒数送信" Classes="Label" />
+                <CheckBox Grid.Column="2" Name="SendTcSecondsBox"
+                          Content="タイムコードを秒数(float)で先頭引数に追加"
+                          IsEnabled="{Binding #ApplySendTcSeconds.IsChecked}" />
+            </Grid>
 
-        <CheckBox Grid.Row="4" Grid.Column="0" Name="ApplyTargetHosts" Content="送信先ホスト" Classes="Apply" VerticalAlignment="Top" />
-        <Border Grid.Row="4" Grid.Column="1" BorderBrush="#60808080" BorderThickness="1" CornerRadius="3" MinHeight="80">
-            <ScrollViewer>
-                <ItemsControl Name="HostList" Margin="6">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:HostSelection">
-                            <CheckBox Content="{CompiledBinding Name}" IsChecked="{CompiledBinding IsSelected}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
+            <!-- Send Timecode -->
+            <Grid Grid.Row="4" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplySendTimecode" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="送信タイムコード" Classes="Label"
+                           ToolTip.Tip="秒数送信で送るタイムコード。&#10;「指定」OFFのまま適用すると全キューで解除（トリガー時間を送る）" />
+                <Grid Grid.Column="2" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*"
+                      IsEnabled="{Binding #ApplySendTimecode.IsChecked}">
+                    <CheckBox Grid.Column="0" Name="UseSendTimecodeBox" Content="指定"
+                              VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Grid.Column="1" Name="SendTcHoursBox" Classes="TimeField" Text="00"
+                             IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                    <TextBlock Grid.Column="2" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="3" Name="SendTcMinutesBox" Classes="TimeField" Text="00"
+                             IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                    <TextBlock Grid.Column="4" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="5" Name="SendTcSecondsFieldBox" Classes="TimeField" Text="00"
+                             IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                    <TextBlock Grid.Column="6" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="7" Name="SendTcFramesBox" Classes="TimeField" Text="00"
+                             IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                </Grid>
+            </Grid>
 
-        <CheckBox Grid.Row="5" Grid.Column="0" Name="ApplyOffset" Content="キューオフセット" Classes="Apply" />
-        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
-            <ComboBox Name="OffsetSignBox" Width="60" Margin="0,0,6,0" SelectedIndex="0">
-                <ComboBoxItem Content="+" />
-                <ComboBoxItem Content="-" />
-            </ComboBox>
-            <TextBox Name="OffsetHoursBox" Classes="TimeField" Text="00" />
-            <TextBlock Text=":" Classes="Sep" />
-            <TextBox Name="OffsetMinutesBox" Classes="TimeField" Text="00" />
-            <TextBlock Text=":" Classes="Sep" />
-            <TextBox Name="OffsetSecondsBox" Classes="TimeField" Text="00" />
-            <TextBlock Text=":" Classes="Sep" />
-            <TextBox Name="OffsetFramesBox" Classes="TimeField" Text="00" />
-        </StackPanel>
+            <!-- OSC Arguments -->
+            <Grid Grid.Row="5" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyOscArgs" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="OSC引数" Classes="Label" />
+                <TextBox Grid.Column="2" Name="OscArgsBox" FontFamily="{StaticResource MonoFont}"
+                         ToolTip.Tip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)"
+                         IsEnabled="{Binding #ApplyOscArgs.IsChecked}" />
+            </Grid>
 
-        <CheckBox Grid.Row="6" Grid.Column="0" Name="ApplyMemo" Content="メモ" Classes="Apply" VerticalAlignment="Top" />
-        <TextBox Grid.Row="6" Grid.Column="1" Name="MemoBox" Height="60" AcceptsReturn="True" TextWrapping="Wrap" />
+            <!-- Target Hosts -->
+            <Grid Grid.Row="6" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyTargetHosts" VerticalAlignment="Top" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
+                <Border Grid.Column="2" Height="80"
+                        IsEnabled="{Binding #ApplyTargetHosts.IsChecked}"
+                        Background="{StaticResource SecondaryBackgroundBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl Name="HostList" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HostSelection">
+                                    <CheckBox Content="{CompiledBinding Name}"
+                                              IsChecked="{CompiledBinding IsSelected}" Margin="0,2" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
 
-        <CheckBox Grid.Row="7" Grid.Column="0" Name="ApplyEnabled" Content="有効" Classes="Apply" />
-        <CheckBox Grid.Row="7" Grid.Column="1" Name="EnabledBox" Content="有効" IsChecked="True" />
+            <!-- Trigger Offset -->
+            <Grid Grid.Row="7" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyOffset" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="トリガーオフセット" Classes="Label"
+                           ToolTip.Tip="発火タイミングを±ずらします。実際の発火時刻 = トリガー時間 ± この値" />
+                <Grid Grid.Column="2" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*"
+                      IsEnabled="{Binding #ApplyOffset.IsChecked}">
+                    <ComboBox Grid.Column="0" Name="OffsetSignBox" Width="56" SelectedIndex="0">
+                        <ComboBoxItem Content="+" />
+                        <ComboBoxItem Content="-" />
+                    </ComboBox>
+                    <TextBox Grid.Column="1" Name="OffsetHoursBox" Classes="TimeField" Margin="4,0,0,0" Text="00" />
+                    <TextBlock Grid.Column="2" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="3" Name="OffsetMinutesBox" Classes="TimeField" Text="00" />
+                    <TextBlock Grid.Column="4" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="5" Name="OffsetSecondsBox" Classes="TimeField" Text="00" />
+                    <TextBlock Grid.Column="6" Text=":" Classes="Sep" />
+                    <TextBox Grid.Column="7" Name="OffsetFramesBox" Classes="TimeField" Text="00" />
+                </Grid>
+            </Grid>
 
-        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
-                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0">
-            <Button Content="適用" Width="90" IsDefault="True" Click="OnOkClick" />
-            <Button Content="キャンセル" Width="90" IsCancel="True" Click="OnCancelClick" />
-        </StackPanel>
-    </Grid>
+            <!-- Memo -->
+            <Grid Grid.Row="8" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyMemo" VerticalAlignment="Top" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="メモ" Classes="Label" VerticalAlignment="Top" />
+                <TextBox Grid.Column="2" Name="MemoBox" Height="50"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         IsEnabled="{Binding #ApplyMemo.IsChecked}" />
+            </Grid>
+
+            <!-- Enabled -->
+            <Grid Grid.Row="9" ColumnDefinitions="Auto,110,*">
+                <CheckBox Grid.Column="0" Name="ApplyEnabled" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="有効" Classes="Label" />
+                <CheckBox Grid.Column="2" Name="EnabledBox" Content="有効" IsChecked="True"
+                          IsEnabled="{Binding #ApplyEnabled.IsChecked}" />
+            </Grid>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="11" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+                <Button Content="適用" Padding="24,8" Classes="accent" IsDefault="True" Click="OnOkClick" />
+                <Button Content="キャンセル" Padding="24,8" IsCancel="True" Click="OnCancelClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
 </Window>

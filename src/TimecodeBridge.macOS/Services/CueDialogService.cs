@@ -18,9 +18,9 @@ public class CueDialogService : ICueDialogService
             new CueBatchEditDialog(cueCount, hosts, frameRate).ShowDialog<CueBatchEditResult?>(owner));
     }
 
-    public (int count, double intervalHours)? ShowBatchDuplicateDialog()
+    public (int Count, TimeSpan Interval)? ShowBatchDuplicateDialog()
     {
         return ModalDialog.Show(owner =>
-            new BatchDuplicateDialog().ShowDialog<(int count, double intervalHours)?>(owner));
+            new BatchDuplicateDialog().ShowDialog<(int Count, TimeSpan Interval)?>(owner));
     }
 }

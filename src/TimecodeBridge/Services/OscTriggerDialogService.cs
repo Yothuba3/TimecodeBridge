@@ -1,5 +1,7 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Windows;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services.Interfaces;
 using TimecodeBridge.Views;
 

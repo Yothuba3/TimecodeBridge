@@ -1,6 +1,8 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Models;
 
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 
 public class OscArgumentTextTests
 {

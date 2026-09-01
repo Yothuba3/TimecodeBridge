@@ -1,7 +1,7 @@
-using TimecodeBridge.Models;
-using TimecodeBridge.Services.Interfaces;
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.Services;
+namespace TimecodeBridge.Core.Services;
 
 /// <summary>
 /// <see cref="IOscTriggerPanelManager"/> の実装。グリッド寸法とボタン集合を保持し、

@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Services;
 using System.Threading.Channels;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
@@ -198,7 +199,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
                 var enumerator = new MMDeviceEnumerator();
                 var device = enumerator.GetDevice(settings.OutputDeviceId);
                 _wasapiOut = new WasapiOut(device, AudioClientShareMode.Shared, true, 100);
-                _wasapiOut.Init(_ltcEncoder);
+                _wasapiOut.Init(new LtcEncoderWaveProvider(_ltcEncoder));
                 _wasapiOut.Play();
             }
             catch (Exception ex)

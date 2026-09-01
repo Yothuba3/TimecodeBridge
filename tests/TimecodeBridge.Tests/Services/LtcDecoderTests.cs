@@ -1,7 +1,9 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Services;
 
 using System.Runtime.InteropServices;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Native;
 using TimecodeBridge.Services;
 using TimecodeBridge.Services.Interfaces;

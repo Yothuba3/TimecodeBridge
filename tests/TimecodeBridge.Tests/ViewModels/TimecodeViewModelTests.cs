@@ -1,6 +1,8 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.ViewModels;
 
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
 using TimecodeBridge.Services.Interfaces;
 using TimecodeBridge.ViewModels;

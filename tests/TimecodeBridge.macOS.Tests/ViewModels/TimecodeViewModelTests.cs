@@ -71,13 +71,43 @@ public class TimecodeViewModelTests
         public void ReorderCues(IReadOnlyList<string> orderedCueIds) { }
         public void SetCueEnabled(string cueId, bool enabled) { }
         public void ManualTrigger(string cueId) => CueTriggered?.Invoke(this, null!);
+        public void ResetTracking() { }
+        public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) { }
     }
 
     private readonly MockTimecodeEngine _engine = new();
     private readonly MockAudioDeviceService _audioService = new();
     private readonly MockCueManager _cueManager = new();
 
-    private TimecodeViewModel CreateVm() => new(_engine, _audioService, _cueManager);
+    private class StubHostRegistry : IHostRegistry
+    {
+        public IReadOnlyList<OscHost> Hosts => [];
+        public event EventHandler<HostChangedEventArgs>? HostChanged;
+        public void AddHost(OscHost host) { }
+        public void UpdateHost(string hostId, OscHost updatedHost) { }
+        public void RemoveHost(string hostId) { }
+        public void SetHostEnabled(string hostId, bool enabled) { }
+        public IReadOnlyList<OscHost> GetEnabledHosts(IReadOnlyList<string> hostIds) => [];
+    }
+
+    private class StubProjectService : IProjectService
+    {
+        public string? CurrentFilePath => null;
+        public bool HasUnsavedChanges => false;
+        public event EventHandler<EventArgs>? UnsavedChangesStatusChanged;
+        public event EventHandler<EventArgs>? ChangeCommitted;
+        public ProjectData LoadProject(string filePath) => new();
+        public void SaveProject(string filePath, ProjectData data) { }
+        public void MarkAsChanged() { }
+        public void Reset() { }
+    }
+
+    private TimecodeViewModel CreateVm()
+    {
+        var projectService = new StubProjectService();
+        var cueSync = new CueSyncViewModel(_cueManager, new StubHostRegistry(), projectService);
+        return new TimecodeViewModel(_engine, _audioService, _cueManager, projectService, cueSync);
+    }
 
     [AvaloniaFact]
     public void 初期状態_LTCモードで停止表示()

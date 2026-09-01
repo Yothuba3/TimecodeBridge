@@ -71,15 +71,24 @@
                     <TextBlock Text="キューリスト" FontWeight="SemiBold" FontSize="13"
                                Foreground="{StaticResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
+                    <!-- 次キューの常時サマリー -->
+                    <TextBlock Text="{CompiledBinding NextCueSummary}" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                               Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Text="判定幅:" VerticalAlignment="Center" Margin="0,0,4,0"
-                               Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="11" />
+                               Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="11"
+                               ToolTip.Tip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBox Text="{CompiledBinding TriggerWindowFrames}"
                              Width="36" FontSize="11" VerticalAlignment="Center"
-                             HorizontalContentAlignment="Center" Padding="4,3" />
+                             HorizontalContentAlignment="Center" Padding="4,3"
+                             ToolTip.Tip="タイムコードの揺らぎ（ジッタ）とジャンプを判定する許容フレーム数。&#10;・この幅までの逆行はジッタとして無視され、キューは二重発火しません&#10;・この幅を超えて過去へ戻ると「巻き戻し」とみなし、そこより後のキューを再び発火できるようにします&#10;・この幅を超える前方ジャンプは「頭出し」とみなし、途中のキューを発火させません&#10;・ノイズの多いLTC信号では大きめ（3〜5）にすると安定します" />
                     <TextBlock Text="f" VerticalAlignment="Center" Margin="3,0,16,0"
                                Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="11" />
+                    <Button Content="時間順" Padding="10,4" Margin="3,0"
+                            Command="{CompiledBinding SortCuesByTimeCommand}" FontSize="11"
+                            ToolTip.Tip="キューをトリガー時間順に並べ替える" />
                     <Button Content="＋ 追加" Padding="10,4" Margin="3,0"
                             Command="{CompiledBinding AddCueCommand}" FontSize="11"
                             Classes="accent" />
@@ -100,8 +109,8 @@
                             CommandParameter="{Binding #CueList.((vm:CueItemViewModel)SelectedItem).Id}"
                             FontSize="11" />
                     <Button Content="－ 削除" Padding="10,4" Margin="3,0"
-                            Command="{CompiledBinding RemoveCueCommand}"
-                            CommandParameter="{Binding #CueList.((vm:CueItemViewModel)SelectedItem).Id}"
+                            Command="{CompiledBinding RemoveCuesCommand}"
+                            CommandParameter="{Binding #CueList.SelectedItems}"
                             FontSize="11" />
                 </StackPanel>
             </DockPanel>
@@ -141,7 +150,7 @@
                                     <TextBlock Grid.Column="2" Text="{CompiledBinding Name}"
                                                Foreground="{StaticResource PrimaryForegroundBrush}"
                                                VerticalAlignment="Center" Margin="10,0,0,0" />
-                                    <TextBlock Grid.Column="3" Text="{CompiledBinding OscAddress}"
+                                    <TextBlock Grid.Column="3" Text="{CompiledBinding OscAddressDisplay}"
                                                FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                Foreground="{StaticResource SecondaryForegroundBrush}"
                                                VerticalAlignment="Center" Margin="10,0,0,0" />

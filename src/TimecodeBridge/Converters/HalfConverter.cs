@@ -1,3 +1,6 @@
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 using System.Globalization;
 using System.Windows.Data;
 

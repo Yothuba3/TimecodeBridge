@@ -1,7 +1,9 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Integration;
 
 using System.IO;
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
 
 public class ProjectPersistenceTests : IDisposable

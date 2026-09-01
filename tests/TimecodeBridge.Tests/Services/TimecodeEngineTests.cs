@@ -1,8 +1,10 @@
+using TimecodeBridge.Core.Services;
+using TimecodeBridge.Core.Services.Interfaces;
 namespace TimecodeBridge.Tests.Services;
 
-using TimecodeBridge.Models;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Services;
-using TimecodeReceiveStatus = TimecodeBridge.Models.TimecodeReceiveStatus;
+using TimecodeReceiveStatus = TimecodeBridge.Core.Models.TimecodeReceiveStatus;
 
 public class TimecodeEngineTests : IDisposable
 {

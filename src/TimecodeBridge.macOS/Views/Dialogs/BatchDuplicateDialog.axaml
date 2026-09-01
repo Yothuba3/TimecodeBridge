@@ -2,30 +2,49 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="TimecodeBridge.macOS.Views.Dialogs.BatchDuplicateDialog"
         Title="連続複製"
-        Width="340" Height="190"
+        Width="340" Height="220"
         WindowStartupLocation="CenterOwner"
-        CanResize="False">
+        CanResize="False"
+        Background="{StaticResource PrimaryBackgroundBrush}">
 
-    <Grid Margin="16" ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,*,Auto">
-        <Grid.Styles>
-            <Style Selector="Grid > :is(Control)">
-                <Setter Property="Margin" Value="0,0,0,8" />
-            </Style>
-            <Style Selector="TextBlock">
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-        </Grid.Styles>
+    <Border Margin="12" Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+            CornerRadius="8" Padding="20">
+        <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,*,Auto">
+            <Grid.Styles>
+                <Style Selector="Grid > :is(Control)">
+                    <Setter Property="Margin" Value="0,0,0,10" />
+                </Style>
+                <Style Selector="TextBlock">
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+                    <Setter Property="FontSize" Value="12" />
+                </Style>
+                <Style Selector="TextBox.TimeField">
+                    <Setter Property="TextAlignment" Value="Center" />
+                    <Setter Property="MaxLength" Value="2" />
+                    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+                </Style>
+            </Grid.Styles>
 
-        <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" />
-        <TextBox Grid.Row="0" Grid.Column="1" Name="CountBox" Text="23" Width="100" HorizontalAlignment="Left" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" />
+            <TextBox Grid.Row="0" Grid.Column="1" Name="CountBox" Text="23" FontFamily="{StaticResource MonoFont}" />
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔 (時間)" />
-        <TextBox Grid.Row="1" Grid.Column="1" Name="IntervalHoursBox" Text="1" Width="100" HorizontalAlignment="Left" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔"
+                       ToolTip.Tip="複製ごとにトリガー時間へ加算する間隔（時:分:秒）" />
+            <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto,*,Auto,*">
+                <TextBox Grid.Column="0" Name="IntervalHoursBox" Text="1" Classes="TimeField" ToolTip.Tip="時間" />
+                <TextBlock Grid.Column="1" Text=":" Margin="4,0" />
+                <TextBox Grid.Column="2" Name="IntervalMinutesBox" Text="00" Classes="TimeField" ToolTip.Tip="分" />
+                <TextBlock Grid.Column="3" Text=":" Margin="4,0" />
+                <TextBox Grid.Column="4" Name="IntervalSecondsBox" Text="00" Classes="TimeField" ToolTip.Tip="秒" />
+            </Grid>
 
-        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0">
-            <Button Content="OK" Width="90" IsDefault="True" Click="OnOkClick" />
-            <Button Content="キャンセル" Width="90" IsCancel="True" Click="OnCancelClick" />
-        </StackPanel>
-    </Grid>
+            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                        Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+                <Button Content="OK" Padding="24,8" Classes="accent" IsDefault="True" Click="OnOkClick" />
+                <Button Content="キャンセル" Padding="24,8" IsCancel="True" Click="OnCancelClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
 </Window>

@@ -65,6 +65,7 @@ public partial class App : Application
         services.AddSingleton<IRecentProjectsService, RecentProjectsService>();
         services.AddSingleton<ICueDialogService, CueDialogService>();
         services.AddSingleton<IHostDialogService, HostDialogService>();
+        services.AddSingleton<IOscTriggerDialogService, OscTriggerDialogService>();
 
         // Core共通サービス
         services.AddSingleton<IProjectService, ProjectService>();
@@ -72,29 +73,20 @@ public partial class App : Application
         services.AddSingleton<IOscTransport, OscTransport>();
         services.AddSingleton<IOscSender, OscSender>();
         services.AddSingleton<ICueManager, CueManager>();
+        services.AddSingleton<IOscTriggerPanelManager, OscTriggerPanelManager>();
         services.AddSingleton<ITimecodeRelay, TimecodeRelay>();
         services.AddSingleton<ITimecodeGenerator, TimecodeGenerator>();
 
         // ViewModels
+        services.AddSingleton<CueSyncViewModel>();
         services.AddSingleton<TimecodeViewModel>();
         services.AddSingleton<CueListViewModel>();
         services.AddSingleton<HostManagerViewModel>();
         services.AddSingleton<RelayViewModel>();
+        services.AddSingleton<OscTriggerPanelViewModel>();
         services.AddSingleton<AudioWaveformViewModel>();
         services.AddSingleton<LogViewModel>();
-        services.AddSingleton(sp => new MainViewModel(
-            sp.GetRequiredService<IProjectService>(),
-            sp.GetRequiredService<IFileDialogService>(),
-            sp.GetRequiredService<IRecentProjectsService>(),
-            sp.GetRequiredService<ICueManager>(),
-            sp.GetRequiredService<IHostRegistry>(),
-            sp.GetRequiredService<ITimecodeRelay>(),
-            sp.GetRequiredService<ITimecodeEngine>(),
-            sp.GetRequiredService<TimecodeViewModel>(),
-            sp.GetRequiredService<CueListViewModel>(),
-            sp.GetRequiredService<RelayViewModel>(),
-            sp.GetRequiredService<HostManagerViewModel>(),
-            sp.GetRequiredService<LogViewModel>()));
+        services.AddSingleton<MainViewModel>();
     }
 
     /// <summary>

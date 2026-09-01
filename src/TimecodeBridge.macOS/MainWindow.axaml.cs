@@ -1,8 +1,9 @@
 using System;
-using System.Collections.Specialized;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Microsoft.Extensions.DependencyInjection;
 using TimecodeBridge.macOS.ViewModels;
 
@@ -10,36 +11,61 @@ namespace TimecodeBridge.macOS;
 
 public partial class MainWindow : Window
 {
+    private bool _failOnly;
+
     public MainWindow()
     {
         InitializeComponent();
         Closing += OnClosing;
         DataContextChanged += OnDataContextChanged;
 
-        // Auto-scroll to the latest log entry
-        Loaded += (_, _) =>
+        // ポン出し実行モードのEsc解除は、フォーカスがどこにあっても効くようウィンドウ全体で処理する
+        AddHandler(KeyDownEvent, OnPreviewKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+    }
+
+    private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape
+            && DataContext is MainViewModel { OscTriggerPanelViewModel.IsPlayMode: true } vm)
         {
-            if (LogListBox.ItemsSource is INotifyCollectionChanged collection)
-            {
-                collection.CollectionChanged += (_, _) =>
-                {
-                    if (LogListBox.ItemCount > 0)
-                    {
-                        LogListBox.ScrollIntoView(LogListBox.ItemCount - 1);
-                    }
-                };
-            }
-        };
+            vm.OscTriggerPanelViewModel.IsEditMode = true;
+            e.Handled = true;
+        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        if (DataContext is not MainViewModel vm) return;
+
         // 波形ビューはMainViewModelを経由しないため、DIから直接取得して接続する
-        if (DataContext is MainViewModel
-            && Application.Current is App { Services: { } services })
+        if (Application.Current is App { Services: { } services })
         {
             AudioWaveform.DataContext = services.GetRequiredService<AudioWaveformViewModel>();
         }
+
+        RefreshLogView(vm);
+        vm.LogViewModel.Logs.CollectionChanged += (_, _) =>
+        {
+            RefreshLogView(vm);
+            if (LogListBox.ItemCount > 0)
+            {
+                LogListBox.ScrollIntoView(LogListBox.ItemCount - 1);
+            }
+        };
+    }
+
+    // ログの「失敗のみ」フィルタ切替
+    private void FailOnlyCheck_Changed(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _failOnly = FailOnlyCheck.IsChecked == true;
+        if (DataContext is MainViewModel vm) RefreshLogView(vm);
+    }
+
+    private void RefreshLogView(MainViewModel vm)
+    {
+        LogListBox.ItemsSource = _failOnly
+            ? vm.LogViewModel.Logs.Where(l => !l.IsSuccess).ToList()
+            : vm.LogViewModel.Logs;
     }
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)
@@ -56,9 +82,12 @@ public partial class MainWindow : Window
 
         if (result == UnsavedChangesDialogResult.Save)
         {
-            await viewModel.SaveProjectCommand.ExecuteAsync(null);
-            Closing -= OnClosing;
-            Close();
+            // 保存先未確定なら保存ダイアログが出る。キャンセルされたら閉じるのも中止
+            if (viewModel.TrySaveWithPrompt())
+            {
+                Closing -= OnClosing;
+                Close();
+            }
         }
         else if (result == UnsavedChangesDialogResult.DontSave)
         {
