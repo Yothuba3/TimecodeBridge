@@ -117,6 +117,46 @@ public class CueAutoMuteTests
     }
 
     [Fact]
+    public void オートミュート中は原因キューと解除予定が公開される()
+    {
+        var manager = MakeManager(MakeCue(autoMute: true, new TimecodeValue(0, 0, 10, 0, FrameRate.Fps30)));
+
+        Assert.Null(manager.AutoMutedCueId);
+        manager.ManualTrigger("c1");
+
+        Assert.Equal("c1", manager.AutoMutedCueId);
+        Assert.NotNull(manager.AutoUnmuteAt);
+        Assert.True(manager.AutoUnmuteAt > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public void 解除時間未指定のオートミュートでは解除予定はnull()
+    {
+        var manager = MakeManager(MakeCue(autoMute: true, unmuteAfter: null));
+
+        manager.ManualTrigger("c1");
+
+        Assert.Equal("c1", manager.AutoMutedCueId);
+        Assert.Null(manager.AutoUnmuteAt);
+    }
+
+    [Fact]
+    public void 自動解除や手動切替で公開状況はクリアされる()
+    {
+        var manager = MakeManager(MakeCue(autoMute: true, new TimecodeValue(0, 0, 0, 5, FrameRate.Fps30)));
+
+        manager.ManualTrigger("c1");
+        Assert.True(SpinWait.SpinUntil(() => !manager.IsMuted, TimeSpan.FromSeconds(3)));
+        Assert.Null(manager.AutoMutedCueId);
+        Assert.Null(manager.AutoUnmuteAt);
+
+        manager.ManualTrigger("c1");
+        manager.IsMuted = false; // 手動解除
+        Assert.Null(manager.AutoMutedCueId);
+        Assert.Null(manager.AutoUnmuteAt);
+    }
+
+    [Fact]
     public void 手動でミュートを切り替えると予約済みの自動解除は破棄される()
     {
         var manager = MakeManager(MakeCue(autoMute: true, new TimecodeValue(0, 0, 0, 5, FrameRate.Fps30)));

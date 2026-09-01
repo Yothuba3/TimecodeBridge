@@ -35,6 +35,8 @@ public class CueListViewModelTests
         public int TriggerWindowFrames { get; set; } = 3;
         public bool IsMuted { get; set; }
         public bool IsAutoMuteEnabled { get; set; } = true;
+        public string? AutoMutedCueId => null;
+        public DateTime? AutoUnmuteAt => null;
         public event EventHandler? MuteStateChanged;
 
         public event EventHandler<CueTriggeredEventArgs>? CueTriggered;

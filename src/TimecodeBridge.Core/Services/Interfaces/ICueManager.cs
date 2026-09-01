@@ -30,6 +30,12 @@ public interface ICueManager
     /// </summary>
     event EventHandler MuteStateChanged;
 
+    /// <summary>発火時オートミュートの原因となったキューID。オートミュート中でなければ null。</summary>
+    string? AutoMutedCueId { get; }
+
+    /// <summary>オートミュートの自動解除予定時刻（UTC）。時限解除でなければ null。</summary>
+    DateTime? AutoUnmuteAt { get; }
+
     void AddCue(Cue cue);
     void UpdateCue(string cueId, Cue updatedCue);
     void RemoveCue(string cueId);

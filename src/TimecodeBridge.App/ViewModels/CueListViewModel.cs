@@ -52,6 +52,65 @@ public partial class CueListViewModel : DispatcherViewModel
 
         _cueManager.CueTriggered += OnCueTriggered;
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;
+        _cueManager.MuteStateChanged += OnMuteStateChanged;
+    }
+
+    // --- オートミュートのカウントダウン表示 ---
+
+    private DispatcherTimer? _muteCountdownTimer;
+
+    private void OnMuteStateChanged(object? sender, EventArgs e)
+    {
+        RunOnUIThread(RefreshMuteCountdown);
+    }
+
+    /// <summary>オートミュート状況を各キュー行の表示へ反映する（UIスレッドで呼ぶこと）。</summary>
+    internal void RefreshMuteCountdown()
+    {
+        var mutedCueId = _cueManager.AutoMutedCueId;
+        var unmuteAt = _cueManager.AutoUnmuteAt;
+
+        foreach (var item in CueItems)
+        {
+            if (item.Id != mutedCueId)
+            {
+                if (item.MuteCountdownText.Length > 0) item.MuteCountdownText = "";
+                continue;
+            }
+
+            if (unmuteAt is { } at)
+            {
+                var remaining = at - DateTime.UtcNow;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                item.MuteCountdownText = $"解除まで {FormatRemaining(remaining, item.TriggerTime.FrameRate.FramesPerSecond())}";
+            }
+            else
+            {
+                item.MuteCountdownText = "MUTE中";
+            }
+        }
+
+        // 時限解除中のみタイマーで表示を進める
+        bool ticking = mutedCueId is not null && unmuteAt is not null;
+        if (ticking)
+        {
+            _muteCountdownTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _muteCountdownTimer.Tick -= OnMuteCountdownTick;
+            _muteCountdownTimer.Tick += OnMuteCountdownTick;
+            _muteCountdownTimer.Start();
+        }
+        else
+        {
+            _muteCountdownTimer?.Stop();
+        }
+    }
+
+    private void OnMuteCountdownTick(object? sender, EventArgs e) => RefreshMuteCountdown();
+
+    private static string FormatRemaining(TimeSpan remaining, int fps)
+    {
+        int frames = (int)(remaining.Milliseconds / 1000.0 * fps);
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}:{frames:D2}";
     }
 
     public void SyncFromService()
@@ -409,8 +468,10 @@ public partial class CueListViewModel : DispatcherViewModel
 
     public override void Dispose()
     {
+        _muteCountdownTimer?.Stop();
         _cueManager.CueTriggered -= OnCueTriggered;
         _timecodeEngine.TimecodeUpdated -= OnTimecodeUpdated;
+        _cueManager.MuteStateChanged -= OnMuteStateChanged;
         base.Dispose();
     }
 }

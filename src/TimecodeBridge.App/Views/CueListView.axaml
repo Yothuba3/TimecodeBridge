@@ -159,6 +159,10 @@
                                             HorizontalAlignment="Left" Margin="10,0,0,0"
                                             Command="{Binding $parent[ListBox].((vm:CueListViewModel)DataContext).ManualTriggerCommand}"
                                             CommandParameter="{CompiledBinding Id}" />
+                                    <TextBlock Grid.Column="5" Text="{CompiledBinding MuteCountdownText}"
+                                               FontFamily="{StaticResource MonoFont}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{StaticResource ErrorBrush}"
+                                               VerticalAlignment="Center" Margin="10,0,6,0" />
                                 </Grid>
                             </Border>
                             <Border Classes="flashOverlay" Classes.triggered="{CompiledBinding IsTriggered}"
