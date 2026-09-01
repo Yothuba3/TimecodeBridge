@@ -12,7 +12,8 @@
              行内で引き伸ばされないよう上下センターに揃える -->
         <Style Selector="TextBox">
             <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Padding" Value="8,4" />
+            <!-- Osakaはラインボックス内でインクが上寄りのため上下非対称で光学中央に補正 -->
+            <Setter Property="Padding" Value="8,6,8,2" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="ComboBox">
@@ -29,9 +30,9 @@
     <Border Margin="12" Background="{StaticResource CardBackgroundBrush}"
             BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
             CornerRadius="8" Padding="20">
-        <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,*,Auto">
+        <Grid Name="FormGrid" ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,*,Auto">
             <Grid.Styles>
-                <Style Selector="Grid > :is(Control)">
+                <Style Selector="Grid#FormGrid > :is(Control)">
                     <Setter Property="Margin" Value="0,0,0,10" />
                 </Style>
                 <Style Selector="TextBlock">

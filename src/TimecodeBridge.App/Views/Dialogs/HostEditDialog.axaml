@@ -6,9 +6,9 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False">
 
-    <Grid Margin="16" ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+    <Grid Name="FormGrid" Margin="16" ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
         <Grid.Styles>
-            <Style Selector="Grid > :is(Control)">
+            <Style Selector="Grid#FormGrid > :is(Control)">
                 <Setter Property="Margin" Value="0,0,0,8" />
             </Style>
             <Style Selector="TextBlock">

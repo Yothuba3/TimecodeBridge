@@ -13,7 +13,8 @@
              行内で引き伸ばされないよう上下センターに揃える -->
         <Style Selector="TextBox">
             <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Padding" Value="8,4" />
+            <!-- Osakaはラインボックス内でインクが上寄りのため上下非対称で光学中央に補正 -->
+            <Setter Property="Padding" Value="8,6,8,2" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="ComboBox">
