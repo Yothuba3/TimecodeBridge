@@ -1,0 +1,185 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TimecodeBridge.App.ViewModels"
+        xmlns:views="using:TimecodeBridge.App.Views"
+        xmlns:conv="using:TimecodeBridge.App.Converters"
+        x:Class="TimecodeBridge.App.MainWindow"
+        Title="{CompiledBinding Title}"
+        Height="840" Width="1600"
+        MinHeight="720" MinWidth="1380"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PrimaryBackgroundBrush}"
+        x:DataType="vm:MainViewModel">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Cmd+Z" Command="{CompiledBinding UndoCommand}" />
+        <KeyBinding Gesture="Cmd+Shift+Z" Command="{CompiledBinding RedoCommand}" />
+        <KeyBinding Gesture="Cmd+N" Command="{CompiledBinding NewProjectCommand}" />
+        <KeyBinding Gesture="Cmd+O" Command="{CompiledBinding OpenProjectWithDialogCommand}" />
+        <KeyBinding Gesture="Cmd+S" Command="{CompiledBinding SaveProjectCommand}" />
+        <KeyBinding Gesture="Cmd+Shift+S" Command="{CompiledBinding SaveProjectAsCommand}" />
+    </Window.KeyBindings>
+
+    <Grid Background="{StaticResource PrimaryBackgroundBrush}" RowDefinitions="Auto,*,Auto">
+
+        <!-- Row 0: Menu Bar -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="新規プロジェクト(_N)" Command="{CompiledBinding NewProjectCommand}" InputGesture="Cmd+N" />
+                <Separator />
+                <MenuItem Header="開く(_O)" Command="{CompiledBinding OpenProjectWithDialogCommand}" InputGesture="Cmd+O" />
+                <MenuItem Header="保存(_S)" Command="{CompiledBinding SaveProjectCommand}" InputGesture="Cmd+S" />
+                <MenuItem Header="名前を付けて保存(_A)" Command="{CompiledBinding SaveProjectAsCommand}" InputGesture="Cmd+Shift+S" />
+                <Separator />
+                <MenuItem Header="最近のプロジェクト"
+                          ItemsSource="{CompiledBinding RecentProjects}">
+                    <MenuItem.Styles>
+                        <Style Selector="MenuItem MenuItem">
+                            <Setter Property="Header" Value="{Binding}" />
+                            <Setter Property="Command" Value="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenProjectCommand}" />
+                            <Setter Property="CommandParameter" Value="{Binding}" />
+                        </Style>
+                    </MenuItem.Styles>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="編集(_E)">
+                <MenuItem Header="元に戻す(_U)" Command="{CompiledBinding UndoCommand}" InputGesture="Cmd+Z" />
+                <MenuItem Header="やり直し(_R)" Command="{CompiledBinding RedoCommand}" InputGesture="Cmd+Shift+Z" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->
+        <Grid Grid.Row="1" Margin="4,4,4,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3.2*" MinWidth="1080" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="260" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Timecode (existing full feature set) -->
+            <Grid Grid.Column="0" RowDefinitions="1*,1*">
+
+                <!-- CueList (left) + HostManager / RelayControl (right) -->
+                <Grid Grid.Row="0" Margin="0,4,0,0" ColumnDefinitions="4*,Auto,3*">
+                    <views:CueListView Grid.Column="0"
+                                       DataContext="{CompiledBinding CueListViewModel}" />
+                    <GridSplitter Grid.Column="1" Width="3"
+                                  HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Background="Transparent" Margin="4,0,0,0">
+                        <StackPanel>
+                            <views:HostManagerView DataContext="{CompiledBinding HostManagerViewModel}"
+                                                   Margin="0,0,0,4" />
+                            <views:RelayControlView DataContext="{CompiledBinding RelayViewModel}"
+                                                    Margin="0,0,0,4" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- TC + Waveform (left) | Log (right) -->
+                <Grid Grid.Row="1" Margin="0,4,0,0" ColumnDefinitions="3*,2*">
+
+                    <!-- Left: Timecode + Waveform -->
+                    <Grid Grid.Column="0" Margin="0,0,4,0" RowDefinitions="*,Auto">
+                        <views:TimecodeDisplayView Grid.Row="0"
+                                                   DataContext="{CompiledBinding TimecodeViewModel}" />
+                        <views:AudioWaveformView Grid.Row="1" Name="AudioWaveform" Height="46" />
+                    </Grid>
+
+                    <!-- Right: Log Panel -->
+                    <Border Grid.Column="1" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+                            CornerRadius="8" Background="{StaticResource CardBackgroundBrush}">
+                        <Grid RowDefinitions="Auto,*">
+                            <DockPanel Grid.Row="0" Margin="12,8,12,4">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="3" Height="14" Background="{StaticResource AccentBrush}"
+                                            CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="ログ" FontWeight="SemiBold" FontSize="13"
+                                               Foreground="{StaticResource PrimaryForegroundBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                    <CheckBox Name="FailOnlyCheck" Content="失敗のみ" FontSize="11"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"
+                                              Foreground="{StaticResource SecondaryForegroundBrush}"
+                                              IsCheckedChanged="FailOnlyCheck_Changed" />
+                                    <Button Content="クリア" Padding="10,4" FontSize="11"
+                                            Command="{CompiledBinding LogViewModel.ClearLogsCommand}" />
+                                </StackPanel>
+                            </DockPanel>
+                            <ListBox Grid.Row="1" Name="LogListBox"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Margin="4,0,4,4">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,2" />
+                                        <Setter Property="MinHeight" Value="0" />
+                                    </Style>
+                                    <Style Selector="TextBlock.logMsg">
+                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                    </Style>
+                                    <Style Selector="TextBlock.logMsg.fail">
+                                        <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                    </Style>
+                                </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:LogEntry">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{CompiledBinding Timestamp, StringFormat='{}{0:HH:mm:ss.fff}'}"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                       Foreground="{StaticResource SecondaryForegroundBrush}"
+                                                       Margin="0,0,8,0" />
+                                            <TextBlock Text="{CompiledBinding Message}"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                       Classes="logMsg" Classes.fail="{CompiledBinding !IsSuccess}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="3"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+            <!-- Right: OSC Trigger Panel (pon-out) -->
+            <views:OscTriggerPanelView Grid.Column="2" Name="OscTriggerPanel"
+                                       DataContext="{CompiledBinding OscTriggerPanelViewModel}" />
+        </Grid>
+
+        <!-- Row 2: 運用ステータスバー -->
+        <Border Grid.Row="2" Background="{StaticResource SecondaryBackgroundBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="10,4">
+                <TextBlock Text="{CompiledBinding ProjectDisplayName}" ToolTip.Tip="{CompiledBinding ProjectFilePath}"
+                           FontSize="11" VerticalAlignment="Center"
+                           Foreground="{StaticResource PrimaryForegroundBrush}" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Border Background="{StaticResource ErrorBrush}"
+                            IsVisible="{CompiledBinding OscTriggerPanelViewModel.IsPlayMode}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="ポン出し実行中" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <Border Background="{StaticResource ErrorBrush}"
+                            IsVisible="{CompiledBinding TimecodeViewModel.IsTriggerMuted}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="AUTO MUTE" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <Border Background="{StaticResource AccentBrush}"
+                            IsVisible="{CompiledBinding RelayViewModel.IsContinuousEnabled}"
+                            CornerRadius="3" Padding="6,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="RELAY ON" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <TextBlock Text="{CompiledBinding TimecodeViewModel.SourceStatusSummary}"
+                               Foreground="{CompiledBinding TimecodeViewModel.StatusText, Converter={x:Static conv:StatusConverters.ToTextBrush}}"
+                               FontSize="11" VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

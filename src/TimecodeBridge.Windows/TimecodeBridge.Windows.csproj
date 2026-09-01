@@ -7,13 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="System.Text.Json" Version="10.0.2" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="TimecodeBridge.Tests" />
-    <InternalsVisibleTo Include="TimecodeBridge.App.Tests" />
+    <ProjectReference Include="..\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
   </ItemGroup>
 
 </Project>

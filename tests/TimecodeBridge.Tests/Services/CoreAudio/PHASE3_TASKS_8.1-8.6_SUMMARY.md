@@ -11,7 +11,7 @@ macOS版TimecodeBridgeのCoreAudio P/Invoke基盤を完全実装しました。T
 ### Task 8.1: CoreAudio P/Invoke署名の定義 ✅
 
 **実装ファイル**:
-- `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioInterop.cs`
+- `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioInterop.cs`
 
 **実装内容**:
 - Audio Unit関連P/Invoke（AudioComponentFindNext、AudioComponentInstanceNew、AudioUnitSetProperty、AudioOutputUnitStart/Stop、AudioUnitRender）
@@ -28,7 +28,7 @@ macOS版TimecodeBridgeのCoreAudio P/Invoke基盤を完全実装しました。T
 ### Task 8.2: CoreAudioCaptureの実装（IAudioCaptureインターフェース） ✅
 
 **実装ファイル**:
-- `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioCapture.cs`
+- `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioCapture.cs`
 
 **実装内容**:
 - `Start(AudioDeviceInfo device)`: HAL Output Audio Unitの初期化、Input側I/O有効化、デバイス設定、ストリームフォーマット設定（48kHz Mono 16bit PCM）、Render Callback登録
@@ -68,7 +68,7 @@ macOS版TimecodeBridgeのCoreAudio P/Invoke基盤を完全実装しました。T
 ### Task 8.4: AudioDeviceService.macOSの本実装 ✅
 
 **実装ファイル**:
-- `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioDeviceService.cs`
+- `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioDeviceService.cs`
 
 **実装内容**:
 - `GetCaptureDevices()`: Input scopeデバイスの列挙
@@ -94,7 +94,7 @@ macOS版TimecodeBridgeのCoreAudio P/Invoke基盤を完全実装しました。T
 ### Task 8.5: CoreAudioPlaybackの実装（IAudioPlaybackインターフェース） ✅
 
 **実装ファイル**:
-- `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioPlayback.cs`
+- `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioPlayback.cs`
 
 **実装内容**:
 - `Start(AudioDeviceInfo device)`: HAL Output Audio Unitの初期化、Output側I/O有効化、デバイス設定、ストリームフォーマット設定（48kHz Mono 16bit PCM）、Render Callback登録
@@ -199,10 +199,10 @@ macOS版TimecodeBridgeのCoreAudio P/Invoke基盤を完全実装しました。T
 
 ### 実装ファイル（5ファイル）
 
-1. `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioInterop.cs` (289行)
-2. `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioCapture.cs` (364行)
-3. `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioPlayback.cs` (348行)
-4. `/src/TimecodeBridge.macOS/Services/CoreAudio/CoreAudioDeviceService.cs` (241行)
+1. `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioInterop.cs` (289行)
+2. `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioCapture.cs` (364行)
+3. `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioPlayback.cs` (348行)
+4. `/src/TimecodeBridge.App/Services/CoreAudio/CoreAudioDeviceService.cs` (241行)
 
 ### テストファイル（5ファイル）
 

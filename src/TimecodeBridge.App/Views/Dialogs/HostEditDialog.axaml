@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TimecodeBridge.App.Views.Dialogs.HostEditDialog"
+        Title="ホスト編集"
+        Width="400" Height="260"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Grid Margin="16" ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+        <Grid.Styles>
+            <Style Selector="Grid > :is(Control)">
+                <Setter Property="Margin" Value="0,0,0,8" />
+            </Style>
+            <Style Selector="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="名前" />
+        <TextBox Grid.Row="0" Grid.Column="1" Name="NameBox" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="IPアドレス" />
+        <TextBox Grid.Row="1" Grid.Column="1" Name="IpAddressBox" Watermark="127.0.0.1" />
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="ポート" />
+        <TextBox Grid.Row="2" Grid.Column="1" Name="PortBox" Width="100" HorizontalAlignment="Left" />
+
+        <CheckBox Grid.Row="3" Grid.Column="1" Name="EnabledBox" Content="有効" />
+
+        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0">
+            <Button Content="OK" Width="90" IsDefault="True" Click="OnOkClick" />
+            <Button Content="キャンセル" Width="90" IsCancel="True" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

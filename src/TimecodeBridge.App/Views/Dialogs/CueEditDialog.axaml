@@ -1,0 +1,155 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TimecodeBridge.App.ViewModels"
+        x:Class="TimecodeBridge.App.Views.Dialogs.CueEditDialog"
+        Title="キュー編集"
+        Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{StaticResource PrimaryBackgroundBrush}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.Label">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.TimeField">
+            <Setter Property="MinWidth" Value="38" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="MaxLength" Value="2" />
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        </Style>
+        <Style Selector="TextBlock.Sep">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="12" Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+            CornerRadius="8" Padding="20">
+        <Grid ColumnDefinitions="110,*"
+              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+            <Grid.Styles>
+                <Style Selector="Grid > :is(Control)">
+                    <Setter Property="Margin" Value="0,0,0,10" />
+                </Style>
+            </Grid.Styles>
+
+            <!-- Name -->
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="名前" Classes="Label" />
+            <TextBox Grid.Row="0" Grid.Column="1" Name="NameBox" />
+
+            <!-- Trigger Time -->
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="トリガー時間" Classes="Label" />
+            <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto,*,Auto,*,Auto,*">
+                <TextBox Grid.Column="0" Name="HoursBox" Classes="TimeField" />
+                <TextBlock Grid.Column="1" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="2" Name="MinutesBox" Classes="TimeField" />
+                <TextBlock Grid.Column="3" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="4" Name="SecondsBox" Classes="TimeField" />
+                <TextBlock Grid.Column="5" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="6" Name="FramesBox" Classes="TimeField" />
+            </Grid>
+
+            <!-- Trigger Offset -->
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="トリガーオフセット" Classes="Label"
+                       ToolTip.Tip="発火タイミングを±ずらします。実際の発火時刻 = トリガー時間 ± この値" />
+            <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*">
+                <ComboBox Grid.Column="0" Name="OffsetSignBox" Width="72" Padding="10,6,0,6" SelectedIndex="0">
+                    <ComboBoxItem Content="+" />
+                    <ComboBoxItem Content="-" />
+                </ComboBox>
+                <TextBox Grid.Column="1" Name="OffsetHoursBox" Classes="TimeField" Margin="4,0,0,0" />
+                <TextBlock Grid.Column="2" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="3" Name="OffsetMinutesBox" Classes="TimeField" />
+                <TextBlock Grid.Column="4" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="5" Name="OffsetSecondsBox" Classes="TimeField" />
+                <TextBlock Grid.Column="6" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="7" Name="OffsetFramesBox" Classes="TimeField" />
+            </Grid>
+
+            <!-- OSC Address（メイン + 追加アドレス） -->
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="OSCアドレス" Classes="Label" VerticalAlignment="Top" Margin="0,4,0,0" />
+            <StackPanel Grid.Row="3" Grid.Column="1">
+                <TextBox Name="OscAddressBox" FontFamily="{StaticResource MonoFont}" />
+                <TextBlock Text="追加アドレス（1行1件・引数なしで一緒に送信されます）"
+                           FontSize="10" Margin="0,6,0,2"
+                           Foreground="{StaticResource SecondaryForegroundBrush}" />
+                <TextBox Name="AdditionalAddressesBox" FontFamily="{StaticResource MonoFont}"
+                         AcceptsReturn="True" Height="48" />
+            </StackPanel>
+
+            <!-- Send Trigger Time as Seconds -->
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="TC秒数送信" Classes="Label" />
+            <CheckBox Grid.Row="4" Grid.Column="1" Name="SendTcSecondsBox"
+                      Content="タイムコードを秒数(float)で先頭引数に追加" />
+
+            <!-- Send Timecode -->
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="送信タイムコード" Classes="Label"
+                       ToolTip.Tip="秒数送信で送るタイムコード。&#10;未指定ならトリガー時間をそのまま送ります" />
+            <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*"
+                  IsEnabled="{Binding #SendTcSecondsBox.IsChecked}">
+                <CheckBox Grid.Column="0" Name="UseSendTimecodeBox" Content="指定"
+                          VerticalAlignment="Center" Margin="0,0,8,0"
+                          ToolTip.Tip="OFFの場合はトリガー時間をそのまま送信します" />
+                <TextBox Grid.Column="1" Name="SendTcHoursBox" Classes="TimeField"
+                         IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                <TextBlock Grid.Column="2" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="3" Name="SendTcMinutesBox" Classes="TimeField"
+                         IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                <TextBlock Grid.Column="4" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="5" Name="SendTcSecondsFieldBox" Classes="TimeField"
+                         IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+                <TextBlock Grid.Column="6" Text=":" Classes="Sep" />
+                <TextBox Grid.Column="7" Name="SendTcFramesBox" Classes="TimeField"
+                         IsEnabled="{Binding #UseSendTimecodeBox.IsChecked}" />
+            </Grid>
+
+            <!-- OSC Arguments -->
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="OSC引数" Classes="Label" />
+            <TextBox Grid.Row="6" Grid.Column="1" Name="OscArgsBox" FontFamily="{StaticResource MonoFont}"
+                     ToolTip.Tip="例: i:1 f:0.5 s:hello (型:値 をスペース区切り、空白を含む文字列は s:&quot;hello world&quot;)" />
+
+            <!-- Target Hosts -->
+            <TextBlock Grid.Row="7" Grid.Column="0" Text="送信先ホスト" Classes="Label" VerticalAlignment="Top" />
+            <Border Grid.Row="7" Grid.Column="1" Height="80"
+                    Background="{StaticResource SecondaryBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl Name="HostList" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HostSelection">
+                                    <CheckBox Content="{CompiledBinding Name}"
+                                              IsChecked="{CompiledBinding IsSelected}" Margin="0,2" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock Name="NoHostsHint" IsVisible="False"
+                               Text="ホストが未登録です。&#10;先に「ホスト管理」からホストを追加してください"
+                               Foreground="{StaticResource SecondaryForegroundBrush}" FontSize="11"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Memo -->
+            <TextBlock Grid.Row="8" Grid.Column="0" Text="メモ" Classes="Label" VerticalAlignment="Top" />
+            <TextBox Grid.Row="8" Grid.Column="1" Name="MemoBox" Height="50"
+                     AcceptsReturn="True" TextWrapping="Wrap" />
+
+            <!-- Enabled -->
+            <CheckBox Grid.Row="9" Grid.Column="1" Name="EnabledBox" Content="有効" />
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+                        Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+                <Button Content="OK" Padding="24,8" Classes="accent" IsDefault="True" Click="OnOkClick" />
+                <Button Content="キャンセル" Padding="24,8" IsCancel="True" Click="OnCancelClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

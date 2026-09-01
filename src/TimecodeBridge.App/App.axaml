@@ -1,0 +1,174 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TimecodeBridge.App.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <!-- Color Palette — Windows版 DarkTheme.xaml と同一 -->
+        <Color x:Key="PrimaryBackgroundColor">#0F0F1A</Color>
+        <Color x:Key="SecondaryBackgroundColor">#1A1A2E</Color>
+        <Color x:Key="TertiaryBackgroundColor">#252540</Color>
+        <Color x:Key="PrimaryForegroundColor">#EAEAF2</Color>
+        <Color x:Key="SecondaryForegroundColor">#8888A8</Color>
+        <Color x:Key="AccentColor">#6C8EEF</Color>
+        <Color x:Key="AccentHoverColor">#8AAAF5</Color>
+        <Color x:Key="AccentSubtleColor">#2A2A50</Color>
+        <Color x:Key="ErrorColor">#EF5A6F</Color>
+        <Color x:Key="SuccessColor">#4ADE80</Color>
+        <Color x:Key="WarningColor">#F5B942</Color>
+        <Color x:Key="BorderColor">#303050</Color>
+        <Color x:Key="BorderSubtleColor">#222240</Color>
+        <Color x:Key="DisabledForegroundColor">#4A4A68</Color>
+        <Color x:Key="SelectionBackgroundColor">#2E3F6E</Color>
+        <Color x:Key="CardBackgroundColor">#161628</Color>
+
+        <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackgroundColor}" />
+        <SolidColorBrush x:Key="SecondaryBackgroundBrush" Color="{StaticResource SecondaryBackgroundColor}" />
+        <SolidColorBrush x:Key="TertiaryBackgroundBrush" Color="{StaticResource TertiaryBackgroundColor}" />
+        <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="{StaticResource PrimaryForegroundColor}" />
+        <SolidColorBrush x:Key="SecondaryForegroundBrush" Color="{StaticResource SecondaryForegroundColor}" />
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}" />
+        <SolidColorBrush x:Key="AccentSubtleBrush" Color="{StaticResource AccentSubtleColor}" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+        <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+        <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}" />
+        <SolidColorBrush x:Key="DisabledForegroundBrush" Color="{StaticResource DisabledForegroundColor}" />
+        <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="{StaticResource SelectionBackgroundColor}" />
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
+
+        <!-- 等幅フォント: Windows版の Consolas 相当 -->
+        <FontFamily x:Key="MonoFont">Consolas,Menlo,Monaco,monospace</FontFamily>
+
+        <!-- 既定フォント: Avalonia標準のInterは日本語グリフを持たず和欧混在でベースラインがずれる。
+             ヒラギノはメトリクスの偏りで文字が枠の中央より約3px沈む。
+             Osakaは和欧同居かつ上下中央に乗るため既定に採用 -->
+        <FontFamily x:Key="AppFont">Osaka,Arial Unicode MS,Hiragino Sans,Yu Gothic UI,Meiryo UI</FontFamily>
+        <FontFamily x:Key="ContentControlThemeFontFamily">Osaka,Arial Unicode MS,Hiragino Sans,Yu Gothic UI,Meiryo UI</FontFamily>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <Style Selector="Window">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+        </Style>
+
+        <!-- Button (Windows版 DarkTheme.xaml の既定Buttonスタイル相当) -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{StaticResource TertiaryBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource DisabledForegroundBrush}" />
+        </Style>
+
+        <!-- Accent Button -->
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <!-- TextBox -->
+        <Style Selector="TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource SelectionBackgroundBrush}" />
+        </Style>
+        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- ComboBox -->
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="ComboBox:pointerover /template/ Border#Background">
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- CheckBox / RadioButton -->
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- ListBox -->
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- Menu -->
+        <Style Selector="Menu">
+            <Setter Property="Background" Value="{StaticResource PrimaryBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+        </Style>
+        <Style Selector="MenuItem">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- ToolTip / GridSplitter -->
+        <Style Selector="GridSplitter">
+            <Setter Property="Background" Value="{StaticResource BorderSubtleBrush}" />
+        </Style>
+
+        <!-- Slider accent -->
+        <Style Selector="Slider">
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+    </Application.Styles>
+</Application>

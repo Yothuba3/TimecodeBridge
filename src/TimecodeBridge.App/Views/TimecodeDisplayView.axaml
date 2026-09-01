@@ -1,0 +1,292 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimecodeBridge.App.ViewModels"
+             xmlns:conv="using:TimecodeBridge.App.Converters"
+             xmlns:models="using:TimecodeBridge.Core.Models"
+             x:Class="TimecodeBridge.App.Views.TimecodeDisplayView"
+             x:DataType="vm:TimecodeViewModel"
+             Background="Transparent">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style Selector="TextBlock.FieldLabel:disabled">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+
+        <Style Selector="Ellipse.ltcOutDot">
+            <Setter Property="Fill" Value="#4A4A68" />
+        </Style>
+        <Style Selector="Ellipse.ltcOutDot.active">
+            <Setter Property="Fill" Value="#F5B942" />
+        </Style>
+
+        <!-- CUE SYNC 大型ボタン -->
+        <Style Selector="Button.cueSync">
+            <Setter Property="Background" Value="#182840" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Button.cueSync:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#182840" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+        </Style>
+        <Style Selector="Button.cueSync:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Mute 大型トグル -->
+        <Style Selector="ToggleButton#MuteToggle">
+            <Setter Property="Background" Value="#2A2040" />
+            <Setter Property="BorderBrush" Value="#4A4068" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2A2040" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#401A1A" />
+            <Setter Property="BorderBrush" Value="#EF5A6F" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle Ellipse#MuteDot">
+            <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle:checked Ellipse#MuteDot">
+            <Setter Property="Fill" Value="#EF5A6F" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle TextBlock#MuteLabel">
+            <Setter Property="Text" Value="LIVE" />
+            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+        </Style>
+        <Style Selector="ToggleButton#MuteToggle:checked TextBlock#MuteLabel">
+            <Setter Property="Text" Value="MUTE" />
+            <Setter Property="Foreground" Value="#EF5A6F" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 信号喪失時は枠を警告色にする -->
+    <Border Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{CompiledBinding StatusText, Converter={x:Static conv:StatusConverters.ToPanelBorderBrush}}"
+            BorderThickness="{CompiledBinding StatusText, Converter={x:Static conv:StatusConverters.ToPanelBorderThickness}}"
+            Margin="0,0,0,2" Padding="14,10" CornerRadius="8"
+            VerticalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,8,*">
+
+            <!-- Top: Timecode displays -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,20,Auto,*,Auto">
+
+                <!-- RAW -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{StaticResource AccentSubtleBrush}" CornerRadius="3"
+                            Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <TextBlock Text="RAW" FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                   FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                    </Border>
+                    <TextBlock Text="{CompiledBinding RawTimecodeDisplay}"
+                               FontFamily="{StaticResource MonoFont}" FontSize="32" FontWeight="Bold"
+                               Foreground="{StaticResource PrimaryForegroundBrush}"
+                               VerticalAlignment="Center" />
+                    <!-- 検出フレームレート -->
+                    <TextBlock Text="{CompiledBinding DetectedFrameRateText}"
+                               FontFamily="{StaticResource MonoFont}" FontSize="11"
+                               Foreground="{StaticResource SecondaryForegroundBrush}"
+                               VerticalAlignment="Bottom" Margin="6,0,0,4" />
+                </StackPanel>
+
+                <!-- OFFSET -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#2A2A3A" CornerRadius="3"
+                            Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <TextBlock Text="OFS" FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                   FontWeight="Bold" Foreground="{StaticResource WarningBrush}" />
+                    </Border>
+                    <TextBlock Text="{CompiledBinding OffsetTimecodeDisplay}"
+                               FontFamily="{StaticResource MonoFont}" FontSize="24"
+                               Foreground="{StaticResource SecondaryForegroundBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Status + Source (right-aligned) -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="10" Height="10" Margin="0,0,4,0" VerticalAlignment="Center"
+                             Fill="{CompiledBinding StatusText, Converter={x:Static conv:StatusConverters.ToDotBrush}}" />
+                    <TextBlock Text="{CompiledBinding StatusText}"
+                               Foreground="{CompiledBinding StatusText, Converter={x:Static conv:StatusConverters.ToTextBrush}}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,4,0" />
+                    <!-- 信号喪失時の補足（最終受信からの経過秒） -->
+                    <TextBlock Text="{CompiledBinding SignalDetailText}"
+                               Foreground="{StaticResource ErrorBrush}"
+                               VerticalAlignment="Center" FontSize="10" Margin="0,0,12,0" />
+                    <RadioButton Content="LTC" GroupName="Source"
+                                 IsChecked="{CompiledBinding IsLtcMode}"
+                                 Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <RadioButton Content="内部生成" GroupName="Source"
+                                 IsChecked="{CompiledBinding IsGeneratorMode}"
+                                 VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Separator -->
+            <Border Grid.Row="1" Height="1" Background="{StaticResource BorderSubtleBrush}"
+                    Margin="0,3" VerticalAlignment="Center" />
+
+            <!-- Bottom: Settings Grid -->
+            <Grid Grid.Row="2" VerticalAlignment="Top"
+                  ColumnDefinitions="Auto,*,16,Auto,*,16,Auto,Auto,Auto"
+                  RowDefinitions="Auto,6,Auto,6,Auto,14,Auto">
+
+                <!-- Row 0: 入力デバイス | フレームレート | オフセット -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="入力デバイス" Classes="FieldLabel"
+                           IsEnabled="{CompiledBinding IsLtcMode}" />
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                    <ComboBox ItemsSource="{CompiledBinding AudioDevices}"
+                              SelectedItem="{CompiledBinding SelectedDevice}"
+                              IsEnabled="{CompiledBinding IsLtcMode}"
+                              MinWidth="140" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:AudioDeviceInfo">
+                                <TextBlock Text="{CompiledBinding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <!-- 更新ボタンは出力デバイス一覧も更新するため生成モードでも有効のまま -->
+                    <Button Content="↻" Command="{CompiledBinding RefreshAudioDevicesCommand}"
+                            Padding="5,2" Margin="4,0,0,0" ToolTip.Tip="デバイス一覧を更新"
+                            FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="フレームレート" Classes="FieldLabel"
+                           IsEnabled="{CompiledBinding IsGeneratorMode}" />
+                <ComboBox Grid.Row="0" Grid.Column="4" ItemsSource="{CompiledBinding AvailableFrameRates}"
+                          SelectedItem="{CompiledBinding GeneratorFrameRate}"
+                          IsEnabled="{CompiledBinding IsGeneratorMode}"
+                          ToolTip.Tip="生成中の変更は次回リセット時に反映されます"
+                          HorizontalAlignment="Left" MinWidth="80" />
+
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="オフセット" Classes="FieldLabel" />
+                <TextBox Grid.Row="0" Grid.Column="7" Name="OffsetInput"
+                         Width="120" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                         Text="{CompiledBinding OffsetText, UpdateSourceTrigger=LostFocus}"
+                         Padding="4,3" VerticalAlignment="Center" ToolTip.Tip="±HH:MM:SS:FF 形式" />
+
+                <!-- Row 2: LTC出力 | 開始時間 | 音量 -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="LTC出力" Classes="FieldLabel"
+                           IsEnabled="{CompiledBinding IsGeneratorMode}" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            IsEnabled="{CompiledBinding IsGeneratorMode}">
+                    <ComboBox ItemsSource="{CompiledBinding OutputDevices}"
+                              SelectedItem="{CompiledBinding SelectedOutputDevice}"
+                              ToolTip.Tip="生成中の変更は次回リセット時に反映されます"
+                              MinWidth="140" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:AudioDeviceInfo">
+                                <TextBlock Text="{CompiledBinding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Ellipse Classes="ltcOutDot" Classes.active="{CompiledBinding IsLtcOutputActive}"
+                             Width="8" Height="8" Margin="6,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="開始時間" Classes="FieldLabel"
+                           IsEnabled="{CompiledBinding IsGeneratorMode}" />
+                <TextBox Grid.Row="2" Grid.Column="4"
+                         Text="{CompiledBinding GeneratorStartTime, UpdateSourceTrigger=LostFocus}"
+                         IsEnabled="{CompiledBinding IsGeneratorMode}"
+                         HorizontalAlignment="Left" VerticalAlignment="Center" Width="100"
+                         FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="4,3"
+                         ToolTip.Tip="HH:MM:SS:FF 形式" />
+
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="音量" Classes="FieldLabel"
+                           IsEnabled="{CompiledBinding IsGeneratorMode}" />
+                <Slider Grid.Row="2" Grid.Column="7"
+                        Value="{CompiledBinding OutputVolumeLevel}" Minimum="0" Maximum="1"
+                        Width="100" VerticalAlignment="Center"
+                        ToolTip.Tip="生成中の変更は次回リセット時に反映されます"
+                        IsEnabled="{CompiledBinding IsGeneratorMode}" />
+
+                <!-- Row 4: Generator buttons -->
+                <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="8"
+                            Orientation="Horizontal"
+                            IsEnabled="{CompiledBinding IsGeneratorMode}">
+                    <Button Content="▶ 開始" Command="{CompiledBinding StartGeneratorCommand}"
+                            Classes="accent"
+                            Padding="10,4" Margin="0,0,6,0" FontSize="11" />
+                    <Button Content="■ 停止" Command="{CompiledBinding StopGeneratorCommand}"
+                            Padding="10,4" Margin="0,0,6,0" FontSize="11" />
+                    <Button Content="↺ リセット" Command="{CompiledBinding ResetGeneratorCommand}"
+                            Padding="10,4" FontSize="11" />
+                </StackPanel>
+
+                <!-- Row 6: Cue-Syncワンショット + Mute -->
+                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="9" Orientation="Horizontal">
+
+                    <!-- CUE SYNC（押した瞬間に1回送信するワンショット） -->
+                    <Button Classes="cueSync"
+                            Command="{CompiledBinding CueSync.SendCueSyncCommand}"
+                            Width="96" Height="96" VerticalAlignment="Top"
+                            ToolTip.Tip="Cue-Syncワンショット送信。&#10;直前の有効なキューを基準に、送信タイムコード + (現在TC − 実効発火時刻) を秒数(float)で1回送信します。&#10;送信タイムコード未指定のキューはトリガー時間を送信軸とみなします。&#10;基準キューがない場合は 0.0 を送ります">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="CUE" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold"
+                                       Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="SYNC" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold"
+                                       Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Cue-Sync 設定（アドレス + 送信先） -->
+                    <StackPanel Margin="12,0,0,0" Width="340" VerticalAlignment="Top">
+                        <TextBlock Text="Cue-Sync アドレス" Classes="FieldLabel" Margin="0,0,0,3" />
+                        <TextBox Text="{CompiledBinding CueSync.OscAddress, UpdateSourceTrigger=LostFocus}"
+                                 FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="4,3" Margin="0,0,0,6" />
+                        <TextBlock Text="送信先ホスト" Classes="FieldLabel" Margin="0,0,0,3" />
+                        <!-- 固定高さの縦一列リスト。収まらない分はスクロール -->
+                        <Border Height="118" Background="{StaticResource SecondaryBackgroundBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{CompiledBinding CueSync.HostSelections}" Margin="4,2">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:HostSelection">
+                                                <CheckBox Content="{CompiledBinding Name}" FontSize="11" Margin="0,1"
+                                                          IsChecked="{CompiledBinding IsSelected}"
+                                                          IsCheckedChanged="OnCueSyncHostCheckChanged" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock Text="(ホスト未登録)" FontSize="10"
+                                           Foreground="{StaticResource SecondaryForegroundBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsVisible="{CompiledBinding CueSync.HostSelections.Count, Converter={x:Static conv:ValueConverters.IsZero}}" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Mute Toggle -->
+                    <ToggleButton Name="MuteToggle"
+                                  IsChecked="{CompiledBinding IsTriggerMuted}"
+                                  VerticalAlignment="Top"
+                                  Width="96" Height="96" Margin="16,0,0,0"
+                                  ToolTip.Tip="タイムコードによる自動キュー発火のミュート切替。&#10;※手動発火（▶）・OSCポン出し・リレー送信は止まりません">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Ellipse Name="MuteDot" Width="14" Height="14"
+                                     Margin="0,0,0,8" HorizontalAlignment="Center" />
+                            <TextBlock Name="MuteLabel"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="20"
+                                       FontWeight="Bold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
