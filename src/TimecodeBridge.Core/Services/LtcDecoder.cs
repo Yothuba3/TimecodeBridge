@@ -26,8 +26,12 @@ public class LtcDecoder : ILtcDecoder
     private bool _initialized;
     private bool _disposed;
 
-    // Zero-crossing detection state
-    private float _prevSample;
+    // エッジ検出状態。生の符号反転ではなく、DC成分と振幅包絡を追従させた
+    // Schmitt trigger（ヒステリシス）でエッジを取る。DCバイアス＋減衰した弱信号で0を跨がなく
+    // なったり、ゼロ近傍ノイズで偽エッジが多発してビット区間が壊れるのを防ぐ。
+    private double _dc;          // DC成分の低速IIR推定
+    private double _env;         // 振幅包絡の低速IIR推定
+    private bool _polarity;      // Schmitt状態: true=正側にいる
     private double _samplesSinceLastCrossing;
 
     // Biphase decoding state
@@ -63,7 +67,9 @@ public class LtcDecoder : ILtcDecoder
         _shortMax = halfBit * 1.6;
         _longMax = _samplesPerBit * 1.6;
 
-        _prevSample = 0;
+        _dc = 0;
+        _env = 0.1;
+        _polarity = false;
         _samplesSinceLastCrossing = 0;
         _expectSecondHalf = false;
         _shiftLo = 0;
@@ -115,9 +121,23 @@ public class LtcDecoder : ILtcDecoder
     {
         _samplesSinceLastCrossing++;
 
-        // Detect zero crossing
-        bool crossed = (_prevSample >= 0 && sample < 0) || (_prevSample < 0 && sample >= 0);
-        _prevSample = sample;
+        // DC成分と振幅包絡を低速IIRで追従し、それに追従したSchmitt trigger（ヒステリシス）で
+        // エッジを検出する。ヒステリシス幅は推定振幅の15%（下限0.02）。
+        _dc += 0.0005 * (sample - _dc);
+        double x = sample - _dc;
+        double ax = x < 0 ? -x : x;
+        _env += 0.001 * (ax - _env);
+        double thresh = Math.Max(0.02, _env * 0.15);
+
+        bool crossed = false;
+        if (_polarity)
+        {
+            if (x < -thresh) { _polarity = false; crossed = true; }
+        }
+        else
+        {
+            if (x > thresh) { _polarity = true; crossed = true; }
+        }
 
         if (!crossed) return;
 
@@ -127,11 +147,11 @@ public class LtcDecoder : ILtcDecoder
         // Classify interval
         if (interval < _shortMin || interval > _longMax)
         {
-            // Out of range — noise or silence, reset biphase state.
-            // ビット計数も仕切り直し、乱れを含む80bit窓からフレームを切り出さない
-            // （無信号復帰時にノイズと実信号が混ざったガベージフレームが出るのを防ぐ）
+            // 範囲外（ノイズ由来の偽区間や欠落）。biphaseの半ビット状態だけ仕切り直し、
+            // 80bitシフトレジスタとビット計数は保持する。捨てると、局所グリッチのたびに
+            // 再び80bit積み直すまで同期語を認められず、乱れが頻発するとTCが永久に止まる。
+            // ガベージはsyncワード16bit一致とBCD範囲チェックが弾くので計数保持で問題ない。
             _expectSecondHalf = false;
-            _totalBits = 0;
             return;
         }
 
@@ -175,13 +195,14 @@ public class LtcDecoder : ILtcDecoder
             _shiftHi |= (ushort)(1 << 15); // set bit 79 (MSB of shiftHi)
         }
 
-        _totalBits++;
+        if (_totalBits < 80) _totalBits++;
 
         // Check for sync word in the most recent 16 bits (bits 64-79 = shiftHi)
         if (_totalBits >= 80 && _shiftHi == SyncWord)
         {
             EmitFrame();
-            _totalBits = 0; // prevent re-triggering on the same frame
+            // ビット計数は80のまま保持する（0に戻さない）。グリッチ後も次のsyncで即フレーム化できる。
+            // 同一フレームの再発火は、次のsyncまで80bit進んで初めて _shiftHi が一致するため起きない。
         }
     }
 
