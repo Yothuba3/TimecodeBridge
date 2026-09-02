@@ -799,6 +799,7 @@ public class CueManagerTests
         public bool IsReceiving => false;
         public double FreerunDurationSeconds { get; set; }
         public bool IsFreerunning => false;
+        public LtcSignalCounts LtcSignalCounts { get; set; }
 
         public void StartLtc(string audioDeviceId, bool isLoopback = false) { }
         public void Stop() { }

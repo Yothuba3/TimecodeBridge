@@ -18,7 +18,12 @@ public partial class AudioWaveformView : UserControl
         PeakBrushGreen.Freeze();
     }
 
-    private readonly float[] _readBuffer = new float[AudioWaveformViewModel.DisplaySampleCount];
+    // 表示区間: 約0.5フレーム分（30fps基準）。LTC矩形が十数個見える程度に拡大する。
+    private const double WindowSeconds = 0.5 / 30.0;
+    private static readonly int WindowSamples =
+        (int)(AudioWaveformViewModel.SampleRate * WindowSeconds);
+
+    private readonly float[] _readBuffer = new float[WindowSamples];
     private PointCollection? _reusablePoints;
 
     public AudioWaveformView()
@@ -47,9 +52,11 @@ public partial class AudioWaveformView : UserControl
         double h = WaveformCanvas.ActualHeight;
         if (w <= 0 || h <= 0) return;
 
-        vm.CopyDisplayBuffer(_readBuffer);
+        vm.CopyRecent(_readBuffer, WindowSamples);
 
-        int count = AudioWaveformViewModel.DisplaySampleCount;
+        // 16ms窓の生サンプル(48kHzで約800個)を幅いっぱいに描く。キャンバス幅と同程度の
+        // サンプル数なので、点を結ぶだけでLTCの矩形が階段状にはっきり見える。
+        int count = WindowSamples;
 
         // Reuse or create PointCollection
         if (_reusablePoints == null || _reusablePoints.Count != count)

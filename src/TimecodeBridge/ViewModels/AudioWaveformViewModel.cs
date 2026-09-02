@@ -3,13 +3,22 @@ using TimecodeBridge.Services.Interfaces;
 
 namespace TimecodeBridge.ViewModels;
 
+/// <summary>
+/// 波形表示用に、直近の生サンプルをリングバッファへ貯める。
+/// 間引きはせず、描画側が末尾から必要な区間（既定0.5フレーム相当）を取り出して描く。
+/// 間引くとLTC矩形のピークを取りこぼし、密な塊にしか見えないため。
+/// </summary>
 public class AudioWaveformViewModel
 {
-    public const int DisplaySampleCount = 512;
+    // LTC入力は48kHz固定。約2フレーム分の生サンプルを保持する。
+    public const int SampleRate = 48000;
+    private const int RingSize = 4096;
 
-    private readonly float[] _displayBuffer = new float[DisplaySampleCount];
-    private volatile int _writePos;
-    private volatile float _peakLevel;
+    private readonly float[] _ring = new float[RingSize];
+    private readonly object _gate = new();
+    private int _writePos;
+    private long _totalWritten;
+    private float _peakLevel;
     private volatile bool _dirty;
 
     public AudioWaveformViewModel(ITimecodeEngine timecodeEngine)
@@ -17,51 +26,59 @@ public class AudioWaveformViewModel
         timecodeEngine.AudioSamplesAvailable += OnAudioSamplesAvailable;
     }
 
-    /// <summary>
-    /// Returns true and resets the dirty flag if new data is available since last check.
-    /// </summary>
+    /// <summary>前回チェック以降に新データがあれば true とピークレベルを返す。</summary>
     public bool ConsumeUpdate(out float peakLevel)
     {
-        peakLevel = _peakLevel;
+        lock (_gate) peakLevel = _peakLevel;
         if (!_dirty) return false;
         _dirty = false;
         return true;
     }
 
     /// <summary>
-    /// Copies the current circular buffer into a destination array in display order.
+    /// 末尾から sampleCount 個の生サンプルを時系列順に取り出す。
+    /// まだ十分に貯まっていない場合は先頭側を無音(0)で埋める。
     /// </summary>
-    public void CopyDisplayBuffer(float[] destination)
+    public void CopyRecent(float[] destination, int sampleCount)
     {
-        int pos = _writePos;
-        for (int i = 0; i < DisplaySampleCount; i++)
+        if (sampleCount > RingSize) sampleCount = RingSize;
+        lock (_gate)
         {
-            destination[i] = _displayBuffer[(pos + i) % DisplaySampleCount];
+            long available = _totalWritten;
+            int start = destination.Length - sampleCount;
+            for (int i = 0; i < start; i++) destination[i] = 0f;
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                long globalIndex = available - sampleCount + i;
+                if (globalIndex < 0)
+                {
+                    destination[start + i] = 0f;
+                    continue;
+                }
+                destination[start + i] = _ring[(int)(globalIndex % RingSize)];
+            }
         }
     }
 
     private void OnAudioSamplesAvailable(object? sender, AudioSamplesEventArgs e)
     {
         var samples = e.Samples;
-
-        // Downsample: pick every Nth sample to fill the display buffer
-        int step = Math.Max(1, samples.Length / 64);
-        int pos = _writePos;
-        for (int i = 0; i < samples.Length; i += step)
-        {
-            _displayBuffer[pos] = samples[i];
-            pos = (pos + 1) % DisplaySampleCount;
-        }
-        _writePos = pos;
-
-        // Calculate peak level
         float peak = 0f;
-        for (int i = 0; i < samples.Length; i++)
+
+        lock (_gate)
         {
-            float abs = Math.Abs(samples[i]);
-            if (abs > peak) peak = abs;
+            foreach (var s in samples)
+            {
+                _ring[_writePos] = s;
+                _writePos = (_writePos + 1) % RingSize;
+                _totalWritten++;
+
+                float abs = s < 0 ? -s : s;
+                if (abs > peak) peak = abs;
+            }
+            _peakLevel = peak;
         }
-        _peakLevel = peak;
         _dirty = true;
     }
 }
