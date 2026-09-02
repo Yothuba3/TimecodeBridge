@@ -53,17 +53,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _projectService.MarkAsChanged();
     }
 
-    /// <summary>信号喪失時の自動復帰（デコーダ・ゲートのリセット）のマスタースイッチ。</summary>
-    public bool LtcAutoRecoverEnabled => _timecodeEngine.LtcAutoRecoverOnSignalLoss;
-
-    [RelayCommand]
-    private void ToggleLtcAutoRecover()
-    {
-        _timecodeEngine.LtcAutoRecoverOnSignalLoss = !_timecodeEngine.LtcAutoRecoverOnSignalLoss;
-        OnPropertyChanged(nameof(LtcAutoRecoverEnabled));
-        _projectService.MarkAsChanged();
-    }
-
     // Child ViewModels
     public TimecodeViewModel TimecodeViewModel { get; }
     public CueListViewModel CueListViewModel { get; }
@@ -141,7 +130,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = TimecodeViewModel.CueSync.GetSettings(),
             CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
-            LtcAutoRecoverEnabled = _timecodeEngine.LtcAutoRecoverOnSignalLoss,
         };
         return JsonSerializer.Serialize(data, ProjectData.CreateJsonOptions());
     }
@@ -229,7 +217,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
                 TimecodeViewModel.CueSync.LoadSettings(data.CueSync ?? new CueSyncSettings());
                 _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
-                _timecodeEngine.LtcAutoRecoverOnSignalLoss = data.LtcAutoRecoverEnabled;
             }
             finally
             {
@@ -241,7 +228,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             RelayViewModel.SyncFromService();
             OscTriggerPanelViewModel.SyncFromService();
             OnPropertyChanged(nameof(AutoMuteEnabled));
-            OnPropertyChanged(nameof(LtcAutoRecoverEnabled));
 
             // Undo/Redo後は保存済みファイルと異なる可能性が高いためdirty扱いにする
             _projectService.MarkAsChanged();
@@ -281,9 +267,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         TimecodeViewModel.RestoreSourceSettings(new TimecodeSourceSettings());
         TimecodeViewModel.CueSync.LoadSettings(new CueSyncSettings());
         _cueManager.IsAutoMuteEnabled = true;
-        _timecodeEngine.LtcAutoRecoverOnSignalLoss = true;
         OnPropertyChanged(nameof(AutoMuteEnabled));
-        OnPropertyChanged(nameof(LtcAutoRecoverEnabled));
 
         // Sync child ViewModels
         CueListViewModel.SyncFromService();
@@ -400,9 +384,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Restore auto-mute master switch
         _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
-        _timecodeEngine.LtcAutoRecoverOnSignalLoss = data.LtcAutoRecoverEnabled;
         OnPropertyChanged(nameof(AutoMuteEnabled));
-        OnPropertyChanged(nameof(LtcAutoRecoverEnabled));
 
         // Sync child ViewModels
         CueListViewModel.SyncFromService();
@@ -468,7 +450,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = TimecodeViewModel.CueSync.GetSettings(),
             CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
-            LtcAutoRecoverEnabled = _timecodeEngine.LtcAutoRecoverOnSignalLoss,
         };
 
         _isNewProject = false;

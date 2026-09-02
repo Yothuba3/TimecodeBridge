@@ -182,7 +182,6 @@ internal class StubTimecodeEngineForMain : ITimecodeEngine
     public double FreerunDurationSeconds { get; set; }
     public bool IsFreerunning => false;
     public LtcSignalCounts LtcSignalCounts { get; set; }
-    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public void StartLtc(string audioDeviceId, bool isLoopback = false) { }
     public void Stop() { }
@@ -327,43 +326,6 @@ public class MainViewModelTests
         var vm = CreateVm();
 
         Assert.Equal("TimecodeBridge2", vm.Title);
-    }
-
-    [Fact]
-    public void LtcAutoRecover_既定は有効()
-    {
-        var vm = CreateVm();
-        Assert.True(vm.LtcAutoRecoverEnabled);
-        Assert.True(_timecodeEngine.LtcAutoRecoverOnSignalLoss);
-    }
-
-    [Fact]
-    public void LtcAutoRecover_切替でエンジンへ反映され保存に含まれる()
-    {
-        var vm = CreateVm();
-
-        vm.ToggleLtcAutoRecoverCommand.Execute(null);
-        Assert.False(vm.LtcAutoRecoverEnabled);
-        Assert.False(_timecodeEngine.LtcAutoRecoverOnSignalLoss);
-
-        _fileDialogService.FilePathToReturn = "/test/project.json";
-        vm.SaveProjectAsCommand.Execute(null);
-        Assert.NotNull(_projectService.LastSavedData);
-        Assert.False(_projectService.LastSavedData!.LtcAutoRecoverEnabled);
-    }
-
-    [Fact]
-    public void LtcAutoRecover_プロジェクト読込で復元される()
-    {
-        _timecodeEngine.LtcAutoRecoverOnSignalLoss = true;
-        _projectService.ProjectDataToLoad = new ProjectData { LtcAutoRecoverEnabled = false };
-        _fileDialogService.FilePathToReturn = "/test/loaded.json";
-
-        var vm = CreateVm();
-        vm.OpenProjectWithDialogCommand.Execute(null);
-
-        Assert.False(_timecodeEngine.LtcAutoRecoverOnSignalLoss);
-        Assert.False(vm.LtcAutoRecoverEnabled);
     }
 
     [Fact]

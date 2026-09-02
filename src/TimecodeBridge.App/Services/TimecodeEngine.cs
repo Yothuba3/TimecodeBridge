@@ -53,11 +53,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     // LTCデコード連続性ゲート（孤立ノイズ除去）。詳細は LtcContinuityGate 参照。
     private readonly LtcContinuityGate _ltcGate = new();
 
-    // デコーダ・ゲートの内部状態は複数スレッドから触られる（キャプチャコールバックの ProcessSamples と、
-    // 信号喪失タイマーからの ResetLtcDecodePipeline）。排他しないと初期化中の状態が壊れ、以後
-    // フレームが出なくなる。この経路を直列化する。
-    private readonly object _decodeLock = new();
-
     // LTC frame rate auto-detection
     private bool _ltcAutoDetectActive;
     private readonly LtcFrameRateDetector _ltcRateDetector = new(FrameRate.Fps30);
@@ -102,12 +97,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     }
 
     public bool IsFreerunning => _isFreerunning;
-
-    /// <summary>
-    /// 信号喪失を検出したとき、デコーダ・ゲートを自動リセットして受信を復帰しやすくするか。
-    /// 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもTCが止まったままになることへの対策。
-    /// </summary>
-    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
@@ -318,11 +307,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             var samples = e.Samples;
             var buffer = new byte[samples.Length * sizeof(float)];
             Buffer.BlockCopy(samples, 0, buffer, 0, buffer.Length);
-            // ProcessSamples は同期的に FrameDecoded → ゲート書き込みまで走る。リセットと直列化する。
-            lock (_decodeLock)
-            {
-                decoder.ProcessSamples(buffer, buffer.Length, SampleRate, bitsPerSample: 32, channels: 1);
-            }
+            decoder.ProcessSamples(buffer, buffer.Length, SampleRate, bitsPerSample: 32, channels: 1);
 
             AudioSamplesAvailable?.Invoke(this, e);
         }
@@ -532,14 +517,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             source = _activeSource;
         }
 
-        if (source == TimecodeSourceType.Ltc && LtcAutoRecoverOnSignalLoss)
-        {
-            // 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもロックし直せず
-            // TCが止まったままになることがある（「再接続」ボタンと同じ回復を自動で行う）。
-            // キャプチャは止めず、デコーダ・ゲート・レート判定だけをまっさらに戻す。
-            ResetLtcDecodePipeline();
-        }
-
         if (source == TimecodeSourceType.Ltc && freerunDuration > 0)
         {
             StartFreerun(freerunDuration);
@@ -547,18 +524,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         else
         {
             TransitionToNotReceiving();
-        }
-    }
-
-    /// <summary>デコーダ・連続性ゲート・フレームレート判定を初期状態へ戻す（再接続相当・キャプチャは維持）。</summary>
-    private void ResetLtcDecodePipeline()
-    {
-        // キャプチャコールバックの ProcessSamples と競合しないよう直列化する。
-        lock (_decodeLock)
-        {
-            _ltcDecoder?.Initialize(SampleRate);
-            _ltcGate.Reset();
-            _ltcRateDetector.Reset(FrameRate);
         }
     }
 

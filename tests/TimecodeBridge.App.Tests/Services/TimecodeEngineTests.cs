@@ -99,10 +99,8 @@ public class TimecodeEngineTests : IDisposable
     }
 
     [Fact]
-    public void 信号喪失後に別セクションのLTCが来ても自動復帰して受信する()
+    public void 信号喪失後に別セクションのLTCが来ても受信し直せる()
     {
-        _engine.LtcAutoRecoverOnSignalLoss = true;
-
         static float[] Section(int startSec, int frames)
         {
             var e = new LtcEncoder();
@@ -117,11 +115,11 @@ public class TimecodeEngineTests : IDisposable
         _capture.Feed(Section(0, 10));
         Assert.True(SpinWait.SpinUntil(() => _engine.IsReceiving, TimeSpan.FromSeconds(5)), "セクション1を受信できなかった");
 
-        // 無信号を挟む（信号喪失タイマー500ms＋自動復帰を確実に通す）
+        // 無信号を挟んで信号喪失に遷移させる
         Assert.True(SpinWait.SpinUntil(() => !_engine.IsReceiving, TimeSpan.FromSeconds(5)), "信号喪失に遷移しなかった");
         Thread.Sleep(200);
 
-        // 別セクション2が到達 → 自動復帰で受信し直せること
+        // 別セクション2が到達 → デコーダが自力で受信し直せること
         var received2 = new ManualResetEventSlim();
         _engine.TimecodeUpdated += (_, e) => { if (e.RawTimecode.Seconds == 40) received2.Set(); };
         _capture.Feed(Section(40, 30));
