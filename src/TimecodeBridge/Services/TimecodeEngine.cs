@@ -20,13 +20,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     // LTC capture
     private WasapiCapture? _wasapiCapture;
     private LtcDecoder? _ltcDecoder;
-    private int _ltcCaptureSampleRate = 48000;
-
-    // デコーダ・ゲートの内部状態は複数スレッドから触られる（WASAPIコールバックの ProcessSamples と、
-    // 信号喪失タイマーからの ResetLtcDecodePipeline）。排他しないと初期化中の状態が壊れ、以後
-    // フレームが出なくなる。この経路を直列化する。
-    private readonly object _decodeLock = new();
-    private int _ltcCaptureFps = 30;
     private readonly ManualResetEventSlim _captureStoppedEvent = new(true);
 
     // Generator
@@ -90,11 +83,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public bool IsFreerunning => _isFreerunning;
 
-    /// <summary>
-    /// 信号喪失を検出したとき、デコーダ・ゲートを自動リセットして受信を復帰しやすくするか。
-    /// 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもTCが止まったままになることへの対策。
-    /// </summary>
-    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
@@ -156,8 +144,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
         var waveFormat = _wasapiCapture.WaveFormat;
         int fps = FrameRate.FramesPerSecond();
-        _ltcCaptureSampleRate = waveFormat.SampleRate;
-        _ltcCaptureFps = fps;
         _ltcDecoder.Initialize(waveFormat.SampleRate, fps);
 
         int channels = waveFormat.Channels;
@@ -170,11 +156,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         {
             try
             {
-                // ProcessSamples は同期的に FrameDecoded → ゲート書き込みまで走る。リセットと直列化する。
-                lock (_decodeLock)
-                {
-                    _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels);
-                }
+                _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels);
 
                 // Extract mono float samples for waveform display
                 if (AudioSamplesAvailable != null)
@@ -481,13 +463,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             source = _activeSource;
         }
 
-        if (source == TimecodeSourceType.Ltc && LtcAutoRecoverOnSignalLoss)
-        {
-            // 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもロックし直せず
-            // TCが止まったままになることがある（「再接続」ボタンと同じ回復を自動で行う）。
-            ResetLtcDecodePipeline();
-        }
-
         if (source == TimecodeSourceType.Ltc && freerunDuration > 0)
         {
             StartFreerun(freerunDuration);
@@ -498,18 +473,6 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         }
     }
 
-    /// <summary>デコーダ・連続性ゲート・フレームレート判定を初期状態へ戻す（再接続相当・キャプチャは維持）。</summary>
-    private void ResetLtcDecodePipeline()
-    {
-        // キャプチャコールバックの ProcessSamples と競合しないよう直列化する。
-        lock (_decodeLock)
-        {
-            _ltcDecoder?.Initialize(_ltcCaptureSampleRate, _ltcCaptureFps);
-            _ltcGate.Reset();
-            _ltcMaxFrameSeen = 0;
-            _ltcDropFrameSeen = false;
-        }
-    }
 
     private void StartFreerun(double durationSeconds)
     {

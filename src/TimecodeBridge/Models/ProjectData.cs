@@ -16,9 +16,6 @@ public class ProjectData
     /// <summary>発火時オートミュート機能のマスタースイッチ（既定は有効）。</summary>
     public bool CueAutoMuteEnabled { get; set; } = true;
 
-    /// <summary>信号喪失時にデコーダ・ゲートを自動リセットして受信復帰を助ける機能（既定は有効）。</summary>
-    public bool LtcAutoRecoverEnabled { get; set; } = true;
-
     public static JsonSerializerOptions CreateJsonOptions()
     {
         var options = new JsonSerializerOptions

@@ -22,11 +22,6 @@ public interface ITimecodeEngine
     /// <summary>LTCデコードの累積カウント（信号エラー率の算出用）。</summary>
     LtcSignalCounts LtcSignalCounts { get; }
 
-    /// <summary>
-    /// 信号喪失を検出したとき、デコーダ・ゲートを自動リセットして受信を復帰しやすくするか。
-    /// 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもTCが止まったままになることへの対策。
-    /// </summary>
-    bool LtcAutoRecoverOnSignalLoss { get; set; }
 
     void StartLtc(string audioDeviceId, bool isLoopback = false);
     void StartGenerator(GeneratorSettings settings);

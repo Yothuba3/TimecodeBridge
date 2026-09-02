@@ -18,7 +18,6 @@ internal class StubTimecodeEngine : ITimecodeEngine
     public double FreerunDurationSeconds { get; set; }
     public bool IsFreerunning { get; set; }
     public LtcSignalCounts LtcSignalCounts { get; set; }
-    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
