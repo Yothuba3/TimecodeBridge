@@ -14,14 +14,19 @@ public partial class AudioWaveformView : UserControl
     private static readonly SolidColorBrush PeakBrushYellow = new(Color.FromRgb(0xE0, 0xA0, 0x40));
     private static readonly SolidColorBrush PeakBrushGreen = new(Color.FromRgb(0x60, 0xC0, 0x60));
 
-    private readonly float[] _readBuffer = new float[AudioWaveformViewModel.DisplaySampleCount];
+    // 表示区間: 約0.5フレーム分（30fps基準）。LTC矩形が十数個見える程度に拡大する。
+    private const double WindowSeconds = 0.5 / 30.0;
+    private static readonly int WindowSamples =
+        (int)(AudioWaveformViewModel.SampleRate * WindowSeconds);
+
+    private readonly float[] _readBuffer = new float[WindowSamples];
     private readonly DispatcherTimer _renderTimer;
 
     public AudioWaveformView()
     {
         InitializeComponent();
 
-        // WPFのCompositionTarget.Rendering相当: 約30fpsで再描画
+        // 約30fpsで再描画
         _renderTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(33),
@@ -41,20 +46,12 @@ public partial class AudioWaveformView : UserControl
         double h = WaveformCanvas.Bounds.Height;
         if (w <= 0 || h <= 0) return;
 
-        vm.CopyDisplayBuffer(_readBuffer);
+        vm.CopyRecent(_readBuffer, WindowSamples);
 
-        int count = AudioWaveformViewModel.DisplaySampleCount;
-        var points = new List<Point>(count);
-        for (int i = 0; i < count; i++)
-        {
-            double x = (double)i / (count - 1) * w;
-            double y = (0.5 - _readBuffer[i] * 0.5) * h;
-            points.Add(new Point(x, y));
-        }
+        // 16ms窓の生サンプル(48kHzで約800個)を幅いっぱいに描く。キャンバス幅と同程度の
+        // サンプル数なので、点を結ぶだけでLTCの矩形が階段状にはっきり見える。
+        WaveformLine.Points = BuildWaveform(_readBuffer, w, h);
 
-        WaveformLine.Points = points;
-
-        // Update peak bar（コンテナ実高さに合わせて100%が枠内に収まるようにする）
         PeakBar.Height = Math.Clamp(peakLevel, 0, 1) * PeakContainer.Bounds.Height;
         PeakBar.Background = peakLevel switch
         {
@@ -62,5 +59,18 @@ public partial class AudioWaveformView : UserControl
             >= 0.6f => PeakBrushYellow,
             _ => PeakBrushGreen,
         };
+    }
+
+    private static List<Point> BuildWaveform(float[] samples, double w, double h)
+    {
+        int n = samples.Length;
+        var points = new List<Point>(n);
+        for (int i = 0; i < n; i++)
+        {
+            double x = n == 1 ? 0 : (double)i / (n - 1) * w;
+            double y = (0.5 - samples[i] * 0.5) * h;
+            points.Add(new Point(x, y));
+        }
+        return points;
     }
 }
