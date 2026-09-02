@@ -113,6 +113,7 @@ internal class StubTimecodeEngineForHostMgr : ITimecodeEngine
     public double FreerunDurationSeconds { get; set; }
     public bool IsFreerunning => false;
     public LtcSignalCounts LtcSignalCounts { get; set; }
+    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public void StartLtc(string audioDeviceId, bool isLoopback = false) { }
     public void Stop() { }

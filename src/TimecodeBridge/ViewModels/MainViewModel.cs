@@ -99,6 +99,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _projectService.MarkAsChanged();
     }
 
+    /// <summary>信号喪失時の自動復帰（デコーダ・ゲートのリセット）のマスタースイッチ。</summary>
+    public bool LtcAutoRecoverEnabled => _timecodeEngine.LtcAutoRecoverOnSignalLoss;
+
+    [RelayCommand]
+    private void ToggleLtcAutoRecover()
+    {
+        _timecodeEngine.LtcAutoRecoverOnSignalLoss = !_timecodeEngine.LtcAutoRecoverOnSignalLoss;
+        OnPropertyChanged(nameof(LtcAutoRecoverEnabled));
+        _projectService.MarkAsChanged();
+    }
+
     private string CaptureSnapshot()
     {
         var data = new ProjectData
@@ -116,6 +127,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = _timecodeViewModel.CueSync.GetSettings(),
             CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
+            LtcAutoRecoverEnabled = _timecodeEngine.LtcAutoRecoverOnSignalLoss,
         };
         return JsonSerializer.Serialize(data, ProjectData.CreateJsonOptions());
     }
@@ -201,6 +213,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 _timecodeEngine.Offset = data.Offset;
                 _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
+                _timecodeEngine.LtcAutoRecoverOnSignalLoss = data.LtcAutoRecoverEnabled;
                 _oscTriggerPanelManager.LoadSettings(data.OscTriggerPanel);
                 _timecodeViewModel.CueSync.LoadSettings(data.CueSync ?? new CueSyncSettings());
             }
@@ -247,6 +260,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Reset engine offset
         _timecodeEngine.Offset = TimecodeOffset.Zero(_timecodeEngine.FrameRate);
         _cueManager.IsAutoMuteEnabled = true;
+        _timecodeEngine.LtcAutoRecoverOnSignalLoss = true;
         _timecodeViewModel.SyncOffsetFromEngine();
 
         // Reset source settings
@@ -342,6 +356,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Restore engine offset
         _timecodeEngine.Offset = data.Offset;
         _cueManager.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
+        _timecodeEngine.LtcAutoRecoverOnSignalLoss = data.LtcAutoRecoverEnabled;
         _timecodeViewModel.SyncOffsetFromEngine();
 
         // Restore source settings
@@ -421,6 +436,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             OscTriggerPanel = _oscTriggerPanelManager.GetSettings(),
             CueSync = _timecodeViewModel.CueSync.GetSettings(),
             CueAutoMuteEnabled = _cueManager.IsAutoMuteEnabled,
+            LtcAutoRecoverEnabled = _timecodeEngine.LtcAutoRecoverOnSignalLoss,
         };
 
         _isNewProject = false;
