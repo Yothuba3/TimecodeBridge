@@ -6,17 +6,23 @@ namespace TimecodeBridge.Core.Services;
 /// デコード済みLTCフレームの連続性ゲート。
 /// 長時間の無信号中はノイズが偶然フレームとして解析されることがあり、それを採用すると
 /// フレームレート自動判定が汚染され、本物のTC復帰後も誤解釈が続く。
-/// 直近フレームと連続する2フレームが揃うまで採用しないことで孤立ノイズを排除する。
+/// 直近フレームと連続する2フレームが揃うまで採用しない（未ロック時）ことで孤立ノイズを排除する。
 ///
-/// 保留は直近数フレームのリングとして持つ。本物とノイズが交互に届いても、
-/// リング内の本物同士が連続と判定されて再ロックできる（1フレームだけの保留では
-/// 本物とノイズが交互だと永久に噛み合わず、TCが一切進まなくなる）。
+/// いったんロックした後は、本物のLTCは前進し続けるので前進フレームを広めの許容で受け入れる。
+/// これによりデコードが一時的に乱れて数フレーム落ちても受信が外れない。
+/// 保留は直近数フレームのリングで持ち、本物とノイズが交互に届いても本物同士で再ロックできる。
 /// </summary>
 public sealed class LtcContinuityGate
 {
-    // ToOrdinalは1秒=30の固定基準。次フレームとの差は同一秒内で1、
+    // 未ロック時の再ロック判定。ToOrdinalは1秒=30固定で、次フレームとの差は同一秒内で1、
     // 秒境界では 30-(fps-1) となるため、24fps(フレーム23→0)の7までを連続とみなす。
-    private const int MaxContinuousDiff = 7;
+    private const int RelockDiff = 7;
+
+    // ロック中に前進として許容する最大ordinal差。ここまでの飛びは「デコード欠落」とみなし
+    // ロックを維持して採用する。これを超える前進は頭出し扱いで一旦ロックを外し、
+    // 再ロックルール(2フレーム連続)でやり直す。1秒=30ordinal相当。
+    private const int LockedForwardDiff = 30;
+
     private const int RingSize = 8;
 
     private readonly (long Ordinal, TimecodeValue Frame)[] _pending = new (long, TimecodeValue)[RingSize];
@@ -50,17 +56,31 @@ public sealed class LtcContinuityGate
         Interlocked.Increment(ref _totalWritten);
         long ord = frame.ToOrdinal();
 
-        // 直前の採用フレームと連続していれば即採用
-        if (_lastAcceptedOrdinal >= 0 && IsContinuous(_lastAcceptedOrdinal, ord))
+        if (_lastAcceptedOrdinal >= 0)
         {
-            Accept(frame);
-            return;
+            long diff = ord - _lastAcceptedOrdinal;
+
+            // ロック中の通常前進（欠落込み）。数フレーム落ちても許容してロックを維持する。
+            if (diff >= 1 && diff <= LockedForwardDiff)
+            {
+                Accept(frame);
+                return;
+            }
+
+            // 停止・スロー再生で同じTCが続く場合。ロックは維持するが同じフレームは通さない。
+            if (diff == 0) return;
+
+            // 上記を外れる差（大きな前進＝頭出し、または巻き戻し）はロックを外し、
+            // 未ロック時の2フレーム連続の再ロックルールでやり直す。
+            _lastAcceptedOrdinal = -1;
+            _pendingCount = 0;
         }
 
-        // 保留の中に、このフレームの直前として連続する相手がいれば、それごと採用（再ロック）
+        // 未ロック: 保留の中にこのフレームの直前として連続する相手がいれば、それごと採用（再ロック）。
+        // ノイズは前後が続かないので拾われない。
         for (int i = 0; i < _pendingCount; i++)
         {
-            if (IsContinuous(_pending[i].Ordinal, ord))
+            if (IsRelockContinuous(_pending[i].Ordinal, ord))
             {
                 var earlier = _pending[i].Frame;
                 Accept(earlier);
@@ -89,9 +109,9 @@ public sealed class LtcContinuityGate
         FrameAccepted?.Invoke(frame);
     }
 
-    private static bool IsContinuous(long previous, long next)
+    private static bool IsRelockContinuous(long previous, long next)
     {
         long diff = next - previous;
-        return diff >= 1 && diff <= MaxContinuousDiff;
+        return diff >= 1 && diff <= RelockDiff;
     }
 }

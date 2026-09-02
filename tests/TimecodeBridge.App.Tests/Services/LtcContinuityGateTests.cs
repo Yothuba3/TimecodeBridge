@@ -133,4 +133,52 @@ public class LtcContinuityGateTests
         Assert.Equal(0, gate.TotalWritten);
         Assert.Equal(0, gate.TotalAccepted);
     }
+
+    [Fact]
+    public void ロック後は数フレーム欠落してもロックを維持して採用する()
+    {
+        // これがv1.4.2以降も再発した「受信中に認識が外れる」ケース。
+        // ロック確立後にデコードが乱れて20フレーム落ちても、受信は外れず前進を拾い続ける。
+        var gate = GateCollecting(out var accepted);
+        foreach (var f in Consecutive(0, 20)) gate.Write(f);        // ロック確立
+        foreach (var f in Consecutive(40, 20)) gate.Write(f);       // 20フレーム欠落を挟む
+
+        Assert.Equal(40, accepted.Count);
+    }
+
+    [Fact]
+    public void ロック後の秒境界での欠落でも外れない()
+    {
+        var gate = GateCollecting(out var accepted);
+        gate.Write(Frame(2, 30, 0, 25));
+        gate.Write(Frame(2, 30, 0, 26)); // ロック確立
+        gate.Write(Frame(2, 30, 1, 2));  // :27..:01 が欠落した次秒
+
+        Assert.Equal(3, accepted.Count);
+    }
+
+    [Fact]
+    public void 停止でTCが止まっても外れず同一フレームは通さない()
+    {
+        var gate = GateCollecting(out var accepted);
+        gate.Write(Frame(1, 0, 0, 10));
+        gate.Write(Frame(1, 0, 0, 11)); // ロック確立（2件採用）
+        gate.Write(Frame(1, 0, 0, 11)); // 同一TC（停止）→通さない
+        gate.Write(Frame(1, 0, 0, 11));
+        gate.Write(Frame(1, 0, 0, 12)); // 再開→採用
+
+        Assert.Equal(3, accepted.Count); // 10,11,12
+    }
+
+    [Fact]
+    public void 大きな前方ジャンプは頭出し扱いで2フレーム再ロックする()
+    {
+        var gate = GateCollecting(out var accepted);
+        gate.Write(Frame(1, 0, 0, 0));
+        gate.Write(Frame(1, 0, 0, 1)); // 位置Aでロック
+        // 1秒(30ordinal)を大きく超えるジャンプ
+        foreach (var f in Consecutive(0, 5)) gate.Write(f); // 位置B（2フレームで再ロック）
+
+        Assert.Equal(7, accepted.Count); // A2 + B5
+    }
 }

@@ -68,4 +68,22 @@ public static class StatusConverters
     public static readonly IValueConverter ToPanelBorderThickness =
         new FuncValueConverter<string?, Avalonia.Thickness>(status =>
             status == "信号喪失" ? new Avalonia.Thickness(2) : new Avalonia.Thickness(1));
+
+    /// <summary>信号エラー率の文字色。低ければ地味な文字色、高いほど警告→エラー色にする。</summary>
+    public static readonly IValueConverter ToSignalErrorRateBrush =
+        new FuncValueConverter<string?, Avalonia.Media.IBrush>(text =>
+        {
+            int percent = ParsePercent(text);
+            return percent >= 10 ? Error : percent >= 3 ? Warning : SecondaryText;
+        });
+
+    private static int ParsePercent(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+        int end = text.IndexOf('%');
+        if (end < 0) return 0;
+        int start = end;
+        while (start > 0 && char.IsDigit(text[start - 1])) start--;
+        return int.TryParse(text.AsSpan(start, end - start), out var p) ? p : 0;
+    }
 }
