@@ -32,9 +32,10 @@ public partial class HostEditDialog : Window
         }
 
         var ip = (IpAddressBox.Text ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(ip))
+        if (!OscHost.TryParseIpAddress(ip, out _))
         {
-            await ModalDialog.ShowMessageAsync(this, "入力エラー", "IPアドレスを入力してください。");
+            await ModalDialog.ShowMessageAsync(this, "入力エラー",
+                "IPアドレスを 192.168.1.10 の形式で入力してください。\nホスト名（例: qlab.local）は使えません。");
             return;
         }
 
