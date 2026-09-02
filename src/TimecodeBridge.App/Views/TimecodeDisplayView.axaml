@@ -160,6 +160,12 @@
                     <Button Content="↻" Command="{CompiledBinding RefreshAudioDevicesCommand}"
                             Padding="5,2" Margin="4,0,0,0" ToolTip.Tip="デバイス一覧を更新"
                             FontSize="12" VerticalAlignment="Center" />
+                    <!-- 受信が止まったときの復帰用: 入力を開き直しTC取得をやり直す -->
+                    <Button Content="⭯ 再接続" Command="{CompiledBinding ReconnectLtcCommand}"
+                            IsEnabled="{CompiledBinding IsLtcMode}"
+                            Padding="7,2" Margin="4,0,0,0"
+                            ToolTip.Tip="LTC入力を接続し直してタイムコードを初期化する"
+                            FontSize="12" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="フレームレート" Classes="FieldLabel"

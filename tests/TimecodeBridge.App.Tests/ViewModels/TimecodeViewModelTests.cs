@@ -137,6 +137,52 @@ public class TimecodeViewModelTests
     }
 
     [AvaloniaFact]
+    public void 再接続_選択デバイスを停止してから開き直す()
+    {
+        _audioService.CaptureDevices.Add(new AudioDeviceInfo("in1", "Mic", false));
+        var vm = CreateVm();
+        vm.SelectedDevice = vm.AudioDevices.First();
+
+        var calls = new List<string>();
+        _engine.OnStop = () => calls.Add("stop");
+        _engine.OnStartLtc = (id, _) => calls.Add($"start:{id}");
+
+        vm.ReconnectLtcCommand.Execute(null);
+
+        Assert.Equal(["stop", "start:in1"], calls);
+    }
+
+    [AvaloniaFact]
+    public void 再接続_デバイス未選択なら停止だけで開始しない()
+    {
+        var vm = CreateVm();
+
+        var calls = new List<string>();
+        _engine.OnStop = () => calls.Add("stop");
+        _engine.OnStartLtc = (id, _) => calls.Add($"start:{id}");
+
+        vm.ReconnectLtcCommand.Execute(null);
+
+        Assert.Equal(["stop"], calls);
+        Assert.Equal("停止", vm.StatusText);
+    }
+
+    [AvaloniaFact]
+    public void 再接続_生成モードでは何もしない()
+    {
+        var vm = CreateVm();
+        vm.SelectedSource = TimecodeSourceType.Generator;
+
+        var called = false;
+        _engine.OnStop = () => called = true;
+        _engine.OnStartLtc = (_, _) => called = true;
+
+        vm.ReconnectLtcCommand.Execute(null);
+
+        Assert.False(called);
+    }
+
+    [AvaloniaFact]
     public void デバイス選択でLTCキャプチャが自動開始される()
     {
         _audioService.CaptureDevices.Add(new AudioDeviceInfo("in1", "Mic", false));
