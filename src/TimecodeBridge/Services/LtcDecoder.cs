@@ -89,7 +89,7 @@ public class LtcDecoder : ILtcDecoder
         _initialized = true;
     }
 
-    public void ProcessSamples(byte[] buffer, int bytesRecorded, int sampleRate, int bitsPerSample, int channels)
+    public void ProcessSamples(byte[] buffer, int bytesRecorded, int sampleRate, int bitsPerSample, int channels, bool is32BitFloat = true)
     {
         if (_disposed || !_initialized) return;
         if (channels < 1) channels = 1;
@@ -120,7 +120,7 @@ public class LtcDecoder : ILtcDecoder
                 return;
             }
             Array.Copy(buffer, 0, _carry, _carryLen, need);
-            ProcessOneSample(ReadSample(_carry, 0, bitsPerSample));
+            ProcessOneSample(ReadSample(_carry, 0, bitsPerSample, is32BitFloat));
             _carryLen = 0;
             offset = need;
         }
@@ -129,7 +129,7 @@ public class LtcDecoder : ILtcDecoder
         int fullFrames = remaining / frameBytes;
         for (int i = 0; i < fullFrames; i++)
         {
-            ProcessOneSample(ReadSample(buffer, offset + i * frameBytes, bitsPerSample));
+            ProcessOneSample(ReadSample(buffer, offset + i * frameBytes, bitsPerSample, is32BitFloat));
         }
 
         // 末尾に残ったチャンネルフレーム未満のバイトを次回へ繰り越す
@@ -143,16 +143,38 @@ public class LtcDecoder : ILtcDecoder
         }
     }
 
-    // チャンネルフレーム先頭（=先頭チャンネル）のサンプルを float で読む
-    private static float ReadSample(byte[] buffer, int byteOffset, int bitsPerSample)
+    // チャンネルフレーム先頭（=先頭チャンネル）のサンプルを float で読む。
+    // 32bitは is32BitFloat で解釈を切り替える。整数PCMをfloatとして読むと NaN/Inf が混じり永久停止する。
+    private static float ReadSample(byte[] buffer, int byteOffset, int bitsPerSample, bool is32BitFloat)
     {
-        if (bitsPerSample == 32) return BitConverter.ToSingle(buffer, byteOffset);
+        if (bitsPerSample == 32)
+        {
+            if (is32BitFloat) return BitConverter.ToSingle(buffer, byteOffset);
+            return BitConverter.ToInt32(buffer, byteOffset) / 2147483648.0f;
+        }
         short raw = BitConverter.ToInt16(buffer, byteOffset);
         return raw / 32768.0f;
     }
 
     private void ProcessOneSample(float sample)
     {
+        // 非有限値(NaN/±Inf)を1サンプルでもIIRに入れると _dc/_env が汚染され、以降 x が常にNaNになって
+        // Schmitt判定が永久にfalse＝crossingが二度と起きず、再接続までデコードが完全停止する。
+        // 32bit整数PCMをIEEE floatとして誤読した場合などに実機で発生する。ここで確実に排除する。
+        if (!float.IsFinite(sample))
+        {
+            _expectSecondHalf = false;
+            return;
+        }
+        if (!double.IsFinite(_dc) || !double.IsFinite(_env))
+        {
+            _dc = sample;
+            _env = 0.1;
+            _polarity = false;
+            _samplesSinceLastCrossing = 0;
+            _expectSecondHalf = false;
+        }
+
         _samplesSinceLastCrossing++;
 
         // DC成分と振幅包絡を低速IIRで追従し、それに追従したSchmitt trigger（ヒステリシス）で
