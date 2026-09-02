@@ -18,8 +18,8 @@ public partial class AudioWaveformView : UserControl
         PeakBrushGreen.Freeze();
     }
 
-    // 表示区間: 約0.5フレーム分（30fps基準）。LTC矩形が十数個見える程度に拡大する。
-    private const double WindowSeconds = 0.5 / 30.0;
+    // 表示区間: 約0.1フレーム分（30fps基準、約3.3ms）。LTC矩形を数個まで拡大して形を見やすくする。
+    private const double WindowSeconds = 0.1 / 30.0;
     private static readonly int WindowSamples =
         (int)(AudioWaveformViewModel.SampleRate * WindowSeconds);
 
