@@ -182,6 +182,38 @@ public class LtcDecoderRobustnessTests
     }
 
     [Fact]
+    public void 繰り越し中にフォーマットが変わっても例外にならず新フォーマットで受信できる()
+    {
+        var dec = new LtcDecoder();
+        dec.Initialize(Sr);
+        int decoded = 0;
+        dec.FrameDecoded += (_, _) => decoded++;
+
+        // 6ch×32bit(=24byte/frame)の端数23byteだけ渡して繰り越しを作る
+        var (six, _) = MakeStereoLtcPcm(0, 30, ltcChannel: 0, channels: 6); // 32bit相当ではないが端数を作る目的
+        var partial = new byte[23];
+        Array.Copy(six, 0, partial, 0, Math.Min(23, six.Length));
+        dec.ProcessSamples(partial, 23, Sr, 32, 6);
+
+        // フォーマットをmono16へ変えて呼ぶ → 例外にならず、以後mono16を受信できる
+        var (mono, _) = MakeStereoLtcPcm(0, 150, ltcChannel: 0, channels: 1);
+        var ex = Record.Exception(() => dec.ProcessSamples(mono, mono.Length, Sr, 16, 1));
+        Assert.Null(ex);
+        Assert.True(decoded > 100);
+    }
+
+    [Fact]
+    public void bytesRecordedが配列長を超えても負でも例外にならない()
+    {
+        var dec = new LtcDecoder();
+        dec.Initialize(Sr);
+        var buf = new byte[10];
+
+        Assert.Null(Record.Exception(() => dec.ProcessSamples(buf, 1000, Sr, 16, 1)));
+        Assert.Null(Record.Exception(() => dec.ProcessSamples(buf, -5, Sr, 16, 1)));
+    }
+
+    [Fact]
     public void ノイズだけの区間からはフレームを出さない()
     {
         // 無信号（白色ノイズ）10秒からガベージフレームが出ないこと（83d1f05の対策が維持されている）

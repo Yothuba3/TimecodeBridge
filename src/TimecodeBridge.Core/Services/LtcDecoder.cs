@@ -52,6 +52,7 @@ public class LtcDecoder : ILtcDecoder
     // 全chまとめて渡してくる場合（例: 6ch×32bit=24byte）でも読めるようにする。
     private readonly byte[] _carry = new byte[64];
     private int _carryLen;
+    private int _carryFrameBytes; // 繰り越し中の端数が属するチャンネルフレームのバイト数
 
     public event EventHandler<TimecodeValue>? FrameDecoded;
 
@@ -84,6 +85,7 @@ public class LtcDecoder : ILtcDecoder
         _shiftHi = 0;
         _totalBits = 0;
         _carryLen = 0;
+        _carryFrameBytes = 0;
         _initialized = true;
     }
 
@@ -91,12 +93,19 @@ public class LtcDecoder : ILtcDecoder
     {
         if (_disposed || !_initialized) return;
         if (channels < 1) channels = 1;
+        // 呼び出し側の不正値で範囲外アクセスしないよう、実配列長にクランプする
+        if (bytesRecorded < 0) return;
+        if (bytesRecorded > buffer.Length) bytesRecorded = buffer.Length;
 
         int bytesPerSample = bitsPerSample == 32 ? 4 : bitsPerSample == 16 ? 2 : 0;
         if (bytesPerSample == 0) return;
 
         int frameBytes = bytesPerSample * channels; // 全chを1組とした「チャンネルフレーム」のバイト数
         if (frameBytes > _carry.Length) { _carryLen = 0; return; } // 想定外の巨大ch数は無視
+
+        // 途中でフォーマット(ch数・ビット幅)が変わったら、前回の端数は意味が変わるので破棄する
+        // （繰り越しをそのまま使うと need が負になり得る）
+        if (_carryLen > 0 && frameBytes != _carryFrameBytes) _carryLen = 0;
 
         // 前回の端数（チャンネルフレーム未満のバイト）から、今回の先頭を使って1フレーム分を完成させる。
         // 完成させたら、それを1サンプルとしてデコードし、残りは境界の揃った位置から処理する。
@@ -130,6 +139,7 @@ public class LtcDecoder : ILtcDecoder
         {
             Array.Copy(buffer, consumed, _carry, 0, leftover);
             _carryLen = leftover;
+            _carryFrameBytes = frameBytes;
         }
     }
 
