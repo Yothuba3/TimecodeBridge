@@ -95,4 +95,42 @@ public class LtcContinuityGateTests
         gate.Write(Frame(1, 0, 0, 1));
         Assert.Empty(accepted);
     }
+
+    [Fact]
+    public void 入力数と採用数のカウンタで信号エラー率を計算できる()
+    {
+        var gate = new LtcContinuityGate();
+        var rng = new Random(1);
+        foreach (var f in Consecutive(0, 12))
+        {
+            gate.Write(f);
+            gate.Write(Frame(rng.Next(24), rng.Next(60), rng.Next(60), rng.Next(30)));
+        }
+
+        Assert.Equal(24, gate.TotalWritten);
+        Assert.Equal(12, gate.TotalAccepted);
+        long dropped = gate.TotalWritten - gate.TotalAccepted;
+        Assert.Equal(50, (int)System.Math.Round(dropped * 100.0 / gate.TotalWritten));
+    }
+
+    [Fact]
+    public void 健全な連番はエラー率0になる()
+    {
+        var gate = new LtcContinuityGate();
+        foreach (var f in Consecutive(0, 30)) gate.Write(f);
+
+        Assert.Equal(30, gate.TotalWritten);
+        Assert.Equal(30, gate.TotalAccepted);
+    }
+
+    [Fact]
+    public void Resetでカウンタも0に戻る()
+    {
+        var gate = new LtcContinuityGate();
+        foreach (var f in Consecutive(0, 10)) gate.Write(f);
+        gate.Reset();
+
+        Assert.Equal(0, gate.TotalWritten);
+        Assert.Equal(0, gate.TotalAccepted);
+    }
 }

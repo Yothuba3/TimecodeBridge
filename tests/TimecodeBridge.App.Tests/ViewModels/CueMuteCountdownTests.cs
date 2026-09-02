@@ -20,6 +20,7 @@ public class CueMuteCountdownTests
         public bool IsReceiving => false;
         public double FreerunDurationSeconds { get; set; }
         public bool IsFreerunning => false;
+        public LtcSignalCounts LtcSignalCounts { get; set; }
         public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
         public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
         public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;

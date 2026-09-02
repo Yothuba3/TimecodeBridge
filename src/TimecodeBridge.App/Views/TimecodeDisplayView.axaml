@@ -124,6 +124,10 @@
                     <TextBlock Text="{CompiledBinding SignalDetailText}"
                                Foreground="{StaticResource ErrorBrush}"
                                VerticalAlignment="Center" FontSize="10" Margin="0,0,12,0" />
+                    <!-- LTC受信中の信号エラー率（採用されなかったフレームの割合） -->
+                    <TextBlock Text="{CompiledBinding SignalErrorRateText}"
+                               IsVisible="{CompiledBinding SignalErrorRateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               VerticalAlignment="Center" FontSize="10" Opacity="0.75" Margin="0,0,12,0" />
                     <RadioButton Content="LTC" GroupName="Source"
                                  IsChecked="{CompiledBinding IsLtcMode}"
                                  Margin="0,0,8,0" VerticalAlignment="Center" />

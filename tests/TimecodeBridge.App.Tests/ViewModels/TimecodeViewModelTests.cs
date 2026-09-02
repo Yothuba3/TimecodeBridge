@@ -21,6 +21,7 @@ public class TimecodeViewModelTests
         public bool IsReceiving { get; set; }
         public double FreerunDurationSeconds { get; set; } = 5.0;
         public bool IsFreerunning { get; set; }
+        public LtcSignalCounts LtcSignalCounts { get; set; }
 
         public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
         public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;

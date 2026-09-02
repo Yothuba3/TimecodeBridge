@@ -98,6 +98,8 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public bool IsFreerunning => _isFreerunning;
 
+    public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
+
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;

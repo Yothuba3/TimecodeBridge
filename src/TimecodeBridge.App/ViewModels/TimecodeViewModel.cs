@@ -33,6 +33,14 @@ public partial class TimecodeViewModel : DispatcherViewModel
     /// <summary>信号喪失時の補足情報（例: "最終受信 12秒前"）。</summary>
     [ObservableProperty] private string _signalDetailText = "";
 
+    /// <summary>
+    /// LTC信号エラー率（直近1秒で採用されなかったフレームの割合）。例: "信号エラー率 2%"。
+    /// 健全なLTCではほぼ0%、信号が荒れると上がる。LTC受信中のみ表示。
+    /// </summary>
+    [ObservableProperty] private string _signalErrorRateText = "";
+
+    private LtcSignalCounts _lastSignalCounts;
+
     /// <summary>ステータスバー用の「ソース: 状態」要約。</summary>
     public string SourceStatusSummary =>
         $"{(SelectedSource == TimecodeSourceType.Generator ? "内部生成" : "LTC")}: {StatusText}";
@@ -156,6 +164,35 @@ public partial class TimecodeViewModel : DispatcherViewModel
         {
             SignalDetailText = "";
         }
+
+        UpdateSignalErrorRate();
+    }
+
+    /// <summary>
+    /// 直近1秒のデコード数と採用数の差分から信号エラー率を求める。
+    /// LTC受信中でこの1秒に十分なフレームが出ているときだけ表示する
+    /// （フレーム数が少ないと1件の棄却で率が跳ねて誤解を招くため）。
+    /// </summary>
+    private void UpdateSignalErrorRate()
+    {
+        var counts = _timecodeEngine.LtcSignalCounts;
+        long written = counts.Written - _lastSignalCounts.Written;
+        long accepted = counts.Accepted - _lastSignalCounts.Accepted;
+        _lastSignalCounts = counts;
+
+        bool showable = SelectedSource == TimecodeSourceType.Ltc
+            && (StatusText == "受信中" || StatusText == "フリーラン")
+            && written >= 10;
+
+        if (!showable)
+        {
+            if (SignalErrorRateText.Length > 0) SignalErrorRateText = "";
+            return;
+        }
+
+        long dropped = Math.Max(0, written - accepted);
+        int percent = (int)Math.Round(dropped * 100.0 / written);
+        SignalErrorRateText = $"信号エラー率 {percent}%";
     }
 
     private void MarkDirty()

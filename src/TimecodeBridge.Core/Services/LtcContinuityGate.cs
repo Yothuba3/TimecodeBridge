@@ -23,6 +23,17 @@ public sealed class LtcContinuityGate
     private int _pendingCount;
     private long _lastAcceptedOrdinal = -1;
 
+    // 累積カウンタ（信号エラー率の算出用）。Writeで入力を、Acceptで採用を数える。
+    // 差分だけを使うので単調増加のままでよい（オーバーフローは実運用では起きない）。
+    private long _totalWritten;
+    private long _totalAccepted;
+
+    /// <summary>ゲートに入力された総フレーム数（デコーダが出した数）。</summary>
+    public long TotalWritten => Interlocked.Read(ref _totalWritten);
+
+    /// <summary>採用された総フレーム数。</summary>
+    public long TotalAccepted => Interlocked.Read(ref _totalAccepted);
+
     /// <summary>採用されたフレームを順に通知する。</summary>
     public event Action<TimecodeValue>? FrameAccepted;
 
@@ -30,10 +41,13 @@ public sealed class LtcContinuityGate
     {
         _lastAcceptedOrdinal = -1;
         _pendingCount = 0;
+        Interlocked.Exchange(ref _totalWritten, 0);
+        Interlocked.Exchange(ref _totalAccepted, 0);
     }
 
     public void Write(TimecodeValue frame)
     {
+        Interlocked.Increment(ref _totalWritten);
         long ord = frame.ToOrdinal();
 
         // 直前の採用フレームと連続していれば即採用
@@ -71,6 +85,7 @@ public sealed class LtcContinuityGate
     {
         _lastAcceptedOrdinal = frame.ToOrdinal();
         _pendingCount = 0;
+        Interlocked.Increment(ref _totalAccepted);
         FrameAccepted?.Invoke(frame);
     }
 
