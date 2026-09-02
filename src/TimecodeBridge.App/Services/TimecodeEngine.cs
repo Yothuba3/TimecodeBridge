@@ -60,8 +60,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     // LTC frame rate auto-detection
     private bool _ltcAutoDetectActive;
-    private int _ltcMaxFrameSeen;
-    private bool _ltcDropFrameSeen;
+    private readonly LtcFrameRateDetector _ltcRateDetector = new(FrameRate.Fps30);
 
     private volatile bool _isReceiving;
     private volatile bool _disposed;
@@ -202,15 +201,14 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         }
 
         _ltcAutoDetectActive = true;
-        _ltcMaxFrameSeen = 0;
-        _ltcDropFrameSeen = false;
+        _ltcRateDetector.Reset(FrameRate);
         _ltcLastAcceptedOrdinal = -1;
         _ltcPendingOrdinal = -1;
         _ltcPendingFrame = null;
         ActiveSource = TimecodeSourceType.Ltc;
 
         var decoder = new LtcDecoder();
-        decoder.Initialize(SampleRate, FrameRate.FramesPerSecond());
+        decoder.Initialize(SampleRate);
         decoder.FrameDecoded += (_, timecodeValue) => WriteLtcFrame(timecodeValue);
         _ltcDecoder = decoder;
 
@@ -504,12 +502,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
         if (_ltcAutoDetectActive)
         {
-            if (rawFrame.FrameRate.IsDropFrame())
-                _ltcDropFrameSeen = true;
-            if (rawFrame.Frames > _ltcMaxFrameSeen)
-                _ltcMaxFrameSeen = rawFrame.Frames;
-
-            FrameRate = LtcDecoder.DetermineFrameRate(_ltcMaxFrameSeen, _ltcDropFrameSeen);
+            FrameRate = _ltcRateDetector.Observe(rawFrame);
         }
 
         rawFrame = new TimecodeValue(rawFrame.Hours, rawFrame.Minutes, rawFrame.Seconds, rawFrame.Frames, FrameRate);

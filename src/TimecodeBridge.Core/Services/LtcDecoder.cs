@@ -15,8 +15,13 @@ public class LtcDecoder : ILtcDecoder
     // As 16-bit LSB-first value: 0xBFFC
     private const ushort SyncWord = 0xBFFC;
 
+    // 区間長の判定窓は対応する最速レート(30fps)を基準に固定する。
+    // 設定レートから決めると、24fps設定では30fpsの「0」ビット(半ビット×2の長さ)が
+    // 短区間の上限とちょうど一致して誤分類され、1フレームもデコードできなくなる。
+    // 30fps基準の窓は24〜30fpsの全入力に対して十分な余裕がある。
+    private const int MaxSupportedFps = 30;
+
     private int _sampleRate;
-    private int _fps;
     private double _samplesPerBit;
     private bool _initialized;
     private bool _disposed;
@@ -42,13 +47,15 @@ public class LtcDecoder : ILtcDecoder
     {
     }
 
-    public void Initialize(int sampleRate, int fps)
+    /// <summary>旧呼び出し互換。fps は判定に使わない（<see cref="MaxSupportedFps"/> 参照）。</summary>
+    public void Initialize(int sampleRate, int fps) => Initialize(sampleRate);
+
+    public void Initialize(int sampleRate)
     {
         _sampleRate = sampleRate;
-        _fps = fps;
 
         // Each LTC frame is 80 bits. bits per second = 80 * fps
-        _samplesPerBit = (double)sampleRate / (80.0 * fps);
+        _samplesPerBit = (double)sampleRate / (80.0 * MaxSupportedFps);
 
         // Tolerance windows for interval classification
         double halfBit = _samplesPerBit / 2.0;

@@ -51,8 +51,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
 
     // LTC frame rate auto-detection
     private bool _ltcAutoDetectActive;
-    private int _ltcMaxFrameSeen;
-    private bool _ltcDropFrameSeen;
+    private readonly LtcFrameRateDetector _ltcRateDetector = new(FrameRate.Fps30);
 
     // Thread-safe state
     private volatile bool _isReceiving;
@@ -182,8 +181,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         }
 
         _ltcAutoDetectActive = true;
-        _ltcMaxFrameSeen = 0;
-        _ltcDropFrameSeen = false;
+        _ltcRateDetector.Reset(FrameRate);
         _ltcLastAcceptedOrdinal = -1;
         _ltcPendingOrdinal = -1;
         _ltcPendingFrame = null;
@@ -198,8 +196,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
             : new WasapiCapture(device);
 
         var waveFormat = _wasapiCapture.WaveFormat;
-        int fps = FrameRate.FramesPerSecond();
-        _ltcDecoder.Initialize(waveFormat.SampleRate, fps);
+        _ltcDecoder.Initialize(waveFormat.SampleRate);
 
         int channels = waveFormat.Channels;
         int bitsPerSample = waveFormat.BitsPerSample;
@@ -446,12 +443,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         // Auto-detect frame rate from LTC signal
         if (_ltcAutoDetectActive)
         {
-            if (rawFrame.FrameRate.IsDropFrame())
-                _ltcDropFrameSeen = true;
-            if (rawFrame.Frames > _ltcMaxFrameSeen)
-                _ltcMaxFrameSeen = rawFrame.Frames;
-
-            FrameRate = LtcDecoder.DetermineFrameRate(_ltcMaxFrameSeen, _ltcDropFrameSeen);
+            FrameRate = _ltcRateDetector.Observe(rawFrame);
         }
 
         // Normalize to engine's FrameRate
