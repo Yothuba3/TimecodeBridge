@@ -30,9 +30,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
 
-      # インストーラー(iss)は publish\TimecodeBridge.exe を前提にしているため名前を合わせる
+      # インストーラー(iss)は publish\TimecodeBridge2.exe を前提にしているため名前を合わせる
       - name: Rename exe for installer
-        run: Rename-Item publish/TimecodeBridge.App.exe "TimecodeBridge.exe"
+        run: Rename-Item publish/TimecodeBridge.App.exe "TimecodeBridge2.exe"
 
       - name: Build installer
         shell: pwsh
@@ -41,13 +41,13 @@ jobs:
           iscc /DAppVersion=$version installer\TimecodeBridge.iss
 
       - name: Rename portable exe
-        run: Rename-Item publish/TimecodeBridge.exe "TimecodeBridge-${{ github.ref_name }}.exe"
+        run: Rename-Item publish/TimecodeBridge2.exe "TimecodeBridge2-${{ github.ref_name }}.exe"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
-            publish/TimecodeBridge-*.exe
+            publish/TimecodeBridge2-*.exe
             installer-output/*.exe
 
   # macOS: .appバンドルを組み立ててzip化（未署名・未公証。初回起動は右クリック→開く）
@@ -67,19 +67,19 @@ jobs:
           for rid in osx-arm64 osx-x64; do
             dotnet publish src/TimecodeBridge.App/TimecodeBridge.App.csproj \
               -c Release --self-contained -r "$rid" -o "publish-$rid"
-            APP="TimecodeBridge.app"
+            APP="TimecodeBridge2.app"
             rm -rf "$APP"
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp -R "publish-$rid/." "$APP/Contents/MacOS/"
             cp src/TimecodeBridge.App/Info.plist "$APP/Contents/Info.plist"
             chmod +x "$APP/Contents/MacOS/TimecodeBridge.App"
-            ditto -c -k --sequesterRsrc --keepParent "$APP" "TimecodeBridge-${{ github.ref_name }}-$rid.zip"
+            ditto -c -k --sequesterRsrc --keepParent "$APP" "TimecodeBridge2-${{ github.ref_name }}-$rid.zip"
           done
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: TimecodeBridge-*.zip
+          path: TimecodeBridge2-*.zip
 
   release:
     needs: [build-windows, build-macos]

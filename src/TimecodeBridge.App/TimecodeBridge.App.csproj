@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Product>TimecodeBridge2</Product>
+    <AssemblyTitle>TimecodeBridge2</AssemblyTitle>
   </PropertyGroup>
 
   <ItemGroup>

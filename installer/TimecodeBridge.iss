@@ -1,15 +1,16 @@
-; TimecodeBridge インストーラー (Inno Setup 6)
+; TimecodeBridge2 インストーラー (Inno Setup 6)
 ; ビルド: iscc /DAppVersion=1.2.0 installer\TimecodeBridge.iss
-; 前提: dotnet publish 済みの publish\TimecodeBridge.exe が存在すること
+; 前提: dotnet publish 済みの publish\TimecodeBridge2.exe が存在すること
 
-#define AppName "TimecodeBridge"
+#define AppName "TimecodeBridge2"
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
 
 [Setup]
-; AppId は固定（変更するとアップグレードではなく別アプリ扱いになる）
-AppId={{3CE414A7-0A00-42EC-927F-B5F08B5A7271}
+; AppId は TimecodeBridge2 用に新規発行したもの。旧 TimecodeBridge(v1系)とは別アプリとして並存インストールできる。
+; 以後は固定（変更するとアップグレードではなく別アプリ扱いになる）
+AppId={{B0CA55AB-8A73-4F92-92E3-8EB3DED0EA20}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=Yothuba

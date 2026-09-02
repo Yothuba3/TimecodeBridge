@@ -11,28 +11,36 @@ public class AppSettingsService : IAppSettingsService
 {
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
+    private const string AppFolderName = "TimecodeBridge2";
+    private const string LegacyAppFolderName = "TimecodeBridge";
+
     private readonly string _settingsFilePath;
 
     /// <summary>
     /// コンストラクタ
     /// </summary>
     /// <param name="settingsFilePath">
-    /// 設定ファイルパス。省略時は macOS では ~/Library/Application Support/TimecodeBridge/settings.json、
-    /// Windows では %APPDATA%/TimecodeBridge/settings.json（旧WPF版と同じ場所）を使用。
+    /// 設定ファイルパス。省略時は macOS では ~/Library/Application Support/TimecodeBridge2/settings.json、
+    /// Windows では %APPDATA%/TimecodeBridge2/settings.json を使用。
     /// テスト時に一時ファイルパスを渡すことで実ファイルを汚さない。
     /// </param>
-    public AppSettingsService(string? settingsFilePath = null)
+    /// <param name="legacySettingsFilePath">
+    /// 旧 TimecodeBridge の設定ファイルパス。省略時は旧アプリの既定の場所。
+    /// 新しい設定ファイルがまだ無く旧ファイルがあれば、初回だけ内容を引き継ぐ。
+    /// </param>
+    public AppSettingsService(string? settingsFilePath = null, string? legacySettingsFilePath = null)
     {
-        _settingsFilePath = settingsFilePath ?? DefaultSettingsPath();
+        _settingsFilePath = settingsFilePath ?? DefaultSettingsPath(AppFolderName);
+        ImportLegacySettings(legacySettingsFilePath ?? DefaultSettingsPath(LegacyAppFolderName));
     }
 
-    private static string DefaultSettingsPath()
+    private static string DefaultSettingsPath(string appFolderName)
     {
         if (OperatingSystem.IsWindows())
         {
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "TimecodeBridge",
+                appFolderName,
                 "settings.json");
         }
 
@@ -40,8 +48,24 @@ public class AppSettingsService : IAppSettingsService
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library",
             "Application Support",
-            "TimecodeBridge",
+            appFolderName,
             "settings.json");
+    }
+
+    private void ImportLegacySettings(string legacySettingsFilePath)
+    {
+        try
+        {
+            if (File.Exists(_settingsFilePath) || !File.Exists(legacySettingsFilePath)) return;
+
+            var directory = Path.GetDirectoryName(_settingsFilePath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            File.Copy(legacySettingsFilePath, _settingsFilePath);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning("旧設定ファイルの取り込みに失敗しました: {0}", ex.Message);
+        }
     }
 
     public List<string> LoadRecentProjects()

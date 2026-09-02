@@ -13,7 +13,7 @@ namespace TimecodeBridge.App.ViewModels;
 /// </summary>
 public partial class MainViewModel : ObservableObject, IDisposable
 {
-    public const string ProjectFileFilter = "TimecodeBridge プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*";
+    public const string ProjectFileFilter = "TimecodeBridge2 プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*";
 
     private readonly IProjectService _projectService;
     private readonly IFileDialogService _fileDialogService;
@@ -26,7 +26,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _isNewProject = true;
 
     [ObservableProperty]
-    private string _title = "TimecodeBridge";
+    private string _title = "TimecodeBridge2";
 
     [ObservableProperty]
     private bool _hasUnsavedChanges;
@@ -470,7 +470,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateTitle()
     {
-        var title = "TimecodeBridge";
+        var title = "TimecodeBridge2";
         var currentPath = _isNewProject ? null : _projectService.CurrentFilePath;
         var displayName = currentPath is null
             ? "未保存の新規プロジェクト"
@@ -478,7 +478,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         if (currentPath is not null)
         {
-            title = $"TimecodeBridge - {displayName}";
+            title = $"TimecodeBridge2 - {displayName}";
         }
 
         if (_projectService.HasUnsavedChanges)

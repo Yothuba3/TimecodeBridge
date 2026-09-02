@@ -324,7 +324,7 @@ public class MainViewModelTests
     {
         var vm = CreateVm();
 
-        Assert.Equal("TimecodeBridge", vm.Title);
+        Assert.Equal("TimecodeBridge2", vm.Title);
     }
 
     [Fact]
@@ -381,7 +381,7 @@ public class MainViewModelTests
 
         vm.NewProjectCommand.Execute(null);
 
-        Assert.Equal("TimecodeBridge", vm.Title);
+        Assert.Equal("TimecodeBridge2", vm.Title);
     }
 
     [Fact]
@@ -472,7 +472,7 @@ public class MainViewModelTests
 
         vm.SaveProjectAsCommand.Execute(null);
 
-        Assert.Equal("TimecodeBridge - myproject.json", vm.Title);
+        Assert.Equal("TimecodeBridge2 - myproject.json", vm.Title);
     }
 
     [Fact]
@@ -667,7 +667,7 @@ public class MainViewModelTests
 
         vm.OpenProjectWithDialogCommand.Execute(null);
 
-        Assert.Equal("TimecodeBridge - show.json", vm.Title);
+        Assert.Equal("TimecodeBridge2 - show.json", vm.Title);
     }
 
     [Fact]
@@ -706,7 +706,7 @@ public class MainViewModelTests
 
         _projectService.SimulateUnsavedChanges(true);
 
-        Assert.Equal("TimecodeBridge - project.json *", vm.Title);
+        Assert.Equal("TimecodeBridge2 - project.json *", vm.Title);
     }
 
     [Fact]
@@ -716,11 +716,11 @@ public class MainViewModelTests
 
         _projectService.SimulateUnsavedChanges(true);
 
-        Assert.Equal("TimecodeBridge *", vm.Title);
+        Assert.Equal("TimecodeBridge2 *", vm.Title);
 
         _projectService.SimulateUnsavedChanges(false);
 
-        Assert.Equal("TimecodeBridge", vm.Title);
+        Assert.Equal("TimecodeBridge2", vm.Title);
     }
 
     // --- RecentProjects ---
