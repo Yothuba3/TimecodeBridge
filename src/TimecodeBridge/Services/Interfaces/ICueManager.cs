@@ -18,6 +18,24 @@ public interface ICueManager
     /// </summary>
     bool IsMuted { get; set; }
 
+    /// <summary>
+    /// 発火時オートミュート機能のマスタースイッチ。falseなら各キューの
+    /// <see cref="Cue.AutoMuteOnFire"/> 設定を無視する。プロジェクト単位で永続化される。
+    /// </summary>
+    bool IsAutoMuteEnabled { get; set; }
+
+    /// <summary>
+    /// <see cref="IsMuted"/> が変化したとき（オートミュート・自動解除・手動を問わず）発火する。
+    /// 呼び出し元スレッドはワーカー/タイマーの場合があるためUIへの反映側でマーシャリングすること。
+    /// </summary>
+    event EventHandler MuteStateChanged;
+
+    /// <summary>発火時オートミュートの原因となったキューID。オートミュート中でなければ null。</summary>
+    string? AutoMutedCueId { get; }
+
+    /// <summary>オートミュートの自動解除予定時刻（UTC）。時限解除でなければ null。</summary>
+    DateTime? AutoUnmuteAt { get; }
+
     void AddCue(Cue cue);
     void UpdateCue(string cueId, Cue updatedCue);
     void RemoveCue(string cueId);

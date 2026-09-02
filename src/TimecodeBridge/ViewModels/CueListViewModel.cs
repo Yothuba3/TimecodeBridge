@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TimecodeBridge.Models;
@@ -50,6 +51,7 @@ public partial class CueListViewModel : DispatcherViewModel
 
         _cueManager.CueTriggered += OnCueTriggered;
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;
+        _cueManager.MuteStateChanged += OnMuteStateChanged;
     }
 
     public void SyncFromService()
@@ -333,7 +335,67 @@ public partial class CueListViewModel : DispatcherViewModel
     private CueItemViewModel? _currentNextCue;
 
     /// <summary>ヘッダ常時表示用の次キュー要約（例: "NEXT 00:10:00:00 Cue3（あと 00:00:12:10）"）。</summary>
-    [ObservableProperty] private string _nextCueSummary = "NEXT: なし";
+    [ObservableProperty] private string _nextCueSummary = "なし";
+
+    // --- オートミュートのカウントダウン表示 ---
+
+    private DispatcherTimer? _muteCountdownTimer;
+
+    private void OnMuteStateChanged(object? sender, EventArgs e)
+    {
+        RunOnUiThread(RefreshMuteCountdown);
+    }
+
+    /// <summary>オートミュート状況を各キュー行の表示へ反映する（UIスレッドで呼ぶこと）。</summary>
+    internal void RefreshMuteCountdown()
+    {
+        var mutedCueId = _cueManager.AutoMutedCueId;
+        var unmuteAt = _cueManager.AutoUnmuteAt;
+
+        foreach (var item in CueItems)
+        {
+            if (item.Id != mutedCueId)
+            {
+                if (item.MuteStatusLabel.Length > 0) item.MuteStatusLabel = "";
+                if (item.MuteCountdownText.Length > 0) item.MuteCountdownText = "";
+                continue;
+            }
+
+            if (unmuteAt is { } at)
+            {
+                var remaining = at - DateTime.UtcNow;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                item.MuteStatusLabel = "解除まで";
+                item.MuteCountdownText = FormatRemaining(remaining, item.TriggerTime.FrameRate.FramesPerSecond());
+            }
+            else
+            {
+                item.MuteStatusLabel = "MUTE中";
+                item.MuteCountdownText = "";
+            }
+        }
+
+        bool ticking = mutedCueId is not null && unmuteAt is not null;
+        if (ticking)
+        {
+            _muteCountdownTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _muteCountdownTimer.Tick -= OnMuteCountdownTick;
+            _muteCountdownTimer.Tick += OnMuteCountdownTick;
+            _muteCountdownTimer.Start();
+        }
+        else
+        {
+            _muteCountdownTimer?.Stop();
+        }
+    }
+
+    private void OnMuteCountdownTick(object? sender, EventArgs e) => RefreshMuteCountdown();
+
+    private static string FormatRemaining(TimeSpan remaining, int fps)
+    {
+        int frames = (int)(remaining.Milliseconds / 1000.0 * fps);
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}:{frames:D2}";
+    }
 
     private void OnCueTriggered(object? sender, CueTriggeredEventArgs e)
     {
@@ -389,7 +451,7 @@ public partial class CueListViewModel : DispatcherViewModel
         }
         else
         {
-            NextCueSummary = "NEXT: なし";
+            NextCueSummary = "なし";
         }
 
         if (!ReferenceEquals(nextCue, _currentNextCue))
@@ -404,7 +466,9 @@ public partial class CueListViewModel : DispatcherViewModel
 
     public override void Dispose()
     {
+        _muteCountdownTimer?.Stop();
         _cueManager.CueTriggered -= OnCueTriggered;
         _timecodeEngine.TimecodeUpdated -= OnTimecodeUpdated;
+        _cueManager.MuteStateChanged -= OnMuteStateChanged;
     }
 }

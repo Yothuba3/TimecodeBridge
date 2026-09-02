@@ -23,10 +23,6 @@
                     <TextBlock Text="キューリスト" FontWeight="SemiBold" FontSize="13"
                                Foreground="{DynamicResource PrimaryForegroundBrush}"
                                VerticalAlignment="Center" />
-                    <!-- 次キューの常時サマリー -->
-                    <TextBlock Text="{Binding NextCueSummary}" FontFamily="Consolas" FontSize="11"
-                               Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold"
-                               VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- Trigger Window -->
@@ -131,6 +127,24 @@
                                     <Button Content="▶" Padding="8,3" FontSize="11"
                                             Command="{Binding DataContext.ManualTriggerCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding Id}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Auto-mute status / unmute countdown Column -->
+                        <GridViewColumn Header="MUTE" Width="130">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding MuteStatusLabel}"
+                                                   FontSize="12" FontWeight="Bold" Margin="0,0,6,0"
+                                                   Foreground="{DynamicResource ErrorBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding MuteCountdownText}"
+                                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                                   Foreground="{DynamicResource ErrorBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

@@ -134,6 +134,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
 
         _timecodeEngine.TimecodeUpdated += OnTimecodeUpdated;
         _timecodeEngine.StatusChanged += OnStatusChanged;
+        _cueManager.MuteStateChanged += OnMuteStateChanged;
 
         RefreshAudioDevices();
 
@@ -220,7 +221,17 @@ public partial class TimecodeViewModel : DispatcherViewModel
 
     partial void OnIsTriggerMutedChanged(bool value)
     {
-        _cueManager.IsMuted = value;
+        // オートミュートからの同期で値が既に一致している場合、Managerへ書き戻すと
+        // 予約済みの自動解除タイマーが破棄されてしまうため、変化があるときだけ渡す
+        if (_cueManager.IsMuted != value)
+        {
+            _cueManager.IsMuted = value;
+        }
+    }
+
+    private void OnMuteStateChanged(object? sender, EventArgs e)
+    {
+        RunOnUiThread(() => IsTriggerMuted = _cueManager.IsMuted);
     }
 
     partial void OnSelectedSourceChanged(TimecodeSourceType value)
@@ -588,6 +599,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
         _signalInfoTimer?.Dispose();
         _timecodeEngine.TimecodeUpdated -= OnTimecodeUpdated;
         _timecodeEngine.StatusChanged -= OnStatusChanged;
+        _cueManager.MuteStateChanged -= OnMuteStateChanged;
     }
 
     private static TimecodeValue ParseTimecodeInput(string input, FrameRate frameRate)

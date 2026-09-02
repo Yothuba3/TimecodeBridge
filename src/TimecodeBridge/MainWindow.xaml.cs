@@ -87,7 +87,9 @@ public partial class MainWindow : Window
             // Wire child views to their ViewModels via DI
             TimecodeDisplay.DataContext = App.Services.GetRequiredService<TimecodeViewModel>();
             AudioWaveform.DataContext = App.Services.GetRequiredService<AudioWaveformViewModel>();
-            CueList.DataContext = App.Services.GetRequiredService<CueListViewModel>();
+            var cueListVm = App.Services.GetRequiredService<CueListViewModel>();
+            CueList.DataContext = cueListVm;
+            NextCueBar.DataContext = cueListVm;
 
             // Wire log panel
             var logViewModel = App.Services.GetRequiredService<LogViewModel>();

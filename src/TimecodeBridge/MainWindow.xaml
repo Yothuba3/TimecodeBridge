@@ -50,6 +50,12 @@
                 <MenuItem Header="元に戻す(_U)" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z" />
                 <MenuItem Header="やり直し(_R)" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y" />
             </MenuItem>
+            <MenuItem Header="キュー設定(_C)">
+                <MenuItem Header="発火時オートミュートを有効にする"
+                          IsCheckable="True"
+                          IsChecked="{Binding AutoMuteEnabled, Mode=OneWay}"
+                          Command="{Binding ToggleAutoMuteCommand}" />
+            </MenuItem>
         </Menu>
 
         <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->
@@ -105,11 +111,29 @@
                         <!-- Left: Timecode + Waveform (stretch to fill row height) -->
                         <Grid Grid.Column="0" Margin="0,0,4,0">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <views:TimecodeDisplayView Grid.Row="0" x:Name="TimecodeDisplay" />
-                            <views:AudioWaveformView Grid.Row="1" x:Name="AudioWaveform" />
+                            <!-- NEXTキュー要約バー -->
+                            <Border Grid.Row="0" x:Name="NextCueBar"
+                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="14,6" Margin="0,0,0,4">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Background="{DynamicResource AccentSubtleBrush}" CornerRadius="3"
+                                            Padding="6,2" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="NEXT" FontFamily="Consolas" FontSize="10"
+                                                   FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding NextCueSummary}"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                            <views:TimecodeDisplayView Grid.Row="1" x:Name="TimecodeDisplay" />
+                            <views:AudioWaveformView Grid.Row="2" x:Name="AudioWaveform" />
                         </Grid>
 
                         <!-- Right: Log Panel -->

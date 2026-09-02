@@ -72,6 +72,15 @@ public partial class CueEditDialog : Window
         }).ToList();
         HostListBox.ItemsSource = hostItems;
         NoHostsHint.Visibility = hostItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // Auto mute on fire
+        AutoMuteBox.IsChecked = cue.AutoMuteOnFire;
+        var unmuteAfter = cue.AutoUnmuteAfter ?? new TimecodeValue(0, 0, 0, 0, frameRate);
+        UseAutoUnmuteBox.IsChecked = cue.AutoUnmuteAfter is not null;
+        UnmuteHoursBox.Text = unmuteAfter.Hours.ToString("D2");
+        UnmuteMinutesBox.Text = unmuteAfter.Minutes.ToString("D2");
+        UnmuteSecondsBox.Text = unmuteAfter.Seconds.ToString("D2");
+        UnmuteFramesBox.Text = unmuteAfter.Frames.ToString("D2");
     }
 
     // 各成分を検証してオフセットを組み立てる（全ゼロ = オフセットなし）。不正入力は false
@@ -205,6 +214,33 @@ public partial class CueEditDialog : Window
             selectedHostIds.AddRange(items.Where(x => x.IsSelected).Select(x => x.Id));
         }
 
+        TimecodeValue? autoUnmuteAfter = null;
+        if (AutoMuteBox.IsChecked == true && UseAutoUnmuteBox.IsChecked == true)
+        {
+            bool validUnmute = int.TryParse(UnmuteHoursBox.Text, out var uh) && uh >= 0 && uh <= 23 &&
+                               int.TryParse(UnmuteMinutesBox.Text, out var um) && um >= 0 && um <= 59 &&
+                               int.TryParse(UnmuteSecondsBox.Text, out var us) && us >= 0 && us <= 59 &&
+                               int.TryParse(UnmuteFramesBox.Text, out var uf) && uf >= 0 && uf <= maxFrames;
+            if (!validUnmute)
+            {
+                MessageBox.Show(this,
+                    "ミュート解除時間を正しい形式で入力してください。\nHH(0-23) MM(0-59) SS(0-59) FF(0-max)",
+                    "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            var unmute = new TimecodeValue(
+                int.Parse(UnmuteHoursBox.Text), int.Parse(UnmuteMinutesBox.Text),
+                int.Parse(UnmuteSecondsBox.Text), int.Parse(UnmuteFramesBox.Text), _frameRate);
+            if (unmute.TotalFrames() == 0)
+            {
+                MessageBox.Show(this,
+                    "ミュート解除時間は1フレーム以上を指定してください。\n（すぐ解除したい場合は「指定」をOFFにして手動解除にしてください）",
+                    "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            autoUnmuteAfter = unmute;
+        }
+
         ResultCue = new Cue
         {
             Id = string.Empty, // caller will set
@@ -219,6 +255,8 @@ public partial class CueEditDialog : Window
             SendTriggerTimeAsSeconds = SendTcSecondsBox.IsChecked ?? false,
             SendTimecode = sendTimecode,
             TriggerOffset = triggerOffset,
+            AutoMuteOnFire = AutoMuteBox.IsChecked ?? false,
+            AutoUnmuteAfter = autoUnmuteAfter,
         };
 
         DialogResult = true;

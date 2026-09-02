@@ -17,6 +17,11 @@ public class TimecodeViewModelTests
         public IReadOnlyList<Cue> Cues => [];
         public int TriggerWindowFrames { get; set; } = 3;
         public bool IsMuted { get; set; }
+
+        public bool IsAutoMuteEnabled { get; set; } = true;
+        public string? AutoMutedCueId => null;
+        public DateTime? AutoUnmuteAt => null;
+        public event EventHandler? MuteStateChanged;
         public void AddCue(Cue cue) { }
         public void UpdateCue(string cueId, Cue updatedCue) { }
         public void RemoveCue(string cueId) { }
@@ -240,6 +245,11 @@ public class TimecodeViewModelTests
         public IReadOnlyList<Cue> Cues => [];
         public int TriggerWindowFrames { get; set; } = 3;
         public bool IsMuted { get; set; }
+
+        public bool IsAutoMuteEnabled { get; set; } = true;
+        public string? AutoMutedCueId => null;
+        public DateTime? AutoUnmuteAt => null;
+        public event EventHandler? MuteStateChanged;
         public void AddCue(Cue cue) { }
         public void UpdateCue(string cueId, Cue updatedCue) { }
         public void RemoveCue(string cueId) { }
