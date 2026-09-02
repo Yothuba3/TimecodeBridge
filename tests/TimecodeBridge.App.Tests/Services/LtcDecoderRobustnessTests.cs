@@ -214,6 +214,47 @@ public class LtcDecoderRobustnessTests
     }
 
     [Fact]
+    public void 非有限値サンプルが混入してもデコードが永久停止しない()
+    {
+        // 「一度TCが止まると再接続まで一生戻らない」の実機再現原因の回帰テスト。
+        // 32bit整数PCMをIEEE floatとして誤読すると NaN/±Inf が混じることがあり、旧実装は
+        // 1サンプルでも入ると _dc/_env が汚染され、以降 crossing が二度と起きずデコードが永久停止した。
+        var (mono, len) = MakeCleanLtc(600); // 20秒
+        int half = len / 2;
+
+        var dec = new LtcDecoder();
+        dec.Initialize(Sr);
+        int before = 0, after = 0;
+        bool injected = false;
+        dec.FrameDecoded += (_, _) => { if (injected) after++; else before++; };
+
+        static byte[] Float32(float[] src, int start, int count)
+        {
+            var b = new byte[count * 4];
+            for (int i = 0; i < count; i++)
+                BitConverter.GetBytes(src[start + i]).CopyTo(b, i * 4);
+            return b;
+        }
+
+        var firstHalf = Float32(mono, 0, half);
+        dec.ProcessSamples(firstHalf, firstHalf.Length, Sr, 32, 1);
+        Assert.True(before > 100, "前半で通常デコードできていない前提が崩れている");
+
+        // NaN と +Inf と -Inf を1サンプルずつ注入
+        foreach (var bad in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+        {
+            var one = BitConverter.GetBytes(bad);
+            dec.ProcessSamples(one, 4, Sr, 32, 1);
+        }
+        injected = true;
+
+        var secondHalf = Float32(mono, half, len - half);
+        dec.ProcessSamples(secondHalf, secondHalf.Length, Sr, 32, 1);
+
+        Assert.True(after > 100, $"非有限値の注入後にデコードが止まっている（after={after}）— 永久停止の退行");
+    }
+
+    [Fact]
     public void ノイズだけの区間からはフレームを出さない()
     {
         // 無信号（白色ノイズ）10秒からガベージフレームが出ないこと（83d1f05の対策が維持されている）

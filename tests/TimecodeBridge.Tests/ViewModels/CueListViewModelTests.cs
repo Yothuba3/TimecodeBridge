@@ -471,6 +471,7 @@ public class CueListViewModelTests
         public bool IsReceiving => false;
         public double FreerunDurationSeconds { get; set; }
         public bool IsFreerunning => false;
+        public LtcSignalCounts LtcSignalCounts => default;
 
         public void StartLtc(string audioDeviceId, bool isLoopback = false) { }
         public void Stop() { }

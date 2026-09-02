@@ -39,6 +39,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     private int _ltcMaxFrameSeen;
     private bool _ltcDropFrameSeen;
 
+    // LTCデコードの累積カウント（信号エラー率の算出用）。v1は連続性ゲートを持たないため、
+    // デコーダが出したフレーム総数を Written、パイプラインへ投入できた数を Accepted として数える。
+    private long _ltcWritten;
+    private long _ltcAccepted;
+
     // Thread-safe state
     private volatile bool _isReceiving;
     private volatile bool _disposed;
@@ -81,6 +86,8 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public bool IsFreerunning => _isFreerunning;
 
+    public LtcSignalCounts LtcSignalCounts => new(Interlocked.Read(ref _ltcWritten), Interlocked.Read(ref _ltcAccepted));
+
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
@@ -121,6 +128,8 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _ltcAutoDetectActive = true;
         _ltcMaxFrameSeen = 0;
         _ltcDropFrameSeen = false;
+        Interlocked.Exchange(ref _ltcWritten, 0);
+        Interlocked.Exchange(ref _ltcAccepted, 0);
         ActiveSource = TimecodeSourceType.Ltc;
 
         _ltcDecoder = new LtcDecoder();
@@ -138,14 +147,22 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         int channels = waveFormat.Channels;
         int bitsPerSample = waveFormat.BitsPerSample;
         int sampleRate = waveFormat.SampleRate;
+        // 32bitがIEEE floatか整数PCMかをフォーマットから判定する。整数PCMをfloatとして読むと
+        // NaN/Infが混入し、デコーダのIIRが汚染されて再接続まで永久にTCが止まる。
+        bool is32BitFloat = waveFormat.Encoding == NAudio.Wave.WaveFormatEncoding.IeeeFloat;
 
-        _ltcDecoder.FrameDecoded += (_, timecodeValue) => WriteFrame(timecodeValue);
+        _ltcDecoder.FrameDecoded += (_, timecodeValue) =>
+        {
+            Interlocked.Increment(ref _ltcWritten);
+            if (!_disposed && _channel.Writer.TryWrite(timecodeValue))
+                Interlocked.Increment(ref _ltcAccepted);
+        };
 
         _wasapiCapture.DataAvailable += (_, e) =>
         {
             try
             {
-                _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels);
+                _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels, is32BitFloat);
 
                 // Extract mono float samples for waveform display
                 if (AudioSamplesAvailable != null)
