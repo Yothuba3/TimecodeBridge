@@ -55,21 +55,22 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish-v1
 
+      # v1はv2とバージョン体系が異なる(1.4.x)。1タグで両製品を同梱するため、v1の内部バージョンは
+      # 固定値で持ち、配布ファイル名もタグに依存しない固定名にする（利用者は常に最新版を取得する）。
       - name: Build v1 installer
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          iscc /DAppVersion=$version installer\TimecodeBridge-v1.iss
+          iscc /DAppVersion=1.4.13 /F"TimecodeBridge-Setup" installer\TimecodeBridge-v1.iss
 
       - name: Rename v1 portable exe
-        run: Rename-Item publish-v1/TimecodeBridge.exe "TimecodeBridge-${{ github.ref_name }}.exe"
+        run: Rename-Item publish-v1/TimecodeBridge.exe "TimecodeBridge-portable.exe"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
             publish/TimecodeBridge2-*.exe
-            publish-v1/TimecodeBridge-*.exe
+            publish-v1/TimecodeBridge-portable.exe
             installer-output/*.exe
 
   # macOS: .appバンドルを組み立ててzip化（未署名・未公証。初回起動は右クリック→開く）
