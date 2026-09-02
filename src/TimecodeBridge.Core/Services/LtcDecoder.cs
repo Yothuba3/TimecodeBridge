@@ -45,6 +45,12 @@ public class LtcDecoder : ILtcDecoder
     private ushort _shiftHi;    // bits 64-79
     private int _totalBits;     // total bits shifted in (for minimum frame detection)
 
+    // チャンネルフレーム（全ch分のサンプル）の途中で切れたバッファの端数を次回へ繰り越す。
+    // これをしないと、バッファ長がチャンネルフレーム境界に揃わないとき（ステレオでよく起きる）に
+    // デインターリーブの位相が1サンプルずれて固定化し、以降デコードが永久に止まる。
+    private readonly byte[] _carry = new byte[16];
+    private int _carryLen;
+
     public event EventHandler<TimecodeValue>? FrameDecoded;
 
     public LtcDecoder()
@@ -75,46 +81,62 @@ public class LtcDecoder : ILtcDecoder
         _shiftLo = 0;
         _shiftHi = 0;
         _totalBits = 0;
+        _carryLen = 0;
         _initialized = true;
     }
 
     public void ProcessSamples(byte[] buffer, int bytesRecorded, int sampleRate, int bitsPerSample, int channels)
     {
         if (_disposed || !_initialized) return;
+        if (channels < 1) channels = 1;
 
-        if (bitsPerSample == 32)
+        int bytesPerSample = bitsPerSample == 32 ? 4 : bitsPerSample == 16 ? 2 : 0;
+        if (bytesPerSample == 0) return;
+
+        int frameBytes = bytesPerSample * channels; // 全chを1組とした「チャンネルフレーム」のバイト数
+        if (frameBytes > _carry.Length) { _carryLen = 0; return; } // 想定外の巨大ch数は無視
+
+        // 前回の端数（チャンネルフレーム未満のバイト）から、今回の先頭を使って1フレーム分を完成させる。
+        // 完成させたら、それを1サンプルとしてデコードし、残りは境界の揃った位置から処理する。
+        int offset = 0;
+        if (_carryLen > 0)
         {
-            ProcessFloat32(buffer, bytesRecorded, channels);
+            int need = frameBytes - _carryLen;
+            if (bytesRecorded < need)
+            {
+                Array.Copy(buffer, 0, _carry, _carryLen, bytesRecorded);
+                _carryLen += bytesRecorded;
+                return;
+            }
+            Array.Copy(buffer, 0, _carry, _carryLen, need);
+            ProcessOneSample(ReadSample(_carry, 0, bitsPerSample));
+            _carryLen = 0;
+            offset = need;
         }
-        else if (bitsPerSample == 16)
+
+        int remaining = bytesRecorded - offset;
+        int fullFrames = remaining / frameBytes;
+        for (int i = 0; i < fullFrames; i++)
         {
-            ProcessPcm16(buffer, bytesRecorded, channels);
+            ProcessOneSample(ReadSample(buffer, offset + i * frameBytes, bitsPerSample));
+        }
+
+        // 末尾に残ったチャンネルフレーム未満のバイトを次回へ繰り越す
+        int consumed = offset + fullFrames * frameBytes;
+        int leftover = bytesRecorded - consumed;
+        if (leftover > 0)
+        {
+            Array.Copy(buffer, consumed, _carry, 0, leftover);
+            _carryLen = leftover;
         }
     }
 
-    private void ProcessFloat32(byte[] buffer, int bytesRecorded, int channels)
+    // チャンネルフレーム先頭（=先頭チャンネル）のサンプルを float で読む
+    private static float ReadSample(byte[] buffer, int byteOffset, int bitsPerSample)
     {
-        int totalSamples = bytesRecorded / 4;
-        int frames = totalSamples / channels;
-
-        for (int i = 0; i < frames; i++)
-        {
-            float sample = BitConverter.ToSingle(buffer, i * channels * 4);
-            ProcessOneSample(sample);
-        }
-    }
-
-    private void ProcessPcm16(byte[] buffer, int bytesRecorded, int channels)
-    {
-        int totalSamples = bytesRecorded / 2;
-        int frames = totalSamples / channels;
-
-        for (int i = 0; i < frames; i++)
-        {
-            short raw = BitConverter.ToInt16(buffer, i * channels * 2);
-            float sample = raw / 32768.0f;
-            ProcessOneSample(sample);
-        }
+        if (bitsPerSample == 32) return BitConverter.ToSingle(buffer, byteOffset);
+        short raw = BitConverter.ToInt16(buffer, byteOffset);
+        return raw / 32768.0f;
     }
 
     private void ProcessOneSample(float sample)

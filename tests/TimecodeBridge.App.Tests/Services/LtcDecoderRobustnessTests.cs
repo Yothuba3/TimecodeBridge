@@ -91,6 +91,55 @@ public class LtcDecoderRobustnessTests
         Assert.True(Decode(sig, len) >= 250);
     }
 
+    private static (byte[] pcm, int frames) MakeStereoLtcPcm(int startSec, int frames, int ltcChannel, int channels)
+    {
+        var enc = new LtcEncoder();
+        enc.Initialize(Sr, FrameRate.Fps30);
+        for (int i = 0; i < frames; i++)
+            enc.EnqueueFrame(new TimecodeValue(10, 0, startSec + i / 30, i % 30, FrameRate.Fps30));
+        var mono = new byte[Sr * 2 * (frames / 30 + 2)];
+        enc.Read(mono, 0, mono.Length);
+        int n = mono.Length / 2;
+        int last = n - 1;
+        while (last > 0 && mono[last * 2] == 0 && mono[last * 2 + 1] == 0) last--;
+        n = last + 1;
+        var outb = new byte[n * 2 * channels];
+        for (int i = 0; i < n; i++)
+            for (int c = 0; c < channels; c++)
+            {
+                int di = (i * channels + c) * 2;
+                if (c == ltcChannel) { outb[di] = mono[i * 2]; outb[di + 1] = mono[i * 2 + 1]; }
+            }
+        return (outb, frames);
+    }
+
+    [Fact]
+    public void ステレオ入力をチャンネル境界に揃わないチャンクで供給しても止まらない()
+    {
+        // 「一度認識しなくなると再接続まで一生引っかからない」の本命原因の回帰テスト。
+        // ステレオで、チャンネルフレーム境界(4byte)に揃わない端数チャンクを挟むと、
+        // 旧実装はデインターリーブ位相が固定でずれて以降永久にデコードできなくなった。
+        var (data, _) = MakeStereoLtcPcm(0, 300, ltcChannel: 0, channels: 2);
+        var dec = new LtcDecoder();
+        dec.Initialize(Sr);
+        int decoded = 0;
+        long secondHalfOrd = new TimecodeValue(10, 0, 5, 0, FrameRate.Fps30).ToOrdinal();
+        int afterOdd = 0;
+        dec.FrameDecoded += (_, tc) => { decoded++; if (tc.ToOrdinal() >= secondHalfOrd) afterOdd++; };
+
+        // 前半を境界通りに、途中で2byte(1サンプル=半チャンネルフレーム)だけの端数を1回挟む
+        int half = data.Length / 2; half -= half % 4;
+        var a = new byte[half]; Array.Copy(data, 0, a, 0, half);
+        dec.ProcessSamples(a, a.Length, Sr, 16, 2);
+        var odd = new byte[2]; Array.Copy(data, half, odd, 0, 2);
+        dec.ProcessSamples(odd, 2, Sr, 16, 2);
+        var b = new byte[data.Length - half - 2]; Array.Copy(data, half + 2, b, 0, b.Length);
+        dec.ProcessSamples(b, b.Length, Sr, 16, 2);
+
+        // 端数混入の後も後半をデコードし続けられること（旧実装はここが0だった）
+        Assert.True(afterOdd > 100, $"端数チャンク後にデコードが止まっている（afterOdd={afterOdd}）");
+    }
+
     [Fact]
     public void ノイズだけの区間からはフレームを出さない()
     {
