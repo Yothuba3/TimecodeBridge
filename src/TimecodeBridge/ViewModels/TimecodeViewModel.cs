@@ -272,6 +272,37 @@ public partial class TimecodeViewModel : DispatcherViewModel
         }
     }
 
+    /// <summary>
+    /// LTC入力を接続し直す。選択中のオーディオデバイスを開き直し、デコーダと連続性ゲート・
+    /// フレームレート判定・タイムコード追跡をまっさらから取り直す。
+    /// 何らかの理由で受信が止まった（波形は出るがTCが進まない等）ときの復帰手段。
+    /// </summary>
+    [RelayCommand]
+    private void ReconnectLtc()
+    {
+        if (SelectedSource != TimecodeSourceType.Ltc) return;
+
+        _timecodeEngine.Stop();
+        IsReceiving = false;
+
+        if (SelectedDevice is null)
+        {
+            StatusText = "停止";
+            return;
+        }
+
+        try
+        {
+            _timecodeEngine.StartLtc(SelectedDevice.Id, SelectedDevice.IsLoopback);
+            StatusText = _hasEverReceived ? "信号待ち" : "停止";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "エラー";
+            System.Diagnostics.Debug.WriteLine($"LTC reconnect failed: {ex.Message}");
+        }
+    }
+
     partial void OnSelectedDeviceChanged(AudioDeviceInfo? value)
     {
         if (_restoring) return;
