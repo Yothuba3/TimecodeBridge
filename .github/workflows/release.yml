@@ -43,34 +43,11 @@ jobs:
       - name: Rename portable exe
         run: Rename-Item publish/TimecodeBridge2.exe "TimecodeBridge2-${{ github.ref_name }}.exe"
 
-      # 旧v1系(WPF版 TimecodeBridge)も並行して発行する。中身はv2と同じCoreデコーダを共有するため
-      # NaN/Inf混入によるTC永久停止の修正が同じく効く。v1利用者向けにアップグレードを届ける。
-      - name: Publish v1 (win-x64)
-        run: >
-          dotnet publish src/TimecodeBridge/TimecodeBridge.csproj
-          -c Release
-          --self-contained
-          -r win-x64
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish-v1
-
-      # v1はv2とバージョン体系が異なる(1.4.x)。1タグで両製品を同梱するため、v1の内部バージョンは
-      # 固定値で持ち、配布ファイル名もタグに依存しない固定名にする（利用者は常に最新版を取得する）。
-      - name: Build v1 installer
-        shell: pwsh
-        run: |
-          iscc /DAppVersion=1.4.13 /F"TimecodeBridge-Setup" installer\TimecodeBridge-v1.iss
-
-      - name: Rename v1 portable exe
-        run: Rename-Item publish-v1/TimecodeBridge.exe "TimecodeBridge-portable.exe"
-
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
             publish/TimecodeBridge2-*.exe
-            publish-v1/TimecodeBridge-portable.exe
             installer-output/*.exe
 
   # macOS: .appバンドルを組み立ててzip化（未署名・未公証。初回起動は右クリック→開く）
