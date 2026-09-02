@@ -11,9 +11,6 @@ public class AppSettingsService : IAppSettingsService
 {
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
-    private const string AppFolderName = "TimecodeBridge2";
-    private const string LegacyAppFolderName = "TimecodeBridge";
-
     private readonly string _settingsFilePath;
 
     /// <summary>
@@ -30,27 +27,12 @@ public class AppSettingsService : IAppSettingsService
     /// </param>
     public AppSettingsService(string? settingsFilePath = null, string? legacySettingsFilePath = null)
     {
-        _settingsFilePath = settingsFilePath ?? DefaultSettingsPath(AppFolderName);
-        ImportLegacySettings(legacySettingsFilePath ?? DefaultSettingsPath(LegacyAppFolderName));
+        _settingsFilePath = settingsFilePath ?? DefaultSettingsPath(AppPaths.AppFolderName);
+        ImportLegacySettings(legacySettingsFilePath ?? DefaultSettingsPath(AppPaths.LegacyAppFolderName));
     }
 
     private static string DefaultSettingsPath(string appFolderName)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                appFolderName,
-                "settings.json");
-        }
-
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library",
-            "Application Support",
-            appFolderName,
-            "settings.json");
-    }
+        => Path.Combine(AppPaths.DataDirectoryFor(appFolderName), "settings.json");
 
     private void ImportLegacySettings(string legacySettingsFilePath)
     {

@@ -137,4 +137,13 @@ public class MacOSProjectStructureTests
         // Assert
         Assert.Equal(0, exitCode);
     }
+
+    [Fact]
+    public void MacOSProject_ShouldBeWinExe()
+    {
+        // Windowsでコンソールが付随しないよう GUI 形式で出力する
+        var doc = XDocument.Load(Path.GetFullPath(MacOSProjectPath));
+
+        Assert.Equal("WinExe", doc.Descendants("OutputType").FirstOrDefault()?.Value);
+    }
 }

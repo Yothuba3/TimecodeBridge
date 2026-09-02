@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +9,7 @@ using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.App.Services;
 using TimecodeBridge.App.Services.CoreAudio;
+using TimecodeBridge.App.Views;
 using TimecodeBridge.Windows.Services;
 using TimecodeBridge.App.ViewModels;
 using TimecodeBridge.Services.Interfaces;
@@ -25,27 +27,36 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = CreateMainWindow(desktop);
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// DIを組み立ててメインウィンドウを作る。失敗しても落とさず、原因を表示するウィンドウを返す
+    /// （GUIアプリには標準エラーが無いので、黙って終了すると手がかりが残らない）。
+    /// </summary>
+    private Window CreateMainWindow(IClassicDesktopStyleApplicationLifetime desktop)
+    {
         try
         {
             var services = new ServiceCollection();
             ConfigureServices(services);
             Services = services.BuildServiceProvider();
+            desktop.Exit += (_, _) => (Services as IDisposable)?.Dispose();
 
-            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            return new MainWindow
             {
-                var mainWindow = new MainWindow
-                {
-                    DataContext = Services.GetRequiredService<MainViewModel>()
-                };
-                desktop.MainWindow = mainWindow;
-                desktop.Exit += (_, _) => (Services as IDisposable)?.Dispose();
-            }
-
-            base.OnFrameworkInitializationCompleted();
+                DataContext = Services.GetRequiredService<MainViewModel>()
+            };
         }
         catch (Exception ex)
         {
-            ShowInitializationErrorAndExit(ex);
+            var logPath = CrashLog.Write("initialization", ex);
+            return StartupErrorWindow.Create(ex, logPath);
         }
     }
 
@@ -96,15 +107,5 @@ public partial class App : Application
         services.AddSingleton<AudioWaveformViewModel>();
         services.AddSingleton<LogViewModel>();
         services.AddSingleton<MainViewModel>();
-    }
-
-    /// <summary>
-    /// 初期化エラーをコンソールに出力して終了
-    /// </summary>
-    private static void ShowInitializationErrorAndExit(Exception ex)
-    {
-        Console.Error.WriteLine($"[FATAL] アプリケーションの初期化中にエラーが発生しました。\n\n詳細: {ex.Message}");
-        Console.Error.WriteLine(ex.StackTrace);
-        Environment.Exit(1);
     }
 }
