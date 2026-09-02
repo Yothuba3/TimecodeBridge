@@ -494,6 +494,42 @@ public class TimecodeEngineTests : IDisposable
 
     #endregion
 
+    [Fact]
+    public void 孤立したノイズ由来フレームは採用されない()
+    {
+        var updates = 0;
+        _engine.TimecodeUpdated += (_, _) => Interlocked.Increment(ref updates);
+
+        // 連続しない単発フレーム（ノイズが偶然フレームとして解析されたケース）
+        _engine.WriteLtcFrame(new TimecodeValue(3, 3, 3, 3, FrameRate.Fps30));
+        Thread.Sleep(200);
+
+        Assert.Equal(0, updates);
+        Assert.False(_engine.IsReceiving);
+    }
+
+    [Fact]
+    public void 信号が途切れて別位置から再開しても2フレームで再ロックする()
+    {
+        var decoded = new List<TimecodeValue>();
+        _engine.TimecodeUpdated += (_, e) => { lock (decoded) decoded.Add(e.RawTimecode); };
+
+        // 位置Aで2フレーム → 大きく離れた位置Bで2フレーム
+        _engine.WriteLtcFrame(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(1, 0, 0, 1, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(5, 0, 0, 10, FrameRate.Fps30));
+        _engine.WriteLtcFrame(new TimecodeValue(5, 0, 0, 11, FrameRate.Fps30));
+
+        SpinWait.SpinUntil(() => { lock (decoded) return decoded.Count >= 4; }, TimeSpan.FromSeconds(2));
+
+        lock (decoded)
+        {
+            // フレームレートはエンジン設定で正規化されるため位置（序数）で比較する
+            Assert.Equal(4, decoded.Count);
+            Assert.Equal(new TimecodeValue(5, 0, 0, 11, FrameRate.Fps30).ToOrdinal(), decoded[^1].ToOrdinal());
+        }
+    }
+
     private static async Task<T> WithTimeout<T>(Task<T> task, int timeoutMs = 3000)
     {
         var completed = await Task.WhenAny(task, Task.Delay(timeoutMs));
