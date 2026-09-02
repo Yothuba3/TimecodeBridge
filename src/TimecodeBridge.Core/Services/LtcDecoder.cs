@@ -48,7 +48,9 @@ public class LtcDecoder : ILtcDecoder
     // チャンネルフレーム（全ch分のサンプル）の途中で切れたバッファの端数を次回へ繰り越す。
     // これをしないと、バッファ長がチャンネルフレーム境界に揃わないとき（ステレオでよく起きる）に
     // デインターリーブの位相が1サンプルずれて固定化し、以降デコードが永久に止まる。
-    private readonly byte[] _carry = new byte[16];
+    // 上限は最大チャンネル数×最大バイト幅を賄う（16ch×float32=64byte）。多入力インターフェースが
+    // 全chまとめて渡してくる場合（例: 6ch×32bit=24byte）でも読めるようにする。
+    private readonly byte[] _carry = new byte[64];
     private int _carryLen;
 
     public event EventHandler<TimecodeValue>? FrameDecoded;

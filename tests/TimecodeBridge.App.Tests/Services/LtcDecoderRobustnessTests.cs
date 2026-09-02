@@ -140,6 +140,47 @@ public class LtcDecoderRobustnessTests
         Assert.True(afterOdd > 100, $"端数チャンク後にデコードが止まっている（afterOdd={afterOdd}）");
     }
 
+    [Theory]
+    [InlineData(1, 16)]
+    [InlineData(2, 16)]
+    [InlineData(6, 16)]
+    [InlineData(1, 32)]
+    [InlineData(2, 32)]
+    [InlineData(4, 32)]
+    [InlineData(6, 32)] // UR44等の多入力IFが6ch×32bitで見えるケース。frameBytes=24 で読めなくなっていた。
+    public void 多チャンネル多ビット深度の入力でも先頭chのLTCをデコードできる(int channels, int bits)
+    {
+        int frames = 150;
+        var enc = new LtcEncoder();
+        enc.Initialize(Sr, FrameRate.Fps30);
+        for (int i = 0; i < frames; i++)
+            enc.EnqueueFrame(new TimecodeValue(10, 0, i / 30, i % 30, FrameRate.Fps30));
+        var mono16 = new byte[Sr * 2 * (frames / 30 + 2)];
+        enc.Read(mono16, 0, mono16.Length);
+        int n = mono16.Length / 2;
+        int last = n - 1;
+        while (last > 0 && mono16[last * 2] == 0 && mono16[last * 2 + 1] == 0) last--;
+        n = last + 1;
+
+        int bps = bits / 8;
+        var interleaved = new byte[n * bps * channels];
+        for (int i = 0; i < n; i++)
+        {
+            short s = BitConverter.ToInt16(mono16, i * 2);
+            int di = (i * channels + 0) * bps; // 先頭チャンネルにLTC
+            if (bits == 16) { interleaved[di] = (byte)(s & 0xFF); interleaved[di + 1] = (byte)((s >> 8) & 0xFF); }
+            else BitConverter.GetBytes(s / 32768f).CopyTo(interleaved, di);
+        }
+
+        var dec = new LtcDecoder();
+        dec.Initialize(Sr);
+        int decoded = 0;
+        dec.FrameDecoded += (_, _) => decoded++;
+        dec.ProcessSamples(interleaved, interleaved.Length, Sr, bits, channels);
+
+        Assert.True(decoded >= frames - 1, $"{channels}ch {bits}bit でデコードできていない（decoded={decoded}）");
+    }
+
     [Fact]
     public void ノイズだけの区間からはフレームを出さない()
     {
