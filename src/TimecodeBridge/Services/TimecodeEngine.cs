@@ -21,6 +21,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     private WasapiCapture? _wasapiCapture;
     private LtcDecoder? _ltcDecoder;
     private int _ltcCaptureSampleRate = 48000;
+
+    // デコーダ・ゲートの内部状態は複数スレッドから触られる（WASAPIコールバックの ProcessSamples と、
+    // 信号喪失タイマーからの ResetLtcDecodePipeline）。排他しないと初期化中の状態が壊れ、以後
+    // フレームが出なくなる。この経路を直列化する。
+    private readonly object _decodeLock = new();
     private int _ltcCaptureFps = 30;
     private readonly ManualResetEventSlim _captureStoppedEvent = new(true);
 
@@ -165,7 +170,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         {
             try
             {
-                _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels);
+                // ProcessSamples は同期的に FrameDecoded → ゲート書き込みまで走る。リセットと直列化する。
+                lock (_decodeLock)
+                {
+                    _ltcDecoder?.ProcessSamples(e.Buffer, e.BytesRecorded, sampleRate, bitsPerSample, channels);
+                }
 
                 // Extract mono float samples for waveform display
                 if (AudioSamplesAvailable != null)
@@ -492,10 +501,14 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     /// <summary>デコーダ・連続性ゲート・フレームレート判定を初期状態へ戻す（再接続相当・キャプチャは維持）。</summary>
     private void ResetLtcDecodePipeline()
     {
-        _ltcDecoder?.Initialize(_ltcCaptureSampleRate, _ltcCaptureFps);
-        _ltcGate.Reset();
-        _ltcMaxFrameSeen = 0;
-        _ltcDropFrameSeen = false;
+        // キャプチャコールバックの ProcessSamples と競合しないよう直列化する。
+        lock (_decodeLock)
+        {
+            _ltcDecoder?.Initialize(_ltcCaptureSampleRate, _ltcCaptureFps);
+            _ltcGate.Reset();
+            _ltcMaxFrameSeen = 0;
+            _ltcDropFrameSeen = false;
+        }
     }
 
     private void StartFreerun(double durationSeconds)
