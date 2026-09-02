@@ -21,6 +21,7 @@ public class AudioWaveformViewModelTests
         public double FreerunDurationSeconds { get; set; }
         public bool IsFreerunning => false;
         public LtcSignalCounts LtcSignalCounts => default;
+        public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
         public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
         public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
         public void StartLtc(string audioDeviceId, bool isLoopback = false) { }

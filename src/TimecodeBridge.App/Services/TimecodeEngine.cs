@@ -98,6 +98,12 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public bool IsFreerunning => _isFreerunning;
 
+    /// <summary>
+    /// 信号喪失を検出したとき、デコーダ・ゲートを自動リセットして受信を復帰しやすくするか。
+    /// 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもTCが止まったままになることへの対策。
+    /// </summary>
+    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
+
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
@@ -517,6 +523,14 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             source = _activeSource;
         }
 
+        if (source == TimecodeSourceType.Ltc && LtcAutoRecoverOnSignalLoss)
+        {
+            // 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもロックし直せず
+            // TCが止まったままになることがある（「再接続」ボタンと同じ回復を自動で行う）。
+            // キャプチャは止めず、デコーダ・ゲート・レート判定だけをまっさらに戻す。
+            ResetLtcDecodePipeline();
+        }
+
         if (source == TimecodeSourceType.Ltc && freerunDuration > 0)
         {
             StartFreerun(freerunDuration);
@@ -525,6 +539,14 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         {
             TransitionToNotReceiving();
         }
+    }
+
+    /// <summary>デコーダ・連続性ゲート・フレームレート判定を初期状態へ戻す（再接続相当・キャプチャは維持）。</summary>
+    private void ResetLtcDecodePipeline()
+    {
+        _ltcDecoder?.Initialize(SampleRate);
+        _ltcGate.Reset();
+        _ltcRateDetector.Reset(FrameRate);
     }
 
     private void StartFreerun(double durationSeconds)

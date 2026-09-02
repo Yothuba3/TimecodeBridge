@@ -52,6 +52,13 @@
                           IsChecked="{CompiledBinding AutoMuteEnabled, Mode=OneWay}"
                           Command="{CompiledBinding ToggleAutoMuteCommand}" />
             </MenuItem>
+            <MenuItem Header="受信設定(_R)">
+                <MenuItem Header="信号喪失時に自動で受信を復帰する"
+                          ToggleType="CheckBox"
+                          IsChecked="{CompiledBinding LtcAutoRecoverEnabled, Mode=OneWay}"
+                          Command="{CompiledBinding ToggleLtcAutoRecoverCommand}"
+                          ToolTip.Tip="無信号が続いた後にTCが止まったままになる場合の自動復帰。&#10;信号喪失を検出したらデコーダを内部リセットし、信号が戻ったときに受信し直します。" />
+            </MenuItem>
         </Menu>
 
         <!-- Row 1: タイムコード（左） | OSCポン出し（右） の横スプリット -->

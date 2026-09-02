@@ -44,6 +44,9 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
     // LTCデコード連続性ゲート（孤立ノイズ除去）。詳細は LtcContinuityGate 参照。
     private readonly LtcContinuityGate _ltcGate = new();
 
+    // 信号喪失時にデコーダを初期化し直すため、キャプチャの実サンプルレートを保持する
+    private int _ltcCaptureSampleRate = 48000;
+
     // LTC frame rate auto-detection
     private bool _ltcAutoDetectActive;
     private readonly LtcFrameRateDetector _ltcRateDetector = new(FrameRate.Fps30);
@@ -89,6 +92,12 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
     }
 
     public bool IsFreerunning => _isFreerunning;
+
+    /// <summary>
+    /// 信号喪失を検出したとき、デコーダ・ゲートを自動リセットして受信を復帰しやすくするか。
+    /// 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもTCが止まったままになることへの対策。
+    /// </summary>
+    public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
 
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
@@ -153,6 +162,7 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
             : new WasapiCapture(device);
 
         var waveFormat = _wasapiCapture.WaveFormat;
+        _ltcCaptureSampleRate = waveFormat.SampleRate;
         _ltcDecoder.Initialize(waveFormat.SampleRate);
 
         int channels = waveFormat.Channels;
@@ -483,6 +493,14 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
             source = _activeSource;
         }
 
+        if (source == TimecodeSourceType.Ltc && LtcAutoRecoverOnSignalLoss)
+        {
+            // 無信号が続くとデコーダ内部状態が固着し、信号が戻ってもロックし直せず
+            // TCが止まったままになることがある（「再接続」ボタンと同じ回復を自動で行う）。
+            // キャプチャは止めず、デコーダ・ゲート・レート判定だけをまっさらに戻す。
+            ResetLtcDecodePipeline();
+        }
+
         if (source == TimecodeSourceType.Ltc && freerunDuration > 0)
         {
             StartFreerun(freerunDuration);
@@ -491,6 +509,14 @@ public class WasapiTimecodeEngine : ITimecodeEngine, IDisposable
         {
             TransitionToNotReceiving();
         }
+    }
+
+    /// <summary>デコーダ・連続性ゲート・フレームレート判定を初期状態へ戻す（再接続相当・キャプチャは維持）。</summary>
+    private void ResetLtcDecodePipeline()
+    {
+        _ltcDecoder?.Initialize(_ltcCaptureSampleRate);
+        _ltcGate.Reset();
+        _ltcRateDetector.Reset(FrameRate);
     }
 
     private void StartFreerun(double durationSeconds)

@@ -21,6 +21,7 @@ public class CueMuteCountdownTests
         public double FreerunDurationSeconds { get; set; }
         public bool IsFreerunning => false;
         public LtcSignalCounts LtcSignalCounts { get; set; }
+        public bool LtcAutoRecoverOnSignalLoss { get; set; } = true;
         public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
         public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
         public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;

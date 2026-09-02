@@ -99,6 +99,38 @@ public class TimecodeEngineTests : IDisposable
     }
 
     [Fact]
+    public void 信号喪失後に別セクションのLTCが来ても自動復帰して受信する()
+    {
+        _engine.LtcAutoRecoverOnSignalLoss = true;
+
+        static float[] Section(int startSec, int frames)
+        {
+            var e = new LtcEncoder();
+            e.Initialize(48000, FrameRate.Fps30);
+            for (int i = 0; i < frames; i++) e.EnqueueFrame(new TimecodeValue(10, 0, startSec, i % 30, FrameRate.Fps30));
+            return ReadAllAsFloat(e, frames);
+        }
+
+        _engine.StartLtc(InputDevice.Id);
+
+        // セクション1を受信
+        _capture.Feed(Section(0, 10));
+        Assert.True(SpinWait.SpinUntil(() => _engine.IsReceiving, TimeSpan.FromSeconds(5)), "セクション1を受信できなかった");
+
+        // 無信号を挟む（信号喪失タイマー500ms＋自動復帰を確実に通す）
+        Assert.True(SpinWait.SpinUntil(() => !_engine.IsReceiving, TimeSpan.FromSeconds(5)), "信号喪失に遷移しなかった");
+        Thread.Sleep(200);
+
+        // 別セクション2が到達 → 自動復帰で受信し直せること
+        var received2 = new ManualResetEventSlim();
+        _engine.TimecodeUpdated += (_, e) => { if (e.RawTimecode.Seconds == 40) received2.Set(); };
+        _capture.Feed(Section(40, 30));
+
+        Assert.True(received2.Wait(TimeSpan.FromSeconds(5)), "信号喪失後、別セクションのLTCを受信できなかった");
+        Assert.True(_engine.IsReceiving);
+    }
+
+    [Fact]
     public void 孤立したノイズ由来フレームは採用されない()
     {
         var updates = 0;
