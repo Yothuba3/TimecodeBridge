@@ -11,46 +11,9 @@
     <Border Margin="12" Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
             CornerRadius="8" Padding="20">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" VerticalAlignment="Center" Margin="0,0,0,10"
-                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-            <TextBox Grid.Row="0" Grid.Column="1" x:Name="CountBox" Text="23" Margin="0,0,0,10" FontFamily="Consolas" />
-
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔" VerticalAlignment="Center" Margin="0,0,0,10"
-                       ToolTip="複製ごとにトリガー時間へ加算する間隔（時:分:秒）"
-                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
-            <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" x:Name="IntervalHoursBox" Text="1" TextAlignment="Center"
-                         MaxLength="2" FontFamily="Consolas" ToolTip="時間" />
-                <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center" Margin="4,0"
-                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
-                <TextBox Grid.Column="2" x:Name="IntervalMinutesBox" Text="00" TextAlignment="Center"
-                         MaxLength="2" FontFamily="Consolas" ToolTip="分" />
-                <TextBlock Grid.Column="3" Text=":" VerticalAlignment="Center" Margin="4,0"
-                           Foreground="{DynamicResource SecondaryForegroundBrush}" />
-                <TextBox Grid.Column="4" x:Name="IntervalSecondsBox" Text="00" TextAlignment="Center"
-                         MaxLength="2" FontFamily="Consolas" ToolTip="秒" />
-            </Grid>
-
-            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+        <DockPanel>
+            <!-- OK/キャンセルはスクロール領域の外。ウィンドウがどれだけ低くても押せる -->
+            <StackPanel DockPanel.Dock="Bottom"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button x:Name="OkButton" Content="OK" Padding="24,8" Margin="0,0,8,0"
                         Style="{StaticResource AccentButtonStyle}"
@@ -58,6 +21,47 @@
                 <Button Content="キャンセル" Padding="24,8"
                         Click="OnCancelClick" IsCancel="True" />
             </StackPanel>
-        </Grid>
+            <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" VerticalAlignment="Center" Margin="0,0,0,10"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="CountBox" Text="23" Margin="0,0,0,10" FontFamily="Consolas" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔" VerticalAlignment="Center" Margin="0,0,0,10"
+                               ToolTip="複製ごとにトリガー時間へ加算する間隔（時:分:秒）"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" />
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" x:Name="IntervalHoursBox" Text="1" TextAlignment="Center"
+                                 MaxLength="2" FontFamily="Consolas" ToolTip="時間" />
+                        <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center" Margin="4,0"
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                        <TextBox Grid.Column="2" x:Name="IntervalMinutesBox" Text="00" TextAlignment="Center"
+                                 MaxLength="2" FontFamily="Consolas" ToolTip="分" />
+                        <TextBlock Grid.Column="3" Text=":" VerticalAlignment="Center" Margin="4,0"
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" />
+                        <TextBox Grid.Column="4" x:Name="IntervalSecondsBox" Text="00" TextAlignment="Center"
+                                 MaxLength="2" FontFamily="Consolas" ToolTip="秒" />
+                    </Grid>
+
+                </Grid>
+            </ScrollViewer>
+        </DockPanel>
     </Border>
 </Window>

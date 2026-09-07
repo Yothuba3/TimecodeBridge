@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using TimecodeBridge.Models;
+using TimecodeBridge;
 using TimecodeBridge.Views;
 
 namespace TimecodeBridge.Tests.Views;
@@ -19,9 +20,8 @@ public class DialogScreenFitTests
         Assert.Equal(320, DialogScreenFit.MaxHeightFor(100));
     }
 
-    // Application はプロセスに1つ・作成スレッドに固定されるので、2ダイアログを1テストにまとめる
     [StaFact]
-    public void 高さ上限で縮めてもOKボタンが画面内に残りフォームがスクロールする()
+    public void ウィンドウが画面より小さくても中身はスクロールで届き操作ボタンが残る()
     {
         EnsureAppResources();
 
@@ -35,12 +35,59 @@ public class DialogScreenFitTests
         AssertOkStaysVisible(new CueEditDialog(cue, [], FrameRate.Fps30), expectFormScroll: true);
         AssertOkStaysVisible(new CueBatchEditDialog(3, [], FrameRate.Fps30), expectFormScroll: true);
 
-        // 可変行(*)を持つダイアログは縮めばその行が詰まるので、上限を付けるだけでよい
         var host = new OscHost { Id = "h", Name = "h", IpAddress = "127.0.0.1", Port = 9000 };
         AssertOkStaysVisible(new OscTriggerButtonEditDialog(
-            new OscTriggerButton { Id = "b", Row = 0, Column = 0 }, [host], canDelete: true));
-        AssertOkStaysVisible(new HostEditDialog(host));
-        AssertOkStaysVisible(new BatchDuplicateDialog());
+            new OscTriggerButton { Id = "b", Row = 0, Column = 0 }, [host], canDelete: true),
+            expectFormScroll: true);
+        AssertOkStaysVisible(new HostEditDialog(host), expectFormScroll: true);
+        AssertOkStaysVisible(new BatchDuplicateDialog(), expectFormScroll: true);
+
+        AssertMainWindowScrolls();
+    }
+
+    // WPF の Application はプロセスに1つ・作成スレッド固定。StaFact はテストごとに別スレッドを作るので、
+    // UIを触る検証はこの1メソッドにまとめる。
+    private static void AssertMainWindowScrolls()
+    {
+        var window = new MainWindow { Width = 640, Height = 400, ShowInTaskbar = false };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+
+            var scroll = (ScrollViewer)window.FindName("MainScroll")!;
+            Assert.True(scroll.ExtentHeight > scroll.ViewportHeight + 0.5,
+                "画面より中身が大きいときは縦スクロールできるべき");
+            Assert.True(scroll.ExtentWidth > scroll.ViewportWidth + 0.5,
+                "画面より中身が広いときは横スクロールできるべき");
+
+            // ステータスバーはスクロール領域の外なので常に見えている
+            var badge = (FrameworkElement)window.FindName("StatusSourceText")!;
+            var bottom = badge.TransformToAncestor(window).Transform(new Point(0, badge.ActualHeight)).Y;
+            Assert.True(bottom <= window.ActualHeight + 0.5,
+                $"ステータスバー下端 {bottom} がウィンドウ {window.ActualHeight} の外にある");
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // 通常サイズでは従来どおり画面いっぱいに広がる（スクロールは出ない）
+        var wide = new MainWindow { Width = 1600, Height = 840, ShowInTaskbar = false };
+        wide.Show();
+        try
+        {
+            wide.UpdateLayout();
+            var scroll = (ScrollViewer)wide.FindName("MainScroll")!;
+            Assert.True(scroll.ExtentHeight <= scroll.ViewportHeight + 0.5,
+                $"通常サイズで縦スクロールが出ている (extent {scroll.ExtentHeight} > viewport {scroll.ViewportHeight})");
+            Assert.True(scroll.ExtentWidth <= scroll.ViewportWidth + 0.5,
+                $"通常サイズで横スクロールが出ている (extent {scroll.ExtentWidth} > viewport {scroll.ViewportWidth})");
+        }
+        finally
+        {
+            wide.Close();
+        }
     }
 
     // ダイアログの StaticResource は App.xaml のテーマ辞書にある。
@@ -62,7 +109,8 @@ public class DialogScreenFitTests
 
     private static void AssertOkStaysVisible(Window dialog, bool expectFormScroll = false)
     {
-        const double maxHeight = 400;
+        // どのダイアログの中身より低い値にして、必ずスクロールが要る状態を作る
+        const double maxHeight = 200;
         dialog.MaxHeight = maxHeight;
         dialog.ShowInTaskbar = false;
         dialog.Show();
