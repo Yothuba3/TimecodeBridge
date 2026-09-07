@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using TimecodeBridge.Models;
 using TimecodeBridge.ViewModels;
@@ -13,6 +13,9 @@ public partial class CueEditDialog : Window
     public CueEditDialog(Cue cue, IReadOnlyList<OscHost> allHosts, FrameRate frameRate)
     {
         InitializeComponent();
+        // 画面(作業領域)より背が高くなるとOK/キャンセルが画面外に出るため上限を付ける。
+        // 中身は ScrollViewer 側でスクロールする。
+        MaxHeight = DialogScreenFit.MaxHeightForWorkArea();
         _frameRate = frameRate;
 
         NameBox.Text = cue.Name;

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using TimecodeBridge.Models;
 using TimecodeBridge.ViewModels;
 
@@ -12,6 +12,9 @@ public partial class CueBatchEditDialog : Window
     public CueBatchEditDialog(int cueCount, IReadOnlyList<OscHost> allHosts, FrameRate frameRate)
     {
         InitializeComponent();
+        // 画面(作業領域)より背が高くなるとOK/キャンセルが画面外に出るため上限を付ける。
+        // 中身は ScrollViewer 側でスクロールする。
+        MaxHeight = DialogScreenFit.MaxHeightForWorkArea();
         _frameRate = frameRate;
 
         HeaderText.Text = $"{cueCount} 件のキューを一括編集";
