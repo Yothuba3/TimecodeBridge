@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using TimecodeBridge.Models;
 
 namespace TimecodeBridge.Views;
@@ -10,6 +10,8 @@ public partial class HostEditDialog : Window
     public HostEditDialog(OscHost host)
     {
         InitializeComponent();
+        // 画面(作業領域)より背が高くならないようにする。可変行が縮んで下端のボタンは残る。
+        MaxHeight = DialogScreenFit.MaxHeightForWorkArea();
         NameBox.Text = host.Name;
         IpAddressBox.Text = host.IpAddress;
         PortBox.Text = host.Port.ToString();

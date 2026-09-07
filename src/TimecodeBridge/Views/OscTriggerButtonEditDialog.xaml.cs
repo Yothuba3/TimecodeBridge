@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using TimecodeBridge.Models;
 using TimecodeBridge.Services.Interfaces;
 using TimecodeBridge.ViewModels;
@@ -15,6 +15,8 @@ public partial class OscTriggerButtonEditDialog : Window
     public OscTriggerButtonEditDialog(OscTriggerButton button, IReadOnlyList<OscHost> allHosts, bool canDelete)
     {
         InitializeComponent();
+        // 画面(作業領域)より背が高くならないようにする。可変行が縮んで下端のボタンは残る。
+        MaxHeight = DialogScreenFit.MaxHeightForWorkArea();
         _template = button;
 
         LabelBox.Text = button.Label;

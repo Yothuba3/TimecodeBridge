@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 
 namespace TimecodeBridge.Views;
 
@@ -12,6 +12,8 @@ public partial class BatchDuplicateDialog : Window
     public BatchDuplicateDialog()
     {
         InitializeComponent();
+        // 画面(作業領域)より背が高くならないようにする。可変行が縮んで下端のボタンは残る。
+        MaxHeight = DialogScreenFit.MaxHeightForWorkArea();
     }
 
     private void OnOkClick(object sender, RoutedEventArgs e)

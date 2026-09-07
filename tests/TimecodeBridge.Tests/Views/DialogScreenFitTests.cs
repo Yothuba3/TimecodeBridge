@@ -32,8 +32,15 @@ public class DialogScreenFitTests
             OscAddress = "/test",
             TriggerTime = new TimecodeValue(0, 0, 0, 0, FrameRate.Fps30),
         };
-        AssertOkStaysVisible(new CueEditDialog(cue, [], FrameRate.Fps30));
-        AssertOkStaysVisible(new CueBatchEditDialog(3, [], FrameRate.Fps30));
+        AssertOkStaysVisible(new CueEditDialog(cue, [], FrameRate.Fps30), expectFormScroll: true);
+        AssertOkStaysVisible(new CueBatchEditDialog(3, [], FrameRate.Fps30), expectFormScroll: true);
+
+        // 可変行(*)を持つダイアログは縮めばその行が詰まるので、上限を付けるだけでよい
+        var host = new OscHost { Id = "h", Name = "h", IpAddress = "127.0.0.1", Port = 9000 };
+        AssertOkStaysVisible(new OscTriggerButtonEditDialog(
+            new OscTriggerButton { Id = "b", Row = 0, Column = 0 }, [host], canDelete: true));
+        AssertOkStaysVisible(new HostEditDialog(host));
+        AssertOkStaysVisible(new BatchDuplicateDialog());
     }
 
     // ダイアログの StaticResource は App.xaml のテーマ辞書にある。
@@ -53,7 +60,7 @@ public class DialogScreenFitTests
         });
     }
 
-    private static void AssertOkStaysVisible(Window dialog)
+    private static void AssertOkStaysVisible(Window dialog, bool expectFormScroll = false)
     {
         const double maxHeight = 400;
         dialog.MaxHeight = maxHeight;
@@ -64,7 +71,6 @@ public class DialogScreenFitTests
             dialog.UpdateLayout();
 
             var ok = (FrameworkElement)dialog.FindName("OkButton")!;
-            var scroll = (ScrollViewer)dialog.FindName("FormScroll")!;
 
             Assert.True(dialog.ActualHeight <= maxHeight + 0.5,
                 $"{dialog.GetType().Name}: ウィンドウ高さ {dialog.ActualHeight} が上限 {maxHeight} を超えている");
@@ -73,6 +79,8 @@ public class DialogScreenFitTests
             Assert.True(okBottom <= dialog.ActualHeight + 0.5,
                 $"{dialog.GetType().Name}: OKボタン下端 {okBottom} がウィンドウ {dialog.ActualHeight} の外にある");
 
+            if (!expectFormScroll) return;
+            var scroll = (ScrollViewer)dialog.FindName("FormScroll")!;
             Assert.True(scroll.ExtentHeight > scroll.ViewportHeight + 0.5,
                 $"{dialog.GetType().Name}: 上限で縮めたときはフォーム側がスクロールするべき");
         }
