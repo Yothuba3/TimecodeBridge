@@ -24,6 +24,7 @@ public partial class CueEditDialog : Window
     public CueEditDialog(Cue cue, IReadOnlyList<OscHost> allHosts, FrameRate frameRate)
     {
         InitializeComponent();
+        DialogScreenFit.ClampHeightToOwnerScreen(this);
         _frameRate = frameRate;
 
         NameBox.Text = cue.Name;

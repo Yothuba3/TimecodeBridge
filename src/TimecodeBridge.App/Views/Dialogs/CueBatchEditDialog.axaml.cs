@@ -21,6 +21,7 @@ public partial class CueBatchEditDialog : Window
     public CueBatchEditDialog(int cueCount, IReadOnlyList<OscHost> allHosts, FrameRate frameRate)
     {
         InitializeComponent();
+        DialogScreenFit.ClampHeightToOwnerScreen(this);
         _frameRate = frameRate;
 
         HeaderText.Text = $"{cueCount} 件のキューを一括編集";
