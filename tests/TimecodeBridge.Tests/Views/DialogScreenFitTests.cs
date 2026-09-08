@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using TimecodeBridge.Models;
 using TimecodeBridge;
 using TimecodeBridge.Views;
@@ -80,7 +81,15 @@ public class DialogScreenFitTests
         }
 
         // 通常サイズでは従来どおり画面いっぱいに広がる（スクロールは出ない）
-        var wide = new MainWindow { Width = 1600, Height = 840, ShowInTaskbar = false };
+        // 作業領域より大きく開いて広い場合の挙動だけを見る（画面に収める上限は上で別に検証済み）
+        var wide = new MainWindow
+        {
+            Width = 1600,
+            Height = 840,
+            MaxWidth = double.PositiveInfinity,
+            MaxHeight = double.PositiveInfinity,
+            ShowInTaskbar = false,
+        };
         wide.Show();
         try
         {
@@ -138,6 +147,10 @@ public class DialogScreenFitTests
             var scroll = (ScrollViewer)dialog.FindName("FormScroll")!;
             Assert.True(scroll.ExtentHeight > scroll.ViewportHeight + 0.5,
                 $"{dialog.GetType().Name}: 上限で縮めたときはフォーム側がスクロールするべき");
+
+            // 既定(17px)ではなくテーマの細いスクロールバーが当たっている
+            var bar = (ScrollBar)scroll.Template.FindName("PART_VerticalScrollBar", scroll)!;
+            Assert.InRange(bar.ActualWidth, 1, 8);
         }
         finally
         {
