@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -16,6 +16,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // 既定サイズ(1600x840)より画面が小さい環境では、CenterScreen で中央寄せした結果
+        // ウィンドウが上下左右にはみ出し、メニューバーとステータスバーが画面外に出る。
+        // 作業領域に収め、足りないぶんは中身のスクロールで見せる。
+        MaxWidth = SystemParameters.WorkArea.Width;
+        MaxHeight = SystemParameters.WorkArea.Height;
+
         DataContextChanged += OnDataContextChanged;
         Closing += OnClosing;
 

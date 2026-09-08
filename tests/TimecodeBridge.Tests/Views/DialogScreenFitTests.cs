@@ -49,6 +49,13 @@ public class DialogScreenFitTests
     // UIを触る検証はこの1メソッドにまとめる。
     private static void AssertMainWindowScrolls()
     {
+        // 既定サイズより画面が小さくても、ウィンドウ自体は作業領域に収まる
+        var probe = new MainWindow();
+        Assert.True(probe.MaxWidth <= SystemParameters.WorkArea.Width,
+            "ウィンドウ幅の上限が作業領域を超えている");
+        Assert.True(probe.MaxHeight <= SystemParameters.WorkArea.Height,
+            "ウィンドウ高さの上限が作業領域を超えている");
+
         var window = new MainWindow { Width = 640, Height = 400, ShowInTaskbar = false };
         window.Show();
         try
