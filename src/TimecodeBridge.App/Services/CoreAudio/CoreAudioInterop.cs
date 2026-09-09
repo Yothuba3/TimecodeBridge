@@ -52,6 +52,7 @@ public static class CoreAudioInterop
     public const uint kAudioOutputUnitProperty_EnableIO = 2003;
     public const uint kAudioOutputUnitProperty_CurrentDevice = 2000;
     public const uint kAudioUnitProperty_SetRenderCallback = 23;
+    public const uint kAudioOutputUnitProperty_SetInputCallback = 2005;
     public const uint kAudioUnitProperty_MaximumFramesPerSlice = 14;
 
     // Audio Unit Scopes
@@ -78,6 +79,7 @@ public static class CoreAudioInterop
     public const uint kAudioHardwarePropertyDevices = 0x64657623; // 'dev#'
     public const uint kAudioObjectPropertyName = 0x6C6E616D; // 'lnam'
     public const uint kAudioDevicePropertyStreams = 0x73746D23; // 'stm#'
+    public const uint kAudioDevicePropertyNominalSampleRate = 0x6E737274; // 'nsrt'
     public const uint kAudioDevicePropertyScopeInput = 0x696E7074; // 'inpt'
     public const uint kAudioDevicePropertyScopeOutput = 0x6F757470; // 'outp'
 
@@ -266,11 +268,17 @@ public static class CoreAudioInterop
     /// <summary>
     /// 48kHz Mono 16bit PCM フォーマット（LTC標準）を作成
     /// </summary>
-    public static AudioStreamBasicDescription CreateLtcFormat()
+    public static AudioStreamBasicDescription CreateLtcFormat() => CreateLtcFormat(48000.0);
+
+    /// <summary>
+    /// 指定サンプルレートの Mono 16bit PCM フォーマットを作成。
+    /// AUHALはサンプルレート変換をしないため、デバイスの動作レートに合わせて使う。
+    /// </summary>
+    public static AudioStreamBasicDescription CreateLtcFormat(double sampleRate)
     {
         return new AudioStreamBasicDescription
         {
-            SampleRate = 48000.0,
+            SampleRate = sampleRate,
             FormatID = kAudioFormatLinearPCM,
             FormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
             BytesPerPacket = 2,
@@ -280,6 +288,30 @@ public static class CoreAudioInterop
             BitsPerChannel = 16,
             Reserved = 0
         };
+    }
+
+    /// <summary>
+    /// デバイスの動作サンプルレート(Hz)を取得する。取得できなければ 0。
+    /// </summary>
+    public static double GetDeviceNominalSampleRate(uint deviceId)
+    {
+        var address = new AudioObjectPropertyAddress
+        {
+            Selector = kAudioDevicePropertyNominalSampleRate,
+            Scope = kAudioObjectPropertyScopeGlobal,
+            Element = kAudioObjectPropertyElementMain
+        };
+        uint dataSize = sizeof(double);
+        IntPtr dataPtr = Marshal.AllocHGlobal((int)dataSize);
+        try
+        {
+            int status = AudioObjectGetPropertyData(deviceId, ref address, 0, IntPtr.Zero, ref dataSize, dataPtr);
+            return status == noErr ? Marshal.PtrToStructure<double>(dataPtr) : 0;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(dataPtr);
+        }
     }
 
     /// <summary>
