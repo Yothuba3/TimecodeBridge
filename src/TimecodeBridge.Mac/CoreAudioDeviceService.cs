@@ -3,7 +3,7 @@ using System.Text;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudioを使用したオーディオデバイスサービス（本実装）

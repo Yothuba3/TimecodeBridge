@@ -13,7 +13,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using TimecodeBridge.App.Services;
-using TimecodeBridge.App.Services.CoreAudio;
+using TimecodeBridge.Mac;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 

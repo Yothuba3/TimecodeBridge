@@ -3,7 +3,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudioを使用したオーディオキャプチャ実装

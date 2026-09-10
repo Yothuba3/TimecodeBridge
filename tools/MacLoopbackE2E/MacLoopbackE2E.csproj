@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\TimecodeBridge.App\TimecodeBridge.App.csproj" />
     <ProjectReference Include="..\..\src\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.Mac\TimecodeBridge.Mac.csproj" />
   </ItemGroup>
 </Project>

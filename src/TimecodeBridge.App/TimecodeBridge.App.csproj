@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
     <ProjectReference Include="..\TimecodeBridge.Windows\TimecodeBridge.Windows.csproj" />
+    <ProjectReference Include="..\TimecodeBridge.Mac\TimecodeBridge.Mac.csproj" />
   </ItemGroup>
 
   <ItemGroup>

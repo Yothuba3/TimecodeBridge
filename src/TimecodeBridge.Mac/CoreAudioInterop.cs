@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudio P/Invoke署名とネイティブ構造体定義

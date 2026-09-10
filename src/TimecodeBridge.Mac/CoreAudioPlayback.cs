@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudioを使用したオーディオプレイバック実装

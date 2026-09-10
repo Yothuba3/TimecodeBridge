@@ -1,4 +1,4 @@
-using TimecodeBridge.App.Services.CoreAudio;
+using TimecodeBridge.Mac;
 
 namespace TimecodeBridge.App.Tests.Services.CoreAudio;
 

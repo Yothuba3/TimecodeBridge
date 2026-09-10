@@ -1,9 +1,9 @@
-using static TimecodeBridge.App.Services.CoreAudio.CoreAudioInterop;
+using static TimecodeBridge.Mac.CoreAudioInterop;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 using Xunit;
-using TimecodeBridge.App.Services.CoreAudio;
+using TimecodeBridge.Mac;
 
 namespace TimecodeBridge.Tests.Services.CoreAudio;
 
