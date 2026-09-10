@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Audio;
 using System;
 using Avalonia;
 using Avalonia.Controls;

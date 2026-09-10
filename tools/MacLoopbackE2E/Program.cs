@@ -10,6 +10,7 @@
 // 合格条件: 期間中に毎秒25フレーム以上復号、逆行なし、欠落は開始直後の1回まで、
 // ジェネレータとの遅延8フレーム以内（実測は出力先行100ms＋バッファ＋LTC1フレーム長で5〜6フレーム）。
 
+using TimecodeBridge.Core.Audio;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using TimecodeBridge.App.Services;

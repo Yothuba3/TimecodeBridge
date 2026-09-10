@@ -3,7 +3,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services;
+namespace TimecodeBridge.Core.Audio;
 
 /// <summary>
 /// macOS版タイムコードエンジン。
@@ -37,7 +37,8 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     // LTC capture
     private IAudioCapture? _capture;
-    private LtcDecoder? _ltcDecoder;
+    private readonly Func<ILtcDecoder> _decoderFactory;
+    private ILtcDecoder? _ltcDecoder;
     private int _captureSampleRate = DefaultSampleRate;
 
     // Generator
@@ -116,8 +117,10 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         FrameRate frameRate,
         IAudioDeviceService audioDeviceService,
         Func<IAudioCapture> captureFactory,
-        Func<IAudioPlayback> playbackFactory)
+        Func<IAudioPlayback> playbackFactory,
+        Func<ILtcDecoder>? decoderFactory = null)
     {
+        _decoderFactory = decoderFactory ?? (() => new LtcDecoder());
         _audioDeviceService = audioDeviceService;
         _captureFactory = captureFactory;
         _playbackFactory = playbackFactory;
@@ -167,7 +170,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _ltcGate.Reset();
         ActiveSource = TimecodeSourceType.Ltc;
 
-        var decoder = new LtcDecoder();
+        var decoder = _decoderFactory();
         decoder.FrameDecoded += (_, timecodeValue) => WriteLtcFrame(timecodeValue);
 
         var capture = _captureFactory();
