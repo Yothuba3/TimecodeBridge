@@ -41,6 +41,47 @@ if (args[0] == "set-rate")
     return 0;
 }
 
+if (args[0] == "gen")
+{
+    // 指定した出力デバイスへ LTC(30fps, 01:00:00:00 から)を流し続ける。Host アプリの実機確認用
+    var name = args.Length > 1 ? args[1] : throw new ArgumentException("gen \"<出力デバイス名の一部>\" [秒]");
+    int genSeconds = args.Length > 2 ? int.Parse(args[2]) : 60;
+    var genOut = outputs.First(d => d.DisplayName.Contains(name, StringComparison.OrdinalIgnoreCase));
+    var g = new TimecodeEngine(FrameRate.Fps30, devSvc, () => new CoreAudioCapture(), () => new CoreAudioPlayback());
+    g.StartGenerator(new GeneratorSettings { FrameRate = FrameRate.Fps30, StartTime = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), OutputDeviceId = genOut.Id, VolumeLevel = 0.8f });
+    Console.WriteLine($"gen -> {genOut.DisplayName} ({genOut.Id}) for {genSeconds}s");
+    Thread.Sleep(genSeconds * 1000);
+    g.Stop();
+    return 0;
+}
+if (args[0] == "rx")
+{
+    // 受信だけを行い、連続性(欠落・逆行)を数える。別プロセスの gen と組み合わせて、プロセスをまたぐループバックの挙動を調べる
+    var name = args.Length > 1 ? args[1] : throw new ArgumentException("rx \"<入力デバイス名の一部>\" [秒]");
+    int rxSeconds = args.Length > 2 ? int.Parse(args[2]) : 20;
+    var rxIn = inputs.First(d => d.DisplayName.Contains(name, StringComparison.OrdinalIgnoreCase));
+    Func<TimecodeBridge.Core.Services.Interfaces.ILtcDecoder>? rxFactory =
+        Environment.GetEnvironmentVariable("TCB_DECODER") == "libltc" ? () => new TimecodeBridge.Ltc.LibltcDecoder() : null;
+    var rx = new TimecodeEngine(FrameRate.Fps30, devSvc, () => new CoreAudioCapture(), () => new CoreAudioPlayback(), rxFactory);
+    long gaps = 0, backwards = 0, total = 0; TimecodeValue? prev = null; var firstBad = new List<string>();
+    rx.TimecodeUpdated += (_, e) =>
+    {
+        total++;
+        if (prev is { } p)
+        {
+            long d = e.RawTimecode.ToOrdinal() - p.ToOrdinal();
+            if (d < 0) { backwards++; if (firstBad.Count < 5) firstBad.Add($"{p}->{e.RawTimecode}"); }
+            else if (d > 1) { gaps++; if (firstBad.Count < 5) firstBad.Add($"{p}->{e.RawTimecode}(+{d})"); }
+        }
+        prev = e.RawTimecode;
+    };
+    rx.StartLtc(rxIn.Id);
+    Console.WriteLine($"rx <- {rxIn.DisplayName} ({rxIn.Id}) decoder={(rxFactory is null ? "managed" : "libltc")} for {rxSeconds}s");
+    Thread.Sleep(rxSeconds * 1000);
+    rx.Stop();
+    Console.WriteLine($"rx frames={total} gaps={gaps} backwards={backwards} gate={rx.LtcSignalCounts.Accepted}/{rx.LtcSignalCounts.Written} first={string.Join(" ", firstBad)}");
+    return (gaps == 0 && backwards == 0 && total > 0) ? 0 : 1;
+}
 if (args[0] == "probe-out" || args[0] == "probe-in")
 {
     var id = args[1];
@@ -94,7 +135,11 @@ long sampleCount = 0; float peak = 0;
 var sw = Stopwatch.StartNew();
 
 var gen = new TimecodeEngine(FrameRate.Fps30, devSvc, () => new CoreAudioCapture(), () => new CoreAudioPlayback());
-var ltc = new TimecodeEngine(FrameRate.Fps30, devSvc, () => new CoreAudioCapture(), () => new CoreAudioPlayback());
+// 環境変数 TCB_DECODER=libltc で受信側デコーダを libltc(v3)に切り替え、同条件で自作デコーダと比較する
+Func<TimecodeBridge.Core.Services.Interfaces.ILtcDecoder>? decoderFactory =
+    Environment.GetEnvironmentVariable("TCB_DECODER") == "libltc" ? () => new TimecodeBridge.Ltc.LibltcDecoder() : null;
+Console.WriteLine($"decoder: {(decoderFactory is null ? "managed(LtcDecoder)" : "libltc")}");
+var ltc = new TimecodeEngine(FrameRate.Fps30, devSvc, () => new CoreAudioCapture(), () => new CoreAudioPlayback(), decoderFactory);
 gen.AudioErrorOccurred += (_, e) => Console.WriteLine($"[gen audio error] {e.Message}");
 ltc.AudioErrorOccurred += (_, e) => Console.WriteLine($"[ltc audio error] {e.Message}");
 ltc.TimecodeUpdated += (_, e) => { lock (received) received.Add((sw.Elapsed.TotalSeconds, e.RawTimecode)); };
