@@ -3,12 +3,13 @@
 # usage: build-macos.sh <出力ディレクトリ>   → <出力ディレクトリ>/libltc.dylib
 set -eu
 OUT=${1:?出力ディレクトリを指定}
+mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 HERE=$(cd "$(dirname "$0")" && pwd)
 VER=1.3.2
 URL=https://github.com/x42/libltc/releases/download/v1.3.2/libltc-1.3.2.tar.gz
 SHA256=0a6d42cd6c21e925a27fa560dc45ac80057d275f23342102825909c02d3b1249
 WORK=${LIBLTC_WORK:-$HERE/work}
-mkdir -p "$WORK" "$OUT"
+mkdir -p "$WORK"
 cd "$WORK"
 [ -f libltc-$VER.tar.gz ] || curl -fsSL -o libltc-$VER.tar.gz "$URL"
 echo "$SHA256  libltc-$VER.tar.gz" | shasum -a 256 -c -
