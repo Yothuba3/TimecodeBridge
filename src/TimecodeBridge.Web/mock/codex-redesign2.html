@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>TimecodeBridge 2</title>
+<style>
+:root{color-scheme:dark;--b:#0b0d0f;--p:#14171a;--l:#343a3f;--t:#e5e7e8;--m:#929a9f;--a:#9fb8b6;--r:#cf5b57}
+*{box-sizing:border-box}
+body{margin:0;background:#080a0b;color:var(--t);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+.app{height:100vh;min-width:1100px;display:grid;grid-template-rows:34px 102px 1fr 30px;background:var(--b)}
+header,footer{display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--l);gap:18px}
+.right{margin-left:auto}
+.muted{color:var(--m)}
+.led{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8ca8a6;margin-right:6px}
+.monitor{display:grid;grid-template-columns:1.2fr 1fr 390px;background:var(--p);border-bottom:1px solid var(--l)}
+.monitor>div{padding:12px 14px;border-right:1px solid var(--l)}
+.tc{font:650 47px/1 ui-monospace,monospace;letter-spacing:-.06em;margin:7px 0}
+.tiny{font-size:10px;color:var(--m)}
+.next{display:grid;grid-template-rows:auto 1fr auto}
+.next strong{font:600 22px ui-monospace,monospace;margin-right:12px}
+.majorbox{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:center}
+.major{height:58px;border:1px solid #607473;background:#202c2d;border-radius:3px;font-size:15px;font-weight:750}
+.major small{display:block;color:var(--m);font-size:9px;margin-top:4px}
+.major.on{background:#431f1e;border-color:var(--r)}
+.work{display:grid;grid-template-columns:minmax(650px,1fr) 390px;min-height:0}
+.cues{display:grid;grid-template-rows:44px 28px 1fr 48px;border-right:1px solid var(--l);--cue-cols:38px 105px minmax(60px,1fr) minmax(150px,.8fr) 50px}
+.tool{display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--l)}
+h2{font-size:13px;margin:0 10px 0 0}
+.btn{height:27px;border:1px solid #485055;background:#191d20;border-radius:3px;padding:0 9px}
+.inline-input{height:24px;border:1px solid #444b50;border-radius:3px;background:#0d1012;color:inherit;padding:0 5px}
+.judge-input{width:44px;text-align:right}
+.offset-input{width:104px;color:#c5a66d;font-family:ui-monospace,monospace}
+.cols,.row{display:grid;grid-template-columns:var(--cue-cols);align-items:center}
+.cols{background:#191d20;color:var(--m);font-size:10px}
+.cols>*,.row>*{padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cols>span{position:relative;overflow:visible}
+.resize-handle{position:absolute;z-index:2;top:-9px;right:-4px;width:8px;height:28px;padding:0;cursor:col-resize;touch-action:none}
+.resize-handle:hover,.resize-handle.dragging{border-right:2px solid var(--a)}
+.list{overflow:auto}
+.row{height:39px;border-bottom:1px solid #262b2f}
+.row.current{background:#252d2e;box-shadow:inset 3px 0 var(--a)}
+.row.disabled{color:#666d72}
+.fire{justify-self:start;margin-left:9px}
+.mono{font-family:ui-monospace,monospace}
+.footcue{display:flex;align-items:center;gap:11px;padding:0 12px;border-top:1px solid var(--l)}
+.tag{border:1px solid #657a79;padding:3px 5px;font-size:9px}
+.side{display:grid;grid-template-rows:auto auto auto 1fr;min-height:0;background:var(--p)}
+.sec{padding:9px 11px;border-bottom:1px solid var(--l)}
+.head{display:flex;justify-content:space-between;margin-bottom:7px}
+.mode{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.mode button{height:30px;border:1px solid #42494e;background:#171b1e;color:var(--m)}
+.mode .active{background:#2a3334;color:#fff;border-color:#6a7c7b}
+.status{display:grid;grid-template-columns:1fr 1fr;gap:6px;color:var(--m)}
+.settings{display:grid;gap:6px;margin-top:8px}
+.set{display:grid;grid-template-columns:72px 1fr auto;gap:6px;align-items:center}
+.field{height:28px;min-width:0;background:#0d1012;border:1px solid #444b50;padding:0 6px}
+.gen{display:none}
+.side[data-mode=generate] .recv{display:none}
+.side[data-mode=generate] .gen{display:grid}
+.side[data-mode=stop] .settings{display:none}
+.wave{height:31px;margin-top:7px;border:1px solid #353b3f}
+.hosts{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:7px}
+.tabs{height:31px;border-bottom:1px solid var(--l)}
+.tab{height:31px;border:0;background:none;color:var(--m)}
+.tab.on{color:#fff;border-bottom:2px solid var(--a)}
+.dock{padding:9px 11px;font:10px/1.8 ui-monospace,monospace}
+.drawer{position:fixed;z-index:10;left:0;right:0;bottom:30px;height:330px;background:#111417;border-top:2px solid #697b7a;transform:translateY(calc(100% + 32px));transition:.18s}
+.drawer.open{transform:none}
+.dh{height:43px;display:flex;align-items:center;padding:0 13px;gap:10px;border-bottom:1px solid var(--l)}
+.close{margin-left:auto}
+.grid{height:calc(100% - 43px);display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:7px;padding:9px}
+.trig{border:1px solid #50585d;background:#1a1e21}
+.flash{background:#405050!important}
+body.resizing{cursor:col-resize;user-select:none}
+@media(max-width:1250px){.optional{display:none}
+.monitor,.work{grid-template-columns:minmax(650px,1fr) 350px}
+.monitor{grid-template-columns:1fr .85fr 350px}
+.tc{font-size:38px}
+}
+
+</style>
+</head>
+<body>
+<main class="app">
+<header>
+<b>TIMEcode BRIDGE 2</b>
+<span class="muted">show_A.tcb2　● 保存済み</span>
+<span class="right muted">
+<i class="led">
+</i>ENGINE ONLINE　 30 FPS / NON-DROP　 19:42:18</span>
+</header>
+<section class="monitor">
+<div>
+<span class="tiny">
+<i class="led">
+</i>受信タイムコード / OFFSET適用後</span>
+<div class="tc">01:24:16:08</div>
+<span class="tiny">RAW　<span class="mono">01:24:16:00</span>　 OFFSET　<input class="inline-input offset-input" id="offset" type="text" value="+00:00:00:08" aria-label="タイムコードオフセット" inputmode="numeric" pattern="[+-][0-9]{2}:[0-9]{2}:[0-9]{2}:[0-9]{2}" title="±HH:MM:SS:FF 形式で入力">　 LOCK / 0.92 Vpp</span>
+</div>
+<div class="next">
+<span class="tiny">NEXT CUE <b class="right">T− 00:00:03:22</b>
+</span>
+<div style="align-self:center">
+<strong>01:24:20:00</strong>
+<b>照明転換 B → C</b>
+</div>
+<span class="tiny mono">/qlab/go · QLab Main, Resolume Stage</span>
+</div>
+<div class="majorbox">
+<button class="major" id="sync">CUE SYNC<small>SPACE · 2ホストへ送信</small>
+</button>
+<button class="major" id="mute">LIVE<small>L · キュー送出 有効</small>
+</button>
+</div>
+</section>
+<section class="work">
+<section class="cues">
+<div class="tool">
+<h2>キューリスト</h2>
+<label class="muted" for="judge-width">判定幅 ±<input class="inline-input judge-input" id="judge-width" type="number" value="3" min="0" step="1" aria-label="判定幅（フレーム）">f</label>
+<button class="btn">＋ 追加</button>
+<button class="btn">編集</button>
+<button class="btn optional">一括編集</button>
+<button class="btn">複製</button>
+<button class="btn optional">連続複製</button>
+<button class="btn">削除</button>
+<button class="btn right">時間順</button>
+</div>
+<div class="cols">
+<span>有効<i class="resize-handle"></i></span>
+<span>トリガー時間<i class="resize-handle"></i></span>
+<span>キュー名<i class="resize-handle"></i></span>
+<span>OSCアドレス<i class="resize-handle"></i></span>
+<span>手動</span>
+</div>
+<div class="list" id="list">
+</div>
+<div class="footcue">
+<span class="tag">NEXT</span>
+<b class="mono">01:24:20:00</b>
+<span>照明転換 B → C</span>
+<span class="right muted">発火後オートミュート　OFF</span>
+</div>
+</section>
+<aside class="side" id="side" data-mode="receive">
+<div class="sec">
+<div class="head">
+<b>動作モード</b>
+<span class="tiny">受信中</span>
+</div>
+<div class="mode">
+<button data-mode="stop">停止</button>
+<button class="active" data-mode="receive">LTC受信</button>
+<button data-mode="generate">内部生成</button>
+</div>
+</div>
+<div class="sec">
+<div class="head">
+<b>TC 入出力</b>
+<span class="tiny">問題時設定</span>
+</div>
+<div class="status">
+<span>
+<i class="led">
+</i>入力 <b>接続</b>
+</span>
+<span>
+<i class="led">
+</i>LTC <b>受信中</b>
+</span>
+<span>○ 出力 <b>停止</b>
+</span>
+<span>
+<i class="led">
+</i>送出 <b>LIVE</b>
+</span>
+</div>
+<div class="settings recv">
+<div class="set">
+<span class="tiny">入力デバイス</span>
+<select class="field">
+<option>UR44 — Input 1 / 2</option>
+</select>
+<button class="btn">再スキャン</button>
+</div>
+<div class="set">
+<span class="tiny">チャンネル</span>
+<select class="field">
+<option>CH 1 · LEFT</option>
+</select>
+<button class="btn">再接続</button>
+</div>
+</div>
+<div class="settings gen">
+<div class="set">
+<span class="tiny">フレーム</span>
+<select class="field">
+<option>30 fps · Non-Drop</option>
+</select>
+<button class="btn" id="play">▶ 再生</button>
+</div>
+<div class="set">
+<span class="tiny">開始時間</span>
+<input class="field mono" value="01:00:00:00">
+<button class="btn">リセット</button>
+</div>
+<div class="set">
+<span class="tiny">出力 / 音量</span>
+<select class="field">
+<option>UR44 — Out 1 / 2</option>
+</select>
+<span>−8dB</span>
+</div>
+</div>
+<div class="wave">
+<svg width="100%" height="100%" viewBox="0 0 360 30" preserveAspectRatio="none">
+<path d="M0 15H12V4H24V27H36V7H48V24H60V4H72V27H84V9H96V22H108V4H120V27H132V7H144V24H156V4H168V27H180V9H192V22H204V4H216V27H228V7H240V24H252V4H264V27H276V9H288V22H300V4H312V27H324V7H336V24H348V15H360" fill="none" stroke="#91aaa9"/>
+</svg>
+</div>
+</div>
+<div class="sec">
+<div class="head">
+<b>Cue-Sync 送信設定</b>
+<span class="tiny mono">/cuesync</span>
+</div>
+<div class="set">
+<span class="tiny">OSCアドレス</span>
+<input class="field mono" value="/cuesync">
+<button class="btn">編集</button>
+</div>
+<div class="hosts">
+<label>
+<input type="checkbox" checked> QLab — Main</label>
+<label>
+<input type="checkbox" checked> Resolume — Stage</label>
+<label>
+<input type="checkbox"> Backup Server</label>
+<span class="tiny">2 / 3 有効</span>
+</div>
+</div>
+<div>
+<div class="tabs">
+<button class="tab on">送信ログ</button>
+<button class="tab">ホスト管理</button>
+</div>
+<div class="dock">19:41:58.220　/qlab/go → 192.168.1.20<br>19:42:02.401　/video/title/out → 192.168.1.31<br>
+<span style="color:#d98985">19:42:10.044　FAIL /backup/ping → timeout</span>
+<br>
+<button class="btn">失敗のみ</button> <button class="btn">クリア</button>
+</div>
+</div>
+</aside>
+</section>
+<footer>
+<span>
+<i class="led">
+</i>LTC INPUT LOCK · CH 1 · 48 kHz</span>
+<button class="btn right" id="open">OSC ポン出しを開く　P</button>
+<span>SPACE: CUE SYNC　 L: LIVE/MUTE</span>
+</footer>
+</main>
+<section class="drawer" id="drawer">
+<div class="dh">
+<h2>OSC ポン出し</h2>
+<button class="btn">実行モード</button>
+<button class="btn">編集モード</button>
+<span class="muted">4 行 × 4 列</span>
+<button class="btn close" id="close">閉じる　Esc</button>
+</div>
+<div class="grid" id="grid">
+</div>
+</section>
+<script>
+const q=[['01:23:40:00','本編 IN','/qlab/go'],['01:24:02:12','タイトル OUT','/video/title/out'],['01:24:20:00','照明転換 B → C','/qlab/go'],['01:25:10:15','SE：ドア','/audio/se/door'],['01:26:00:00','カメラ 2 TAKE','/switcher/program/2'],['01:26:45:00','予備：客電 50%','/light/house/50'],['01:28:12:08','映像 CUE 08','/resolume/clip/8'],['01:31:00:00','MC パート終了','/qlab/go'],['01:31:03:10','BGM フェード開始','/audio/bgm/fade']];list.innerHTML=q.map((x,i)=>`<div class="row ${i==2?'current':''}
+ ${i==5?'disabled':''}
+">
+<span>
+<input type="checkbox" ${i==5?'':'checked'}
+>
+</span>
+<span class="mono">${x[0]}
+</span>
+<span>${x[1]}
+</span>
+<span class="mono">${x[2]}
+</span>
+<button class="fire">▶</button>
+</div>`).join('');document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('active'));b.classList.add('active');side.dataset.mode=b.dataset.mode}
+);mute.onclick=()=>{mute.classList.toggle('on');mute.innerHTML=mute.classList.contains('on')?'MUTE<small>L · キュー送出 停止中</small>':'LIVE<small>L · キュー送出 有効</small>'}
+;sync.onclick=()=>{sync.classList.add('flash');setTimeout(()=>sync.classList.remove('flash'),400)}
+;const names=['QLab GO','映像 BLACK','客電 50%','BGM STOP','SE：拍手','SE：チャイム','Camera 1','Camera 2','TITLE IN','TITLE OUT'];grid.innerHTML=Array.from({length:16}
+,(_,i)=>`<button class="trig">${names[i]||'未設定'}
+</button>`).join('');const drawerElement=document.getElementById('drawer');const openButton=document.getElementById('open');const closeButton=document.getElementById('close');const cuePanel=document.querySelector('.cues');const setDrawer=open=>drawerElement.classList.toggle('open',open);openButton.addEventListener('click',()=>setDrawer(true));closeButton.addEventListener('click',()=>setDrawer(false));document.querySelectorAll('.resize-handle').forEach((handle,index)=>handle.addEventListener('pointerdown',event=>{event.preventDefault();handle.setPointerCapture(event.pointerId);handle.classList.add('dragging');document.body.classList.add('resizing');const startX=event.clientX;const startWidths=[...document.querySelectorAll('.cols>span')].map(cell=>cell.getBoundingClientRect().width);const onMove=moveEvent=>{const widths=startWidths.slice();widths[index]=Math.max(index===0?38:60,startWidths[index]+moveEvent.clientX-startX);cuePanel.style.setProperty('--cue-cols',widths.map(width=>`${Math.round(width)}px`).join(' '))};const onUp=()=>{handle.classList.remove('dragging');document.body.classList.remove('resizing');handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);handle.removeEventListener('pointercancel',onUp)};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);handle.addEventListener('pointercancel',onUp)}));play.onclick=()=>play.textContent=play.textContent.includes('再生')?'■ 停止':'▶ 再生';document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();sync.click()}
+if(e.key.toLowerCase()==='l')mute.click();if(e.key.toLowerCase()==='p')setDrawer(!drawerElement.classList.contains('open'));if(e.key==='Escape')setDrawer(false)}
+);
+</script>
+</body>
+</html>

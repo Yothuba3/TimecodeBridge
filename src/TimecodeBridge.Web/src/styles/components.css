@@ -1,0 +1,2 @@
+/* Component-level appearance placeholder; preserve codex-redesign2.html selectors during migration. */
+.app { height: 100vh; min-width: 1100px; background: var(--b); }
