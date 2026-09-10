@@ -65,8 +65,8 @@ export type CommandName =
   | "relay.configure" | "relay.setContinuous" | "relay.sendOnce"
   | "triggerPanel.configureGrid" | "triggerPanel.upsertButton" | "triggerPanel.removeButton" | "triggerPanel.fire"
   | "logs.clear";
-/** Interim v1 payload until bridge-protocol.md specifies WaveState. Values are normalized -1..1. */
-export interface WaveState { min: number[]; max: number[] }
+/** Waveform samples are normalized to -1..1. */
+export interface WaveState { sampleRate: number; windowMs: number; min: number[]; max: number[]; levelDbfs: number | null }
 
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -77,7 +77,7 @@ export function isClockState(value: unknown): value is ClockState {
 export function isHostMessage(value: unknown): value is HostMessage {
   if (!object(value) || value.protocolVersion !== 1 || typeof value.type !== "string") return false;
   if (value.type === "clock") return finite(value.seq) && isClockState(value.clock);
-  if (value.type === "wave") return finite(value.seq) && object(value.wave) && Array.isArray(value.wave.min) && Array.isArray(value.wave.max) && value.wave.min.every(finite) && value.wave.max.every(finite);
+  if (value.type === "wave") return finite(value.seq) && object(value.wave) && finite(value.wave.sampleRate) && finite(value.wave.windowMs) && Array.isArray(value.wave.min) && Array.isArray(value.wave.max) && value.wave.min.every(finite) && value.wave.max.every(finite) && (value.wave.levelDbfs === null || finite(value.wave.levelDbfs));
   if (value.type === "snapshot") return finite(value.revision) && object(value.state) && typeof value.state.sessionId === "string" && Array.isArray(value.state.cues) && object(value.state.transport) && isClockState(value.state.currentClock);
   if (value.type === "patch") return finite(value.revision) && finite(value.baseRevision) && object(value.changes);
   if (value.type === "result") return typeof value.requestId === "string" && typeof value.ok === "boolean" && (value.ok || object(value.error));
