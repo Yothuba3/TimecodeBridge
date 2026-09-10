@@ -201,3 +201,41 @@ public class LibltcDecoderTests
         Assert.Equal(FrameRate.Fps24, got[^1].FrameRate);
     }
 }
+
+public class LibltcDecoderLongRunTests
+{
+    [Fact]
+    public void TenSecondsInSmallChunksDecodesEveryFrameWithoutCorruption()
+    {
+        // CoreAudio のコールバック相当(512 サンプル)で 10 秒分を流し、欠落・化け(時・分・秒・フレームの範囲外や逆行)がないこと
+        const int sr = 48000, frames = 300;
+        var enc = new LtcEncoder();
+        enc.Initialize(sr, FrameRate.Fps30);
+        enc.VolumeLevel = 0.8f;
+        var start = new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30);
+        for (int i = 0; i < frames; i++) enc.EnqueueFrame(TimecodeValue.FromTotalFrames(start.TotalFrames() + i, FrameRate.Fps30));
+        var pcm = new byte[sr / 30 * 2 * frames];
+        enc.Read(pcm, 0, pcm.Length);
+
+        using var d = new LibltcDecoder();
+        d.Initialize(sr);
+        var got = new List<TimecodeValue>();
+        d.FrameDecoded += (_, tc) => got.Add(tc);
+
+        const int chunk = 512;
+        var buf = new byte[chunk * 4];
+        for (int o = 0; o + chunk <= pcm.Length / 2; o += chunk)
+        {
+            for (int i = 0; i < chunk; i++)
+                BitConverter.TryWriteBytes(buf.AsSpan(i * 4, 4), BitConverter.ToInt16(pcm, (o + i) * 2) / 32768f);
+            d.ProcessSamples(buf, buf.Length, sr, 32, 1);
+        }
+
+        Assert.InRange(got.Count, frames - 2, frames);
+        for (int i = 0; i < got.Count; i++)
+        {
+            var expected = TimecodeValue.FromTotalFrames(start.TotalFrames() + i, FrameRate.Fps30);
+            Assert.Equal(expected.ToString(), got[i].ToString());
+        }
+    }
+}
