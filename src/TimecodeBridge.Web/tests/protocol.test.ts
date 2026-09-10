@@ -1,6 +1,3 @@
-/** Contract smoke tests; shared C#/TS JSON fixtures will be added with the Host protocol. */
-import assert from "node:assert/strict";
-import test from "node:test";
-import { PROTOCOL_VERSION } from "../src/protocol";
-
-test("protocol version remains pinned", () => { assert.equal(PROTOCOL_VERSION, 1); });
+import assert from "node:assert/strict";import test from "node:test";import {isHostMessage,parseHostMessage} from "../src/protocol";import {fakeState} from "../src/testing/fake-host";
+test("accepts valid envelopes and rejects malformed input",()=>{assert.equal(isHostMessage({protocolVersion:1,type:"snapshot",revision:1,state:fakeState()}),true);assert.equal(isHostMessage({protocolVersion:2,type:"clock",seq:1,clock:{}}),false);assert.equal(parseHostMessage("{"),null)});
+test("validates clock and wave payloads",()=>{assert.equal(isHostMessage({protocolVersion:1,type:"clock",seq:1,clock:fakeState().currentClock}),true);assert.equal(isHostMessage({protocolVersion:1,type:"wave",seq:1,wave:{min:[-.2],max:[.2]}}),true);assert.equal(isHostMessage({protocolVersion:1,type:"wave",seq:1,wave:{min:["x"],max:[]}}),false)});

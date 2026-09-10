@@ -2,7 +2,9 @@
 import { render } from "preact";
 import { App } from "./components/app";
 import { installBridge } from "./bridge";
+import { installFakeHost } from "./testing/fake-host";
 
+if (!window.invokeCSharpAction) installFakeHost();
 installBridge();
 
 const root = document.getElementById("app");
