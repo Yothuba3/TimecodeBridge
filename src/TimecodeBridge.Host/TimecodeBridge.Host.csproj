@@ -12,6 +12,8 @@
     <Product>TimecodeBridge3</Product>
     <AssemblyTitle>TimecodeBridge3</AssemblyTitle>
     <Version>3.0.0</Version>
+    <!-- 開発機に .NET 10 SDK しか無くても net8.0 ビルドをそのまま起動できるようにする -->
+    <RollForward>Major</RollForward>
   </PropertyGroup>
 
   <ItemGroup>

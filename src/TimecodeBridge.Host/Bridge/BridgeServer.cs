@@ -13,7 +13,8 @@ public sealed class BridgeServer : IDisposable
 {
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(33);
     // 環境変数 TIMECODEBRIDGE_BRIDGE_TRACE=1 で送受信の種別を標準出力へ出す(実機確認用)
-    private static readonly bool Trace = Environment.GetEnvironmentVariable("TIMECODEBRIDGE_BRIDGE_TRACE") == "1";
+    private static readonly bool Trace = Environment.GetEnvironmentVariable("TIMECODEBRIDGE_BRIDGE_TRACE") is "1" or "2";
+    private static readonly bool TraceEveryClock = Environment.GetEnvironmentVariable("TIMECODEBRIDGE_BRIDGE_TRACE") == "2";
 
     private readonly NativeWebView _webView;
     private readonly HostState _state;
@@ -85,6 +86,7 @@ public sealed class BridgeServer : IDisposable
                 _ready = true;
                 _lastClockKey = null;
                 Enqueue(new SnapshotMessage(_state.Revision, _state.BuildSnapshot()));
+                AutoStartInputIfRequested();
                 break;
             case "resync":
                 Enqueue(new SnapshotMessage(_state.Revision, _state.BuildSnapshot()));
@@ -105,8 +107,24 @@ public sealed class BridgeServer : IDisposable
 
     private void OnStateChanged(StateChanges changes, long revision, long baseRevision)
     {
+        if (Trace && changes.Transport is { } t) Console.WriteLine($"[bridge] transport {t.Status} '{t.StatusText}' {t.DetailText} err={t.SignalErrorRatePercent:F1}% locked={t.Locked}");
         if (!_ready) return;
         Enqueue(new PatchMessage(revision, baseRevision, changes));
+    }
+
+    // 環境変数 TIMECODEBRIDGE_AUTOSTART_INPUT=<入力デバイス名の一部> で、接続直後にそのデバイスで LTC 受信を始める(実機確認用)
+    private bool _autoStarted;
+    private void AutoStartInputIfRequested()
+    {
+        var name = Environment.GetEnvironmentVariable("TIMECODEBRIDGE_AUTOSTART_INPUT");
+        if (_autoStarted || string.IsNullOrWhiteSpace(name)) return;
+        _autoStarted = true;
+        var device = _state.AllDevices().FirstOrDefault(d => d.DisplayName.Contains(name, StringComparison.OrdinalIgnoreCase));
+        if (device is null) { Console.WriteLine($"[bridge] autostart: device '{name}' not found"); return; }
+        var args = JsonSerializer.SerializeToElement(new { deviceId = device.Id });
+        var result = _router.Execute(new WebMessage(Protocol.Version, "command", "autostart", "ltc.reconnect", args, null, null, null, null, null, null, null, null));
+        Console.WriteLine($"[bridge] autostart {device.DisplayName}: ok={result.Ok} {result.Error?.Message}");
+        Enqueue(result);
     }
 
     // ---- 送信 ----
@@ -121,6 +139,7 @@ public sealed class BridgeServer : IDisposable
         {
             _lastClockKey = key;
             _latestClock = new ClockMessage(++_clockSeq, clock);
+            if (Trace && (_clockSeq % 30 == 1 || TraceEveryClock)) Console.WriteLine($"[bridge] clock#{_clockSeq} raw={clock.Raw} display={clock.Display} next={clock.NextCueId}");
         }
         if (_waveVisible && _state.TryBuildWave(_wavePoints) is { } wave)
             _latestWave = new WaveMessage(++_waveSeq, wave);

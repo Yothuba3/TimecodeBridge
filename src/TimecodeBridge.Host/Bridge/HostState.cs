@@ -369,6 +369,8 @@ public sealed class HostState : IDisposable
     public string? DeviceName(string? id) =>
         id is null ? null : _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices()).FirstOrDefault(d => d.Id == id)?.DisplayName;
 
+    public IEnumerable<AudioDeviceInfo> AllDevices() => _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices());
+
     public AudioDeviceInfo? FindDevice(string? id) =>
         id is null ? null : _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices()).FirstOrDefault(d => d.Id == id);
 

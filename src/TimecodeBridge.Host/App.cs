@@ -32,7 +32,8 @@ public sealed class App : Application
                 ConfigureServices(services);
                 var provider = services.BuildServiceProvider();
                 desktop.MainWindow = provider.GetRequiredService<MainWindow>();
-                desktop.Exit += (_, _) => provider.Dispose();
+                var selfTest = DevSelfTest.StartIfRequested(provider.GetRequiredService<IAudioDeviceService>());
+                desktop.Exit += (_, _) => { selfTest?.Dispose(); provider.Dispose(); };
             }
             catch (Exception ex)
             {
