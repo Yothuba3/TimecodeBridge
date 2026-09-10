@@ -120,6 +120,18 @@ interface ProtocolError {code:"badMessage"|"unsupportedVersion"|"unknownCommand"
 
 予期しない例外はHostログへ詳細を残し、Webにはinternalと相関errorIdだけ返す。JSは信頼境界としてC#でも型・範囲・ID存在を検証する。
 
+## 接続の確立(実機で確定, 2026-09-11)
+
+NativeWebView は `invokeCSharpAction` をページのスクリプト評価より**後**に注入する。そのため Web が起動直後に送る `ready` は届かない。
+Host はページ読込完了後、`window.tcb.hostAttached()` を 250ms 間隔で `ready` を受けるまで(最大 10 秒)呼ぶ。Web は `hostAttached()` で実 Host 接続とみなして `ready` を送る(冪等)。fake-host は `hostAttached()` が一定時間呼ばれず `invokeCSharpAction` も無い場合にだけ入る。
+
+## WaveState(確定)
+
+```ts
+interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:number[]; levelDbfs:number|null }
+```
+`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。
+
 ## 起動順序・M0
 
 Webがhandler/storeを準備してready→Hostがsnapshot→Webがviewport→Hostがclock/wave開始。reload/navigation中は停止し、新readyを待つ。sessionId変更時は旧pending commandを失敗扱いにする。

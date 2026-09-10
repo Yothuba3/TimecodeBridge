@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Windowsでコンソールが付随しないようGUI形式にする（macOSでは Exe と同じ扱い） -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AssemblyName>TimecodeBridge3</AssemblyName>
+    <RootNamespace>TimecodeBridge.Host</RootNamespace>
+    <Product>TimecodeBridge3</Product>
+    <AssemblyTitle>TimecodeBridge3</AssemblyTitle>
+    <Version>3.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
+    <ProjectReference Include="..\TimecodeBridge.Ltc\TimecodeBridge.Ltc.csproj" />
+    <ProjectReference Include="..\TimecodeBridge.Mac\TimecodeBridge.Mac.csproj" />
+    <ProjectReference Include="..\TimecodeBridge.Windows\TimecodeBridge.Windows.csproj" />
+  </ItemGroup>
+
+  <!-- Web UI のビルド成果物(src/TimecodeBridge.Web/dist, git 管理)を web/ 配下へ同梱する -->
+  <ItemGroup>
+    <None Include="..\TimecodeBridge.Web\dist\**\*" Link="web\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Update="Info.plist" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TimecodeBridge.Host.Tests" />
+  </ItemGroup>
+
+</Project>

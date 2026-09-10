@@ -104,6 +104,9 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
+    /// <summary>LTC 受信中のキャプチャサンプルレート。未開始時は既定値。</summary>
+    public int CaptureSampleRate => _captureSampleRate > 0 ? _captureSampleRate : DefaultSampleRate;
+
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
