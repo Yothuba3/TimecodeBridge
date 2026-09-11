@@ -63,7 +63,7 @@ public sealed class BridgeServer : IDisposable
 
     // ---- 受信 ----
 
-    private void OnWebMessage(object? sender, WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, WebMessageReceivedEventArgs e)
     {
         WebMessage? msg;
         if (Trace) Console.WriteLine($"[bridge] raw {(e.Body ?? "").Length}B: {(e.Body ?? "")[..Math.Min(160, (e.Body ?? "").Length)]}");
@@ -96,7 +96,7 @@ public sealed class BridgeServer : IDisposable
                 if (msg.Visible is { } v) _waveVisible = v;
                 break;
             case "command":
-                Enqueue(_router.Execute(msg));
+                Enqueue(await _router.ExecuteAsync(msg));
                 break;
             default:
                 if (msg.RequestId is { } id)
@@ -122,7 +122,7 @@ public sealed class BridgeServer : IDisposable
         var device = _state.AllDevices().FirstOrDefault(d => d.DisplayName.Contains(name, StringComparison.OrdinalIgnoreCase));
         if (device is null) { Console.WriteLine($"[bridge] autostart: device '{name}' not found"); return; }
         var args = JsonSerializer.SerializeToElement(new { deviceId = device.Id });
-        var result = _router.Execute(new WebMessage(Protocol.Version, "command", "autostart", "ltc.reconnect", args, null, null, null, null, null, null, null, null));
+        var result = _router.ExecuteAsync(new WebMessage(Protocol.Version, "command", "autostart", "ltc.reconnect", args, null, null, null, null, null, null, null, null)).GetAwaiter().GetResult();
         Console.WriteLine($"[bridge] autostart {device.DisplayName}: ok={result.Ok} {result.Error?.Message}");
         Enqueue(result);
     }

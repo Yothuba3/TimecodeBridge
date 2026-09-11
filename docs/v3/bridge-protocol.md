@@ -132,6 +132,47 @@ interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:numb
 ```
 `min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。
 
+## M2b で確定した command の引数と結果(Host 実装済み, 2026-09-11)
+
+```ts
+// cue.add {cue: CueDraft} → {id} / cue.update {id, cue: CueDraft} → {id}
+interface CueDraft {
+  name: string;                       // 必須(空白のみは validation)
+  memo?: string;
+  triggerTime: string;                // "HH:MM:SS:FF"(DF は最後が ';' でも可)。FF は frameRate 未満
+  frameRate?: FrameRate;              // 省略時は現在の受信フレームレート
+  oscAddress: string;                 // '/' 始まり
+  additionalOscAddresses?: string[];  // 各要素 '/' 始まり
+  arguments?: OscArgumentDto[];
+  targetHostIds?: string[];
+  enabled?: boolean;                  // 既定 true
+  sendTriggerTimeAsSeconds?: boolean;
+  sendTimecode?: string | null;       // "HH:MM:SS:FF"。null/空 = トリガー時間をそのまま送る
+  triggerOffset?: string | null;      // "±HH:MM:SS:FF"。全ゼロ/空 = なし。適用後が 0〜24 時を超えると validation
+  autoMuteOnFire?: boolean;
+  autoUnmuteAfter?: string | null;    // "HH:MM:SS:FF"。null = 手動解除まで
+}
+// validation エラーの fieldErrors のキーは "cue.<field>"
+
+// cue.duplicate {id, count?=1, intervalFrames?=0} → {ids: string[]}
+//   count=1 かつ intervalFrames=0 なら同時刻に「<name> (コピー)」を 1 件。それ以外は基準時刻 + interval×i (i=1..count)
+// cue.batchUpdate {ids: string[], changes: CueBatchDraft} → {updated, offsetSkipped}
+//   changes に存在するフィールドだけ適用(値 null は「クリア」)。triggerOffset 適用後が範囲外のキューはオフセットだけ見送り offsetSkipped に数える
+interface CueBatchDraft {
+  oscAddress?: string; additionalOscAddresses?: string[]; arguments?: OscArgumentDto[]; targetHostIds?: string[];
+  memo?: string; enabled?: boolean; sendTriggerTimeAsSeconds?: boolean; autoMuteOnFire?: boolean;
+  sendTimecode?: string | null; triggerOffset?: string | null; autoUnmuteAfter?: string | null;
+}
+// fieldErrors のキーは "changes.<field>"
+
+// project.new {} → {cancelled}            未保存があれば Host がネイティブ確認ダイアログを出す(Web 側の確認は不要)
+// project.open {path?} → {cancelled, path}  path 省略時は Host のファイルダイアログ。存在しない path は notFound、読めなければ ioError
+// project.save {} / project.saveAs {suggestedName?} → {cancelled, path}  未保存パスなら save も saveAs と同じくダイアログ
+// app.undo / app.redo {} → 成功 or invalidState(履歴なし)。可否は state.project.canUndo/canRedo
+//   履歴は ProjectData のスナップショット(最大 50、500ms 以内の連続変更は集約)。ソース設定(デバイス・生成器)は Undo 対象外
+// macOS のメニュー(Cmd+N/O/S/Shift+S, Cmd+Z/Shift+Z)は Host が同じ command を内部で実行し、結果は patch として届く
+```
+
 ## 起動順序・M0
 
 Webがhandler/storeを準備してready→Hostがsnapshot→Webがviewport→Hostがclock/wave開始。reload/navigation中は停止し、新readyを待つ。sessionId変更時は旧pending commandを失敗扱いにする。

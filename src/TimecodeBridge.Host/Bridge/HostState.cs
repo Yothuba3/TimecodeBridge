@@ -82,6 +82,9 @@ public sealed class HostState : IDisposable
     public CueSyncSettings CueSync { get; } = new();
     public WaveReducer Wave { get; } = new();
 
+    /// <summary>Undo/Redo の可否。ProjectCoordinator が設定する。</summary>
+    public IProjectHistory? History { get; set; }
+
     /// <summary>UI スレッド上で発火。(changes, revision, baseRevision)</summary>
     public event Action<StateChanges, long, long>? Changed;
 
@@ -158,7 +161,7 @@ public sealed class HostState : IDisposable
     {
         var path = _project.CurrentFilePath;
         var name = path is null ? "無題" : Path.GetFileNameWithoutExtension(path);
-        return new ProjectState(name, path, _project.HasUnsavedChanges, false, false);
+        return new ProjectState(name, path, _project.HasUnsavedChanges, History?.CanUndo ?? false, History?.CanRedo ?? false);
     }
 
     private TransportState BuildTransport()

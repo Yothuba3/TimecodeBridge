@@ -76,6 +76,7 @@ public sealed class App : Application
         services.AddSingleton<ITimecodeRelay, TimecodeRelay>();
 
         services.AddSingleton<HostState>();
+        services.AddSingleton<ProjectCoordinator>();
         services.AddSingleton<CommandRouter>();
         services.AddSingleton<MainWindow>();
     }

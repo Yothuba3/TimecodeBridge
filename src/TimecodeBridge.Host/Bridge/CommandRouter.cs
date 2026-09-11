@@ -14,16 +14,21 @@ public sealed class CommandRouter
     private readonly IOscSender _osc;
     private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
+    private readonly ProjectCoordinator _projects;
 
     public CommandRouter(HostState state, ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts,
-        IOscSender osc, ITimecodeRelay relay, IOscTriggerPanelManager panel)
+        IOscSender osc, ITimecodeRelay relay, IOscTriggerPanelManager panel, ProjectCoordinator projects)
     {
-        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _osc = osc; _relay = relay; _panel = panel;
+        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _osc = osc; _relay = relay; _panel = panel; _projects = projects;
     }
 
     public Action? CloseRequested { get; set; }
 
-    public ResultMessage Execute(WebMessage msg)
+    /// <summary>メニューなど Web 以外の起点から同じ経路で command を流すためのメッセージ。</summary>
+    public static WebMessage Synthetic(string requestId, string command, object? args = null) =>
+        new(Protocol.Version, "command", requestId, command, args is null ? null : JsonSerializer.SerializeToElement(args, Protocol.Json), null, null, null, null, null, null, null, null);
+
+    public async Task<ResultMessage> ExecuteAsync(WebMessage msg)
     {
         var id = msg.RequestId ?? "";
         if (msg.ProtocolVersion != Protocol.Version)
@@ -31,6 +36,56 @@ public sealed class CommandRouter
         if (string.IsNullOrEmpty(msg.Command))
             return Fail(id, ErrorCode.BadMessage, "command がありません");
 
+        // ダイアログを伴うものだけ非同期。それ以外は同期処理へ
+        try
+        {
+            switch (msg.Command)
+            {
+                case "project.new":
+                    return Ok(id, new { cancelled = !await _projects.NewAsync() });
+                case "project.open":
+                {
+                    var path = Str(msg.Args, "path");
+                    if (path is not null && !File.Exists(path)) return Fail(id, ErrorCode.NotFound, $"ファイルがありません: {path}");
+                    try
+                    {
+                        var (cancelled, opened) = await _projects.OpenAsync(path);
+                        return Ok(id, new { cancelled, path = opened });
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+                    {
+                        _state.AppendLog($"プロジェクトを開けません: {ex.Message}", false);
+                        return Fail(id, ErrorCode.IoError, $"プロジェクトを開けません: {ex.Message}");
+                    }
+                }
+                case "project.save":
+                case "project.saveAs":
+                {
+                    try
+                    {
+                        var (cancelled, saved) = await _projects.SaveAsync(msg.Command == "project.saveAs", Str(msg.Args, "suggestedName"));
+                        return Ok(id, new { cancelled, path = saved });
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        _state.AppendLog($"保存に失敗: {ex.Message}", false);
+                        return Fail(id, ErrorCode.IoError, $"保存に失敗しました: {ex.Message}", retryable: true);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var errorId = Guid.NewGuid().ToString("N")[..8];
+            _state.AppendLog($"[{errorId}] {msg.Command} で内部エラー: {ex}", false);
+            return Fail(id, ErrorCode.Internal, $"内部エラー({errorId})");
+        }
+        return Execute(msg);
+    }
+
+    public ResultMessage Execute(WebMessage msg)
+    {
+        var id = msg.RequestId ?? "";
         var a = msg.Args;
         try
         {
@@ -88,6 +143,7 @@ public sealed class CommandRouter
                     if (!TimecodeOffset.TryParse(text, _engine.FrameRate, out var offset))
                         return Validation(id, "value", "±HH:MM:SS:FF の形式で入力してください");
                     _engine.Offset = offset;
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Receive | Domain.NextCue);
                     return Ok(id, new { normalized = offset.ToString() });
                 }
@@ -175,6 +231,7 @@ public sealed class CommandRouter
                     var enabled = Bool(a, "enabled");
                     if (enabled is null) return Validation(id, "enabled", "true/false");
                     _cues.IsAutoMuteEnabled = enabled.Value;
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Transport);
                     return Ok(id);
                 }
@@ -186,6 +243,7 @@ public sealed class CommandRouter
                     if (cueId is null || enabled is null) return Validation(id, "id/enabled", "必須");
                     if (FindCue(cueId) is null) return Fail(id, ErrorCode.NotFound, "キューが見つかりません");
                     _cues.SetCueEnabled(cueId, enabled.Value);
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Cues);
                     return Ok(id);
                 }
@@ -201,24 +259,91 @@ public sealed class CommandRouter
                     var ids = StrArray(a, "ids");
                     if (ids.Length == 0) return Validation(id, "ids", "1 件以上");
                     foreach (var cueId in ids) if (FindCue(cueId) is not null) _cues.RemoveCue(cueId);
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Cues);
                     return Ok(id);
                 }
                 case "cue.sortByTime":
                     _cues.ReorderCues(_cues.Cues.OrderBy(c => c.GetEffectiveTriggerTime().ToOrdinal()).Select(c => c.Id).ToArray());
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Cues);
                     return Ok(id);
+
+                // ---- キュー(M2b: 追加・編集・複製・一括編集) ----
                 case "cue.add":
                 case "cue.update":
+                {
+                    string? cueId = null;
+                    if (msg.Command == "cue.update")
+                    {
+                        cueId = Str(a, "id");
+                        if (cueId is null || FindCue(cueId) is null) return Fail(id, ErrorCode.NotFound, "キューが見つかりません");
+                    }
+                    var draft = Get(a, "cue");
+                    if (draft is null) return Validation(id, "cue", "必須");
+                    var parsed = ParseCueDraft(draft, cueId ?? Guid.NewGuid().ToString(), _engine.FrameRate);
+                    if (parsed.Error is { } err) return Validation(id, err.Field, err.Message);
+                    if (cueId is null) _cues.AddCue(parsed.Cue!); else _cues.UpdateCue(cueId, parsed.Cue!);
+                    _projects.Commit();
+                    _state.MarkDirty(Domain.Cues);
+                    return Ok(id, new { id = parsed.Cue!.Id });
+                }
                 case "cue.duplicate":
+                {
+                    var cueId = Str(a, "id");
+                    var source = cueId is null ? null : FindCue(cueId);
+                    if (source is null) return Fail(id, ErrorCode.NotFound, "キューが見つかりません");
+                    int count = Int(a, "count") ?? 1;
+                    long interval = Int(a, "intervalFrames") ?? 0;
+                    if (count is < 1 or > 500) return Validation(id, "count", "1〜500");
+                    if (interval < 0) return Validation(id, "intervalFrames", "0 以上");
+                    var ids = new List<string>();
+                    if (count == 1 && interval == 0)
+                    {
+                        var copy = CloneCue(source, source.TriggerTime, source.Name + " (コピー)");
+                        _cues.AddCue(copy); ids.Add(copy.Id);
+                    }
+                    else
+                    {
+                        long baseFrames = source.TriggerTime.TotalFrames();
+                        for (int i = 1; i <= count; i++)
+                        {
+                            var copy = CloneCue(source, TimecodeValue.FromTotalFrames(baseFrames + interval * i, source.TriggerTime.FrameRate));
+                            _cues.AddCue(copy); ids.Add(copy.Id);
+                        }
+                    }
+                    _projects.Commit();
+                    _state.MarkDirty(Domain.Cues);
+                    return Ok(id, new { ids });
+                }
                 case "cue.batchUpdate":
-                case "project.new":
-                case "project.open":
-                case "project.save":
-                case "project.saveAs":
+                {
+                    var ids = StrArray(a, "ids");
+                    var changes = Get(a, "changes");
+                    if (ids.Length == 0) return Validation(id, "ids", "1 件以上");
+                    if (changes is null) return Validation(id, "changes", "必須");
+                    var batch = ParseBatchDraft(changes, _engine.FrameRate);
+                    if (batch.Error is { } berr) return Validation(id, berr.Field, berr.Message);
+                    int updated = 0, offsetSkipped = 0;
+                    foreach (var cueId in ids)
+                    {
+                        var cue = FindCue(cueId);
+                        if (cue is null) continue;
+                        var next = CloneCue(cue, cue.TriggerTime, cue.Name, keepId: true);
+                        batch.Apply(next, ref offsetSkipped);
+                        _cues.UpdateCue(cueId, next);
+                        updated++;
+                    }
+                    if (updated > 0) _projects.Commit();
+                    _state.MarkDirty(Domain.Cues);
+                    return Ok(id, new { updated, offsetSkipped });
+                }
                 case "app.undo":
+                    if (!_projects.Undo()) return Fail(id, ErrorCode.InvalidState, "取り消せる変更がありません");
+                    return Ok(id);
                 case "app.redo":
-                    return Fail(id, ErrorCode.InvalidState, $"{msg.Command} はまだ実装されていません(M2b)");
+                    if (!_projects.Redo()) return Fail(id, ErrorCode.InvalidState, "やり直せる変更がありません");
+                    return Ok(id);
 
                 // ---- CUE SYNC ----
                 case "cueSync.configure":
@@ -228,6 +353,7 @@ public sealed class CommandRouter
                         _state.CueSync.OscAddress = addr;
                     }
                     if (Has(a, "targetHostIds")) { _state.CueSync.TargetHostIds.Clear(); _state.CueSync.TargetHostIds.AddRange(StrArray(a, "targetHostIds")); }
+                    _projects.Commit();
                     _state.MarkDirty(Domain.CueSync);
                     return Ok(id);
                 case "cueSync.send":
@@ -248,11 +374,13 @@ public sealed class CommandRouter
                     {
                         var host = new OscHost { Id = Guid.NewGuid().ToString("N"), Name = name, IpAddress = ip!, Port = port.Value, IsEnabled = enabled };
                         _hosts.AddHost(host);
+                        _projects.Commit();
                         return Ok(id, new { id = host.Id });
                     }
                     var hostId = Str(a, "id");
                     if (hostId is null || _hosts.Hosts.All(x => x.Id != hostId)) return Fail(id, ErrorCode.NotFound, "ホストが見つかりません");
                     _hosts.UpdateHost(hostId, new OscHost { Id = hostId, Name = name, IpAddress = ip!, Port = port.Value, IsEnabled = enabled });
+                    _projects.Commit();
                     return Ok(id, new { id = hostId });
                 }
                 case "host.remove":
@@ -260,6 +388,7 @@ public sealed class CommandRouter
                     var hostId = Str(a, "id");
                     if (hostId is null || _hosts.Hosts.All(x => x.Id != hostId)) return Fail(id, ErrorCode.NotFound, "ホストが見つかりません");
                     _hosts.RemoveHost(hostId);
+                    _projects.Commit();
                     return Ok(id);
                 }
                 case "host.setEnabled":
@@ -267,6 +396,7 @@ public sealed class CommandRouter
                     var hostId = Str(a, "id"); var enabled = Bool(a, "enabled");
                     if (hostId is null || enabled is null) return Validation(id, "id/enabled", "必須");
                     _hosts.SetHostEnabled(hostId, enabled.Value);
+                    _projects.Commit();
                     return Ok(id);
                 }
                 case "host.ping":
@@ -288,6 +418,7 @@ public sealed class CommandRouter
                         _relay.ContinuousInterval = new(mode, ms);
                     }
                     if (Has(a, "targetHostIds")) _relay.TargetHostIds = StrArray(a, "targetHostIds");
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Relay);
                     return Ok(id);
                 case "relay.setContinuous":
@@ -295,6 +426,7 @@ public sealed class CommandRouter
                     var enabled = Bool(a, "enabled");
                     if (enabled is null) return Validation(id, "enabled", "true/false");
                     _relay.IsContinuousEnabled = enabled.Value;
+                    _projects.Commit();
                     _state.MarkDirty(Domain.Relay);
                     return Ok(id);
                 }
@@ -308,6 +440,7 @@ public sealed class CommandRouter
                     var rows = Int(a, "rows"); var cols = Int(a, "columns");
                     if (rows is null or < 1 or > 12 || cols is null or < 1 or > 12) return Validation(id, "rows/columns", "1〜12");
                     _panel.SetGridSize(rows.Value, cols.Value);
+                    _projects.Commit();
                     return Ok(id);
                 }
                 case "triggerPanel.upsertButton":
@@ -324,6 +457,7 @@ public sealed class CommandRouter
                         Label = Str(b, "label") ?? "", OscAddress = Str(b, "oscAddress") ?? "",
                         Arguments = OscArgs(Get(b, "arguments")), TargetHostIds = StrArray(b, "targetHostIds").ToList(),
                     });
+                    _projects.Commit();
                     return Ok(id, new { id = buttonId });
                 }
                 case "triggerPanel.removeButton":
@@ -331,6 +465,7 @@ public sealed class CommandRouter
                     var buttonId = Str(a, "id");
                     if (buttonId is null) return Validation(id, "id", "必須");
                     _panel.RemoveButton(buttonId);
+                    _projects.Commit();
                     return Ok(id);
                 }
                 case "triggerPanel.fire":
@@ -362,6 +497,165 @@ public sealed class CommandRouter
     }
 
     private Cue? FindCue(string cueId) => _cues.Cues.FirstOrDefault(c => c.Id == cueId);
+
+    // ---- キュー下書きの解釈(protocol の CueDraft / CueBatchDraft) ----
+
+    private sealed record DraftError(string Field, string Message);
+
+    private static (Cue? Cue, DraftError? Error) ParseCueDraft(JsonElement? d, string cueId, FrameRate defaultRate)
+    {
+        var name = Str(d, "name")?.Trim();
+        if (string.IsNullOrEmpty(name)) return (null, new("cue.name", "必須"));
+
+        var rate = defaultRate;
+        if (Str(d, "frameRate") is { } rateCode && !HostState.TryParseFrameRate(rateCode, out rate)) return (null, new("cue.frameRate", "24 / 25 / 29.97df / 30"));
+        if (!HostState.TryParseTimecode(Str(d, "triggerTime"), rate, out var trigger)) return (null, new("cue.triggerTime", "HH:MM:SS:FF の形式で入力してください"));
+
+        var osc = Str(d, "oscAddress")?.Trim() ?? "";
+        if (!osc.StartsWith('/')) return (null, new("cue.oscAddress", "OSCアドレスは '/' で始まる必要があります"));
+        var additional = StrArray(d, "additionalOscAddresses").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        if (additional.Any(x => !x.StartsWith('/'))) return (null, new("cue.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"));
+
+        TimecodeOffset? triggerOffset = null;
+        if (Str(d, "triggerOffset") is { } offsetText && offsetText.Trim().Length > 0)
+        {
+            if (!TimecodeOffset.TryParse(offsetText, rate, out var parsedOffset)) return (null, new("cue.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"));
+            if (parsedOffset.TotalFrames() != 0) triggerOffset = parsedOffset;
+        }
+        if (!Cue.TryApplyTriggerOffset(trigger, triggerOffset, out _))
+            return (null, new("cue.triggerOffset", "トリガーオフセット適用後の発火時刻が 00:00:00:00〜23:59:59:FF の範囲を超えます"));
+
+        TimecodeValue? sendTimecode = null;
+        if (Str(d, "sendTimecode") is { } sendText && sendText.Trim().Length > 0)
+        {
+            if (!HostState.TryParseTimecode(sendText, rate, out var st)) return (null, new("cue.sendTimecode", "HH:MM:SS:FF の形式で入力してください"));
+            sendTimecode = st;
+        }
+        TimecodeValue? autoUnmuteAfter = null;
+        if (Str(d, "autoUnmuteAfter") is { } unmuteText && unmuteText.Trim().Length > 0)
+        {
+            if (!HostState.TryParseTimecode(unmuteText, rate, out var au)) return (null, new("cue.autoUnmuteAfter", "HH:MM:SS:FF の形式で入力してください"));
+            autoUnmuteAfter = au;
+        }
+
+        return (new Cue
+        {
+            Id = cueId,
+            Name = name,
+            Memo = Str(d, "memo") ?? "",
+            TriggerTime = trigger,
+            OscAddress = osc,
+            AdditionalOscAddresses = additional,
+            Arguments = OscArgs(Get(d, "arguments")),
+            TargetHostIds = StrArray(d, "targetHostIds").ToList(),
+            IsEnabled = Bool(d, "enabled") ?? true,
+            SendTriggerTimeAsSeconds = Bool(d, "sendTriggerTimeAsSeconds") ?? false,
+            SendTimecode = sendTimecode,
+            TriggerOffset = triggerOffset,
+            AutoMuteOnFire = Bool(d, "autoMuteOnFire") ?? false,
+            AutoUnmuteAfter = autoUnmuteAfter,
+        }, null);
+    }
+
+    /// <summary>一括編集。存在するフィールドだけを適用する(null は「クリア」)。</summary>
+    private sealed class BatchDraft
+    {
+        public DraftError? Error;
+        public string? OscAddress; public List<string>? AdditionalOscAddresses; public List<OscArgument>? Arguments; public List<string>? TargetHostIds;
+        public string? Memo; public bool? Enabled; public bool? SendTriggerTimeAsSeconds; public bool? AutoMuteOnFire;
+        public bool HasSendTimecode; public TimecodeValue? SendTimecode;
+        public bool HasTriggerOffset; public TimecodeOffset? TriggerOffset;
+        public bool HasAutoUnmuteAfter; public TimecodeValue? AutoUnmuteAfter;
+
+        public void Apply(Cue cue, ref int offsetSkipped)
+        {
+            if (OscAddress is not null) cue.OscAddress = OscAddress;
+            if (AdditionalOscAddresses is not null) cue.AdditionalOscAddresses = AdditionalOscAddresses.ToList();
+            if (Arguments is not null) cue.Arguments = Arguments.ToList();
+            if (TargetHostIds is not null) cue.TargetHostIds = TargetHostIds.ToList();
+            if (Memo is not null) cue.Memo = Memo;
+            if (Enabled is { } e) cue.IsEnabled = e;
+            if (SendTriggerTimeAsSeconds is { } s) cue.SendTriggerTimeAsSeconds = s;
+            if (AutoMuteOnFire is { } m) cue.AutoMuteOnFire = m;
+            if (HasSendTimecode) cue.SendTimecode = SendTimecode;
+            if (HasAutoUnmuteAfter) cue.AutoUnmuteAfter = AutoUnmuteAfter;
+            if (HasTriggerOffset)
+            {
+                // 適用後の発火時刻が 0〜24 時を超えるキューにはオフセットを付けず、件数だけ返す
+                if (Cue.TryApplyTriggerOffset(cue.TriggerTime, TriggerOffset, out _)) cue.TriggerOffset = TriggerOffset;
+                else offsetSkipped++;
+            }
+        }
+    }
+
+    private static BatchDraft ParseBatchDraft(JsonElement? c, FrameRate rate)
+    {
+        var b = new BatchDraft();
+        if (Has(c, "oscAddress"))
+        {
+            var osc = Str(c, "oscAddress")?.Trim() ?? "";
+            if (!osc.StartsWith('/')) { b.Error = new("changes.oscAddress", "OSCアドレスは '/' で始まる必要があります"); return b; }
+            b.OscAddress = osc;
+        }
+        if (Has(c, "additionalOscAddresses"))
+        {
+            var list = StrArray(c, "additionalOscAddresses").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+            if (list.Any(x => !x.StartsWith('/'))) { b.Error = new("changes.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"); return b; }
+            b.AdditionalOscAddresses = list;
+        }
+        if (Has(c, "arguments")) b.Arguments = OscArgs(Get(c, "arguments"));
+        if (Has(c, "targetHostIds")) b.TargetHostIds = StrArray(c, "targetHostIds").ToList();
+        if (Has(c, "memo")) b.Memo = Str(c, "memo") ?? "";
+        if (Has(c, "enabled")) b.Enabled = Bool(c, "enabled");
+        if (Has(c, "sendTriggerTimeAsSeconds")) b.SendTriggerTimeAsSeconds = Bool(c, "sendTriggerTimeAsSeconds");
+        if (Has(c, "autoMuteOnFire")) b.AutoMuteOnFire = Bool(c, "autoMuteOnFire");
+        if (Has(c, "sendTimecode"))
+        {
+            b.HasSendTimecode = true;
+            if (Str(c, "sendTimecode") is { } t && t.Trim().Length > 0)
+            {
+                if (!HostState.TryParseTimecode(t, rate, out var st)) { b.Error = new("changes.sendTimecode", "HH:MM:SS:FF の形式で入力してください"); return b; }
+                b.SendTimecode = st;
+            }
+        }
+        if (Has(c, "autoUnmuteAfter"))
+        {
+            b.HasAutoUnmuteAfter = true;
+            if (Str(c, "autoUnmuteAfter") is { } t && t.Trim().Length > 0)
+            {
+                if (!HostState.TryParseTimecode(t, rate, out var au)) { b.Error = new("changes.autoUnmuteAfter", "HH:MM:SS:FF の形式で入力してください"); return b; }
+                b.AutoUnmuteAfter = au;
+            }
+        }
+        if (Has(c, "triggerOffset"))
+        {
+            b.HasTriggerOffset = true;
+            if (Str(c, "triggerOffset") is { } t && t.Trim().Length > 0)
+            {
+                if (!TimecodeOffset.TryParse(t, rate, out var off)) { b.Error = new("changes.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"); return b; }
+                if (off.TotalFrames() != 0) b.TriggerOffset = off;
+            }
+        }
+        return b;
+    }
+
+    private static Cue CloneCue(Cue source, TimecodeValue triggerTime, string? name = null, bool keepId = false) => new()
+    {
+        Id = keepId ? source.Id : Guid.NewGuid().ToString(),
+        Name = name ?? source.Name,
+        Memo = source.Memo,
+        TriggerTime = triggerTime,
+        OscAddress = source.OscAddress,
+        AdditionalOscAddresses = source.AdditionalOscAddresses.ToList(),
+        Arguments = source.Arguments.ToList(),
+        TargetHostIds = source.TargetHostIds.ToList(),
+        IsEnabled = source.IsEnabled,
+        SendTriggerTimeAsSeconds = source.SendTriggerTimeAsSeconds,
+        SendTimecode = source.SendTimecode,
+        TriggerOffset = source.TriggerOffset,
+        AutoMuteOnFire = source.AutoMuteOnFire,
+        AutoUnmuteAfter = source.AutoUnmuteAfter,
+    };
 
     // ---- 結果 ----
 

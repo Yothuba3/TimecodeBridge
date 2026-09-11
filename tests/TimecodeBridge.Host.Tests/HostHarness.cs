@@ -17,6 +17,7 @@ public sealed class HostHarness
     public ITimecodeRelay Relay { get; }
     public IOscTriggerPanelManager Panel { get; }
     public HostState State { get; }
+    public ProjectCoordinator Projects { get; }
     public CommandRouter Router { get; }
 
     public HostHarness()
@@ -25,13 +26,14 @@ public sealed class HostHarness
         Relay = new TimecodeRelay(Engine, Osc);
         Panel = new OscTriggerPanelManager(Osc, Hosts);
         State = new HostState(Engine, Cues, Hosts, Osc, Relay, Panel, Project, Devices);
-        Router = new CommandRouter(State, Engine, Cues, Hosts, Osc, Relay, Panel);
+        Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Relay, Panel, Project);
+        Router = new CommandRouter(State, Engine, Cues, Hosts, Osc, Relay, Panel, Projects);
     }
 
     public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1")
     {
         var json = $$"""{"protocolVersion":1,"type":"command","requestId":"{{requestId}}","command":"{{command}}","args":{{argsJson}}}""";
         var msg = JsonSerializer.Deserialize<WebMessage>(json, Protocol.Json)!;
-        return Router.Execute(msg);
+        return Router.ExecuteAsync(msg).GetAwaiter().GetResult();
     }
 }

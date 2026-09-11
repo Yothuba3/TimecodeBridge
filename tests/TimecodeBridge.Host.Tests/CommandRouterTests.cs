@@ -122,11 +122,12 @@ public class CommandRouterTests
     }
 
     [Fact]
-    public void UnimplementedCommandsReportInvalidState()
+    public void EmptyCueDraftIsRejectedAsValidation()
     {
         var h = new HostHarness();
         var r = h.Run("cue.add", """{"cue":{}}""");
-        Assert.Equal(ErrorCode.InvalidState, r.Error!.Code);
+        Assert.Equal(ErrorCode.Validation, r.Error!.Code);
+        Assert.Equal("cue.name", r.Error.FieldErrors!.Keys.Single());
     }
 
     [Fact]
