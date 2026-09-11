@@ -118,6 +118,20 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
+    public void HostPingReportsReachabilityAndLatency()
+    {
+        var h = new HostHarness();
+        h.Hosts.AddHost(new OscHost { Id = "lo", Name = "Local", IpAddress = "127.0.0.1", Port = 9000 });
+        var r = h.Run("host.ping", """{"id":"lo"}""");
+        Assert.True(r.Ok, r.Error?.Message);
+        var data = System.Text.Json.JsonSerializer.SerializeToElement(r.Data, Protocol.Json);
+        Assert.True(data.GetProperty("reachable").GetBoolean());
+        Assert.True(data.GetProperty("latencyMs").GetInt64() >= 0);
+        Assert.Equal("reachable", h.State.BuildSnapshot().Hosts[0].Reachability);
+        Assert.Equal(ErrorCode.NotFound, h.Run("host.ping", """{"id":"none"}""").Error!.Code);
+    }
+
+    [AvaloniaFact]
     public void MuteSetTogglesCueManager()
     {
         var h = new HostHarness();

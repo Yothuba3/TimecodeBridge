@@ -46,6 +46,7 @@ public sealed class HostState : IDisposable
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
 
     private readonly Dictionary<string, (DateTime? LastTriggeredUtc, long FlashToken)> _cueRuntime = new();
+    private readonly Dictionary<string, string> _hostReachability = new();
     private readonly List<LogDto> _logs = new();
     private readonly List<LogDto> _pendingLogAppend = new();
     private bool _logsReset;
@@ -289,7 +290,14 @@ public sealed class HostState : IDisposable
     }
 
     private IReadOnlyList<HostDto> BuildHosts() =>
-        _hosts.Hosts.Select(h => new HostDto(h.Id, h.Name, h.IpAddress, h.Port, h.IsEnabled, "unknown")).ToArray();
+        _hosts.Hosts.Select(h => new HostDto(h.Id, h.Name, h.IpAddress, h.Port, h.IsEnabled, _hostReachability.GetValueOrDefault(h.Id, "unknown"))).ToArray();
+
+    /// <summary>疎通確認の結果("checking" / "reachable" / "unreachable")を保持し、hosts を更新通知する。</summary>
+    public void SetHostReachability(string hostId, string reachability)
+    {
+        _hostReachability[hostId] = reachability;
+        MarkDirty(Domain.Hosts);
+    }
 
     private CueSyncState BuildCueSync() => new(CueSync.OscAddress, CueSync.TargetHostIds.ToArray());
 

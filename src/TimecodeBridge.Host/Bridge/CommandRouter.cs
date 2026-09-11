@@ -11,15 +11,14 @@ public sealed class CommandRouter
     private readonly ITimecodeEngine _engine;
     private readonly ICueManager _cues;
     private readonly IHostRegistry _hosts;
-    private readonly IOscSender _osc;
     private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
     private readonly ProjectCoordinator _projects;
 
     public CommandRouter(HostState state, ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts,
-        IOscSender osc, ITimecodeRelay relay, IOscTriggerPanelManager panel, ProjectCoordinator projects)
+        ITimecodeRelay relay, IOscTriggerPanelManager panel, ProjectCoordinator projects)
     {
-        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _osc = osc; _relay = relay; _panel = panel; _projects = projects;
+        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _relay = relay; _panel = panel; _projects = projects;
     }
 
     public Action? CloseRequested { get; set; }
@@ -57,6 +56,17 @@ public sealed class CommandRouter
                         _state.AppendLog($"プロジェクトを開けません: {ex.Message}", false);
                         return Fail(id, ErrorCode.IoError, $"プロジェクトを開けません: {ex.Message}");
                     }
+                }
+                case "host.ping":
+                {
+                    var hostId = Str(msg.Args, "id");
+                    var host = hostId is null ? null : _hosts.Hosts.FirstOrDefault(x => x.Id == hostId);
+                    if (host is null) return Fail(id, ErrorCode.NotFound, "ホストが見つかりません");
+                    _state.SetHostReachability(host.Id, "checking");
+                    var (reachable, latencyMs) = await PingAsync(host.IpAddress);
+                    _state.SetHostReachability(host.Id, reachable ? "reachable" : "unreachable");
+                    _state.AppendLog(reachable ? $"ping {host.Name} ({host.IpAddress}) 応答 {latencyMs}ms" : $"ping {host.Name} ({host.IpAddress}) 応答なし", reachable);
+                    return Ok(id, new { reachable, latencyMs });
                 }
                 case "project.save":
                 case "project.saveAs":
@@ -399,13 +409,6 @@ public sealed class CommandRouter
                     _projects.Commit();
                     return Ok(id);
                 }
-                case "host.ping":
-                {
-                    var hostId = Str(a, "id");
-                    if (hostId is null || _hosts.Hosts.All(x => x.Id != hostId)) return Fail(id, ErrorCode.NotFound, "ホストが見つかりません");
-                    _osc.SendPing(hostId);
-                    return Ok(id);
-                }
 
                 // ---- タイムコード中継 ----
                 case "relay.configure":
@@ -497,6 +500,21 @@ public sealed class CommandRouter
     }
 
     private Cue? FindCue(string cueId) => _cues.Cues.FirstOrDefault(c => c.Id == cueId);
+
+    /// <summary>ICMP で疎通と往復時間を測る(3 秒で打ち切り)。</summary>
+    private static async Task<(bool Reachable, long? LatencyMs)> PingAsync(string ipAddress)
+    {
+        try
+        {
+            using var ping = new System.Net.NetworkInformation.Ping();
+            var reply = await ping.SendPingAsync(ipAddress, 3000);
+            return reply.Status == System.Net.NetworkInformation.IPStatus.Success ? (true, reply.RoundtripTime) : (false, null);
+        }
+        catch (Exception)
+        {
+            return (false, null);
+        }
+    }
 
     // ---- キュー下書きの解釈(protocol の CueDraft / CueBatchDraft) ----
 

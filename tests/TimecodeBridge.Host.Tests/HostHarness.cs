@@ -29,7 +29,7 @@ public sealed class HostHarness
         Panel = new OscTriggerPanelManager(Osc, Hosts);
         State = new HostState(Engine, Cues, Hosts, Osc, Relay, Panel, Project, Devices, Recent);
         Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Relay, Panel, Project, Recent);
-        Router = new CommandRouter(State, Engine, Cues, Hosts, Osc, Relay, Panel, Projects);
+        Router = new CommandRouter(State, Engine, Cues, Hosts, Relay, Panel, Projects);
     }
 
     public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1")

@@ -104,7 +104,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`cue.batchUpdate`|`{ids,changes:CueBatchDraft}`|`{updated,offsetSkipped}` / `validation`|
 |`cue.sortByTime/setEnabled/fire`|`{id?,enabled?}`|`{sent?,failed?}` / `notFound`,`oscError`|
 |`cueSync.configure/send`|`{oscAddress?,targetHostIds?}`|`{sent?,failed?}` / `validation`,`oscError`|
-|`host.add/update/remove/setEnabled/ping`|`{id?,host?,enabled?}`|`{id?,reachable?,latencyMs?}` / `validation`,`inUse`,`networkError`|
+|`host.add/update/remove/setEnabled/ping`|`{id?,host?,enabled?}`|`{id?,reachable?,latencyMs?}` / `validation`,`inUse`,`networkError`。ping は ICMP 実測(3 秒打ち切り)で `{reachable, latencyMs}` を返し、hosts[].reachability を checking→reachable/unreachable に更新、送信ログにも残す|
 |`relay.configure/setContinuous/sendOnce`|設定または`{enabled}`|`{sent?,failed?}` / `validation`,`oscError`|
 |`triggerPanel.configureGrid/upsertButton/removeButton/fire`|grid/button/id|`{id?,sent?,failed?}` / `validation`,`occupiedCell`,`oscError`|
 |`logs.clear`|`{}`|なし|
