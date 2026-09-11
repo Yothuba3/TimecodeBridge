@@ -103,10 +103,20 @@ jobs:
           cp THIRD_PARTY_NOTICES.md publish/
           cd publish && 7z a "../TimecodeBridge3-${{ github.ref_name }}-win-x64.zip" .
 
+      # WebView2 Evergreen ブートストラッパーを取得し、未導入 PC で実行するインストーラーを作る
+      - name: Build installer
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile installer/MicrosoftEdgeWebview2Setup.exe
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          iscc /DAppVersion=$version installer\TimecodeBridge3.iss
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: TimecodeBridge3-*.zip
+          path: |
+            TimecodeBridge3-*.zip
+            installer-output/*.exe
 
   release:
     needs: [build-windows, build-macos]
