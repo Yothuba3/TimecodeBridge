@@ -107,7 +107,7 @@ public sealed record AppState(
     IReadOnlyList<LogDto> Logs,
     UiCapabilities UiCapabilities);
 
-public sealed record ProjectState(string DisplayName, string? FilePath, bool Dirty, bool CanUndo, bool CanRedo);
+public sealed record ProjectState(string DisplayName, string? FilePath, bool Dirty, bool CanUndo, bool CanRedo, IReadOnlyList<string> RecentFiles);
 
 public sealed record TransportState(
     string Status,

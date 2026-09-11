@@ -74,6 +74,7 @@ public sealed class App : Application
         services.AddSingleton<IOscTriggerPanelManager, OscTriggerPanelManager>();
         services.AddSingleton<ITimecodeRelay, TimecodeRelay>();
 
+        services.AddSingleton<RecentProjectsStore>();
         services.AddSingleton<HostState>();
         services.AddSingleton<ProjectCoordinator>();
         services.AddSingleton<CommandRouter>();

@@ -12,11 +12,12 @@ public sealed class MainWindow : Window
     private readonly BridgeServer _bridge;
     private readonly ITimecodeEngine _engine;
 
-    public MainWindow(HostState state, CommandRouter router, ProjectCoordinator projects, ITimecodeEngine engine)
+    public MainWindow(HostState state, CommandRouter router, ProjectCoordinator projects, ITimecodeEngine engine, RecentProjectsStore recent)
     {
         _engine = engine;
         projects.OwnerProvider = () => this;
-        BuildNativeMenu(router);
+        BuildNativeMenu(router, recent);
+        recent.Changed += () => BuildNativeMenu(router, recent);
         Title = "TimecodeBridge";
         Width = 1600;
         Height = 900;
@@ -36,7 +37,7 @@ public sealed class MainWindow : Window
     }
 
     // macOS のメニューバー。Web 側のショートカット(Cmd+O/S/Z 等)は WebView 内では拾えないため、ここで受けて同じ command に流す
-    private void BuildNativeMenu(CommandRouter router)
+    private void BuildNativeMenu(CommandRouter router, RecentProjectsStore recent)
     {
         NativeMenuItem Item(string header, string command, Key key, KeyModifiers modifiers = KeyModifiers.Meta)
         {
@@ -48,6 +49,14 @@ public sealed class MainWindow : Window
         var file = new NativeMenu();
         file.Items.Add(Item("新規プロジェクト", "project.new", Key.N));
         file.Items.Add(Item("開く…", "project.open", Key.O));
+        var recentMenu = new NativeMenu();
+        foreach (var path in recent.Items)
+        {
+            var entry = new NativeMenuItem(Path.GetFileName(path)) { ToolTip = path };
+            entry.Click += async (_, _) => await router.ExecuteAsync(CommandRouter.Synthetic("menu", "project.open", new { path }));
+            recentMenu.Items.Add(entry);
+        }
+        file.Items.Add(new NativeMenuItem("最近使ったプロジェクト") { Menu = recentMenu, IsEnabled = recent.Items.Count > 0 });
         file.Items.Add(new NativeMenuItemSeparator());
         file.Items.Add(Item("保存", "project.save", Key.S));
         file.Items.Add(Item("名前を付けて保存…", "project.saveAs", Key.S, KeyModifiers.Meta | KeyModifiers.Shift));

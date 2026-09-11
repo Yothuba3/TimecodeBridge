@@ -32,7 +32,7 @@ enumは言語間で安定する文字列、IDは不変文字列とする。
 type FrameRate = "24"|"25"|"29.97df"|"30";
 interface AppState {
  sessionId:string;
- project:{displayName:string;filePath:string|null;dirty:boolean;canUndo:boolean;canRedo:boolean};
+ project:{displayName:string;filePath:string|null;dirty:boolean;canUndo:boolean;canRedo:boolean;recentFiles:string[]};
  mode:"ltc"|"generate";
  transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent:number|null;locked:boolean;levelVpp:number|null;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId:string|null;autoUnmuteAtUtc:string|null};
  receive:{selectedDeviceId:string|null;devices:AudioDevice[];offset:string;triggerWindowFrames:number;freerunDurationSeconds:number};
@@ -170,7 +170,8 @@ interface CueBatchDraft {
 // project.save {} / project.saveAs {suggestedName?} → {cancelled, path}  未保存パスなら save も saveAs と同じくダイアログ
 // app.undo / app.redo {} → 成功 or invalidState(履歴なし)。可否は state.project.canUndo/canRedo
 //   履歴は ProjectData のスナップショット(最大 50、500ms 以内の連続変更は集約)。ソース設定(デバイス・生成器)は Undo 対象外
-// macOS のメニュー(Cmd+N/O/S/Shift+S, Cmd+Z/Shift+Z)は Host が同じ command を内部で実行し、結果は patch として届く
+// macOS のメニュー(Cmd+N/O/S/Shift+S, Cmd+Z/Shift+Z, 最近使ったプロジェクト)は Host が同じ command を内部で実行し、結果は patch として届く
+// state.project.recentFiles は最近使ったプロジェクト(新しい順, 最大 10)。Web から開くときは project.open {path} を送る
 ```
 
 ## 起動順序・M0

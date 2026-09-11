@@ -25,6 +25,7 @@ public sealed class ProjectCoordinator : IProjectHistory
     private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
     private readonly IProjectService _project;
+    private readonly RecentProjectsStore _recent;
 
     private readonly List<string> _history = new();
     private int _historyIndex = -1;
@@ -32,9 +33,9 @@ public sealed class ProjectCoordinator : IProjectHistory
     private DateTime _lastSnapshotAt;
 
     public ProjectCoordinator(HostState state, ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts,
-        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project)
+        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project, RecentProjectsStore recent)
     {
-        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _relay = relay; _panel = panel; _project = project;
+        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _relay = relay; _panel = panel; _project = project; _recent = recent;
         _state.History = this;
         RecordBaseline();
     }
@@ -150,10 +151,20 @@ public sealed class ProjectCoordinator : IProjectHistory
         path ??= await PickOpenPathAsync();
         if (path is null) return (true, null);
 
-        var data = _project.LoadProject(path);
+        ProjectData data;
+        try
+        {
+            data = _project.LoadProject(path);
+        }
+        catch (FileNotFoundException)
+        {
+            _recent.Remove(path);
+            throw;
+        }
         ClearAll();
         ApplyData(data, restoreSource: true);
         RecordBaseline();
+        _recent.Add(path);
         _state.MarkDirty(Domain.All);
         return (false, path);
     }
@@ -164,6 +175,7 @@ public sealed class ProjectCoordinator : IProjectHistory
         path ??= await PickSavePathAsync(suggestedName ?? Path.GetFileName(_project.CurrentFilePath) ?? "project");
         if (path is null) return (true, null);
         _project.SaveProject(path, Capture(includeSource: true));
+        _recent.Add(path);
         _state.MarkDirty(Domain.Project);
         return (false, path);
     }

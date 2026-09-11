@@ -4,6 +4,7 @@ using TimecodeBridge.Core.Audio;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
+using TimecodeBridge.Host.Services;
 
 namespace TimecodeBridge.Host.Bridge;
 
@@ -41,6 +42,7 @@ public sealed class HostState : IDisposable
     private readonly IOscTriggerPanelManager _panel;
     private readonly IProjectService _project;
     private readonly IAudioDeviceService _devices;
+    private readonly RecentProjectsStore _recent;
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
 
     private readonly Dictionary<string, (DateTime? LastTriggeredUtc, long FlashToken)> _cueRuntime = new();
@@ -55,10 +57,12 @@ public sealed class HostState : IDisposable
 
     public HostState(
         ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts, IOscSender osc,
-        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project, IAudioDeviceService devices)
+        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project, IAudioDeviceService devices,
+        RecentProjectsStore recent)
     {
         _engine = engine; _cues = cues; _hosts = hosts; _osc = osc;
-        _relay = relay; _panel = panel; _project = project; _devices = devices;
+        _relay = relay; _panel = panel; _project = project; _devices = devices; _recent = recent;
+        _recent.Changed += () => MarkDirty(Domain.Project);
 
         _engine.TimecodeUpdated += OnTimecodeUpdated;
         _engine.StatusChanged += OnStatusChanged;
@@ -161,7 +165,7 @@ public sealed class HostState : IDisposable
     {
         var path = _project.CurrentFilePath;
         var name = path is null ? "無題" : Path.GetFileNameWithoutExtension(path);
-        return new ProjectState(name, path, _project.HasUnsavedChanges, History?.CanUndo ?? false, History?.CanRedo ?? false);
+        return new ProjectState(name, path, _project.HasUnsavedChanges, History?.CanUndo ?? false, History?.CanRedo ?? false, _recent.Items.ToArray());
     }
 
     private TransportState BuildTransport()
