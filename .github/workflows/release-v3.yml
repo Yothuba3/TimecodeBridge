@@ -78,7 +78,8 @@ jobs:
           cache-dependency-path: src/TimecodeBridge.Web/package-lock.json
       - uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build Web UI and verify committed dist
+      # dist の差分検査は macOS ジョブで行う(Windows は改行コードの自動変換で偽の差分が出る)
+      - name: Build Web UI
         working-directory: src/TimecodeBridge.Web
         shell: bash
         run: |
@@ -86,7 +87,6 @@ jobs:
           npm run typecheck
           npm test
           npm run build
-          git diff --exit-code -- dist
 
       - name: Build libltc.dll
         shell: cmd
