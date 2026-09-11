@@ -89,7 +89,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |---|---|---|
 |`app.undo`, `app.redo`|`{}`|`notAvailable`|
 |`project.new/open/save/saveAs`|`{path?,suggestedName?}`|`{cancelled,path?}` / `invalidProject`,`ioError`|
-|`mode.set`|`{mode}`|`busy`,`unsupported`|
+|`mode.set`|`{mode}`|`{ltcStarted}` / `validation`。ltc へ切り替えたとき、選択済みの入力デバイスがあれば Host が自動で受信を再開する(未選択なら停止のまま)|
 |`ltc.start/stop/reconnect`|`{deviceId?}`|`deviceNotFound`,`audioError`,`nativeError`|
 |`audio.refreshDevices`|`{direction}`|patch / `audioError`|
 |`receive.setOffset`|`{value}`|`{normalized}` / `validation`|

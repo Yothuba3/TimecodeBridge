@@ -111,8 +111,21 @@ public sealed class CommandRouter
                     _state.GeneratorRunning = false;
                     _state.Mode = mode;
                     _state.SetError(null);
+                    // LTC 受信へ戻ったときは、選択済みの入力デバイスがあればそのまま受信を再開する(再接続の手間を省く)
+                    if (mode == "ltc" && _state.FindDevice(_state.SelectedInputDeviceId) is { } input)
+                    {
+                        try
+                        {
+                            _engine.StartLtc(input.Id, input.IsLoopback);
+                            _state.LtcStarted = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            _state.SetError($"音声入力を開けません: {ex.Message}");
+                        }
+                    }
                     _state.MarkDirty(Domain.Mode | Domain.Transport | Domain.Generator | Domain.Receive);
-                    return Ok(id);
+                    return Ok(id, new { ltcStarted = _state.LtcStarted });
                 }
                 case "ltc.start":
                 case "ltc.reconnect":

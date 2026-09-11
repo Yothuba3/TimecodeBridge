@@ -57,6 +57,27 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
+    public void SwitchingBackToLtcReconnectsSelectedDevice()
+    {
+        var h = new HostHarness();
+        Assert.True(h.Run("ltc.reconnect", """{"deviceId":"in-1"}""").Ok);
+        Assert.True(h.Run("mode.set", """{"mode":"generate"}""").Ok);
+        Assert.False(h.State.LtcStarted);
+        h.Engine.Calls.Clear();
+
+        Assert.True(h.Run("mode.set", """{"mode":"ltc"}""").Ok);
+        Assert.Contains("StartLtc:in-1:False", h.Engine.Calls);
+        Assert.True(h.State.LtcStarted);
+        Assert.Equal("in-1", h.State.SelectedInputDeviceId);
+
+        // デバイス未選択なら停止のまま(エラーにはしない)
+        var h2 = new HostHarness();
+        Assert.True(h2.Run("mode.set", """{"mode":"ltc"}""").Ok);
+        Assert.False(h2.State.LtcStarted);
+        Assert.DoesNotContain(h2.Engine.Calls, c => c.StartsWith("StartLtc"));
+    }
+
+    [AvaloniaFact]
     public void LtcReconnectRequiresKnownDevice()
     {
         var h = new HostHarness();
