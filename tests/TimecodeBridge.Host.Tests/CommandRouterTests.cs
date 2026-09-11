@@ -1,3 +1,4 @@
+using Avalonia.Headless.XUnit;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Host.Bridge;
 using Xunit;
@@ -6,7 +7,7 @@ namespace TimecodeBridge.Host.Tests;
 
 public class CommandRouterTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void UnknownCommandIsRejected()
     {
         var h = new HostHarness();
@@ -16,7 +17,7 @@ public class CommandRouterTests
         Assert.Equal("r1", r.RequestId);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOffsetNormalizesAndRejectsGarbage()
     {
         var h = new HostHarness();
@@ -30,7 +31,7 @@ public class CommandRouterTests
         Assert.True(bad.Error.FieldErrors!.ContainsKey("value"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TriggerWindowIsBounded()
     {
         var h = new HostHarness();
@@ -41,7 +42,7 @@ public class CommandRouterTests
         Assert.Equal(3, h.Cues.TriggerWindowFrames);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ModeSetStopsEngineAndSwitchesMode()
     {
         var h = new HostHarness();
@@ -51,7 +52,7 @@ public class CommandRouterTests
         Assert.Equal(ErrorCode.Validation, h.Run("mode.set", """{"mode":"vinyl"}""").Error!.Code);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LtcReconnectRequiresKnownDevice()
     {
         var h = new HostHarness();
@@ -74,7 +75,7 @@ public class CommandRouterTests
         Assert.False(h.State.LtcStarted);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CueFireAndEnableUseCueManager()
     {
         var h = new HostHarness();
@@ -89,7 +90,7 @@ public class CommandRouterTests
         Assert.False(h.Cues.Cues[0].IsEnabled);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CueSyncConfigureValidatesAddressAndSendUsesIt()
     {
         var h = new HostHarness();
@@ -100,7 +101,7 @@ public class CommandRouterTests
         Assert.Contains(h.Osc.Sent, s => s.Address == "/sync" && s.Hosts.Contains("h1"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HostAddValidatesAndRegisters()
     {
         var h = new HostHarness();
@@ -112,7 +113,7 @@ public class CommandRouterTests
         Assert.Equal("Light", h.Hosts.Hosts[0].Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MuteSetTogglesCueManager()
     {
         var h = new HostHarness();
@@ -121,7 +122,7 @@ public class CommandRouterTests
         Assert.Equal(ErrorCode.Validation, h.Run("mute.set", """{"muted":"yes"}""").Error!.Code);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EmptyCueDraftIsRejectedAsValidation()
     {
         var h = new HostHarness();
@@ -130,7 +131,7 @@ public class CommandRouterTests
         Assert.Equal("cue.name", r.Error.FieldErrors!.Keys.Single());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GeneratorConfigureAndStart()
     {
         var h = new HostHarness();

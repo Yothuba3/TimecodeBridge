@@ -48,12 +48,11 @@ public sealed class App : Application
         if (OperatingSystem.IsWindows())
         {
             services.AddSingleton<IAudioDeviceService, WindowsAudioDeviceService>();
-            // Windows 版の IAudioCapture/IAudioPlayback(WASAPI)は M4 で実装する
             services.AddSingleton<ITimecodeEngine>(sp => new TimecodeEngine(
                 FrameRate.Fps30,
                 sp.GetRequiredService<IAudioDeviceService>(),
-                () => throw new PlatformNotSupportedException("Windows 版の音声入力は未実装です"),
-                () => throw new PlatformNotSupportedException("Windows 版の音声出力は未実装です"),
+                () => new WasapiAudioCapture(),
+                () => new WasapiAudioPlayback(),
                 () => new LibltcDecoder()));
         }
         else
