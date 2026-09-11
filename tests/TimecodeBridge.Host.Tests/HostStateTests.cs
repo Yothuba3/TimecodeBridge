@@ -87,6 +87,15 @@ public class HostStateTests
     }
 
     [Fact]
+    public void FullWidthDigitsAndSeparatorsAreNormalized()
+    {
+        Assert.True(HostState.TryParseTimecode("０１：０２：０３：０４", FrameRate.Fps30, out var tc));
+        Assert.Equal(new TimecodeValue(1, 2, 3, 4, FrameRate.Fps30), tc);
+        Assert.Equal("-00:00:01:00", HostState.NormalizeTimecodeText("－００：００：０１：００"));
+        Assert.Equal("+00:00:00:05", HostState.NormalizeTimecodeText(" ＋00:00:00:05 "));
+    }
+
+    [Fact]
     public void WaveReducerReducesToMinMaxAndReportsLevel()
     {
         var w = new WaveReducer();

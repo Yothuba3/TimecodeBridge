@@ -25,6 +25,10 @@ public class CommandRouterTests
         Assert.True(ok.Ok);
         Assert.Equal("-00:00:01:00", h.Engine.Offset.ToString());
 
+        var wide = h.Run("receive.setOffset", """{"value":"＋００：００：００：０５"}""");
+        Assert.True(wide.Ok);
+        Assert.Equal("+00:00:00:05", h.Engine.Offset.ToString());
+
         var bad = h.Run("receive.setOffset", """{"value":"abc"}""");
         Assert.False(bad.Ok);
         Assert.Equal(ErrorCode.Validation, bad.Error!.Code);

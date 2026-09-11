@@ -140,7 +140,7 @@ public sealed class CommandRouter
                 case "receive.setOffset":
                 {
                     var text = Str(a, "value") ?? "";
-                    if (!TimecodeOffset.TryParse(text, _engine.FrameRate, out var offset))
+                    if (!TimecodeOffset.TryParse(HostState.NormalizeTimecodeText(text), _engine.FrameRate, out var offset))
                         return Validation(id, "value", "±HH:MM:SS:FF の形式で入力してください");
                     _engine.Offset = offset;
                     _projects.Commit();
@@ -519,7 +519,7 @@ public sealed class CommandRouter
         TimecodeOffset? triggerOffset = null;
         if (Str(d, "triggerOffset") is { } offsetText && offsetText.Trim().Length > 0)
         {
-            if (!TimecodeOffset.TryParse(offsetText, rate, out var parsedOffset)) return (null, new("cue.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"));
+            if (!TimecodeOffset.TryParse(HostState.NormalizeTimecodeText(offsetText), rate, out var parsedOffset)) return (null, new("cue.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"));
             if (parsedOffset.TotalFrames() != 0) triggerOffset = parsedOffset;
         }
         if (!Cue.TryApplyTriggerOffset(trigger, triggerOffset, out _))
@@ -632,7 +632,7 @@ public sealed class CommandRouter
             b.HasTriggerOffset = true;
             if (Str(c, "triggerOffset") is { } t && t.Trim().Length > 0)
             {
-                if (!TimecodeOffset.TryParse(t, rate, out var off)) { b.Error = new("changes.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"); return b; }
+                if (!TimecodeOffset.TryParse(HostState.NormalizeTimecodeText(t), rate, out var off)) { b.Error = new("changes.triggerOffset", "±HH:MM:SS:FF の形式で入力してください"); return b; }
                 if (off.TotalFrames() != 0) b.TriggerOffset = off;
             }
         }

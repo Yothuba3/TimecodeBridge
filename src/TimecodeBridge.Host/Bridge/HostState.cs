@@ -411,12 +411,31 @@ public sealed class HostState : IDisposable
         }
     }
 
+    /// <summary>全角の数字・コロン・符号を半角へ寄せる。UI は半角しか受け付けないが、貼り付けや旧データの保険。</summary>
+    public static string NormalizeTimecodeText(string text)
+    {
+        var sb = new System.Text.StringBuilder(text.Length);
+        foreach (var ch in text.Trim())
+        {
+            sb.Append(ch switch
+            {
+                >= '０' and <= '９' => (char)('0' + (ch - '０')),
+                '：' => ':',
+                '；' => ';',
+                '＋' => '+',
+                '－' or '−' or 'ー' => '-',
+                _ => ch,
+            });
+        }
+        return sb.ToString();
+    }
+
     /// <summary>"HH:MM:SS:FF"(ドロップフレームは最後の区切りが ';' でもよい)を解釈する。</summary>
     public static bool TryParseTimecode(string? text, FrameRate rate, out TimecodeValue value)
     {
         value = default;
         if (string.IsNullOrWhiteSpace(text)) return false;
-        var parts = text.Trim().Split(':', ';');
+        var parts = NormalizeTimecodeText(text).Split(':', ';');
         if (parts.Length != 4) return false;
         var n = new int[4];
         for (int i = 0; i < 4; i++)
