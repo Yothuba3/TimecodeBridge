@@ -1,0 +1,3 @@
+import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {App} from "../src/components/app";import {appStore} from "../src/store";import {fakeState} from "../src/testing/fake-host";
+
+test("App keeps the operational panels in the server-rendered shell",()=>{const state=fakeState();appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));for(const text of ["判定幅","TC 入出力","Cue-Sync 送信設定","送信ログ","OSC ポン出し","発火後オートミュート","NEXT CUE","キューリスト"])assert.ok(html.includes(text),`missing rendered text: ${text}`)});
