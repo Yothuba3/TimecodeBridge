@@ -9,7 +9,7 @@ namespace TimecodeBridge.Host;
 /// <summary>Web UI を全面に表示するだけのウィンドウ。操作はすべて <see cref="BridgeServer"/> 経由。</summary>
 public sealed class MainWindow : Window
 {
-    private readonly BridgeServer _bridge;
+    private readonly BridgeServer? _bridge;
     private readonly ITimecodeEngine _engine;
 
     public MainWindow(HostState state, CommandRouter router, ProjectCoordinator projects, ITimecodeEngine engine, RecentProjectsStore recent)
@@ -24,14 +24,36 @@ public sealed class MainWindow : Window
         MinWidth = 1100;
         MinHeight = 640;
 
-        var webView = new NativeWebView();
+        NativeWebView webView;
+        try
+        {
+            webView = new NativeWebView();
+        }
+        catch (Exception ex)
+        {
+            // Windows では WebView2 ランタイム(Evergreen)が無いと生成に失敗する。原因と入手先を示して止める
+            Content = new ScrollViewer
+            {
+                Content = new TextBlock
+                {
+                    Margin = new Avalonia.Thickness(16),
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    Text = "画面の表示に使う WebView を初期化できませんでした。\n\n" +
+                           (OperatingSystem.IsWindows()
+                               ? "Windows では Microsoft Edge WebView2 ランタイムが必要です。https://developer.microsoft.com/microsoft-edge/webview2/ から Evergreen ランタイムをインストールして再起動してください。\n\n"
+                               : "") + ex,
+                },
+            };
+            _bridge = null!;
+            return;
+        }
         Content = webView;
         _bridge = new BridgeServer(webView, state, router, Close);
 
         Opened += (_, _) => webView.Navigate(WebAssets.IndexUri());
         Closing += (_, _) =>
         {
-            _bridge.Dispose();
+            _bridge?.Dispose();
             _engine.Stop();
         };
     }
