@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # smoke.sh — 実機(このMac)で LTC ループバック受信 → キュー発火 → OSC 受信 → 撮影 まで人手なしで通す。
 # 前提: tcb3ctl start --build 済みか Debug ビルドがあること、Pro Tools Audio Bridge 等の同名入出力デバイスがあること。
-# 使い方: tools/tcb3/smoke.sh [--keep]   (--keep で終了時に Host を止めない)
+# 使い方: tools/tcb3/smoke.sh [--keep] [--attach]
+#   --keep    終了時に Host を止めない
+#   --attach  TCB3_PORT で動いている Host をそのまま使う(起動・停止せず、追加したホストとキューは終了時に消す)
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +11,8 @@ CTL="$HERE/tcb3ctl"
 DEVICE="${TCB3_SELFTEST_DEVICE:-Pro Tools Audio Bridge 2-A}"
 OSC_PORT="${TCB3_OSC_PORT:-9100}"
 export TCB3_RUN_DIR="${TCB3_RUN_DIR:-/tmp/tcb3ctl}"
-KEEP=0; [ "${1:-}" = "--keep" ] && KEEP=1
+KEEP=0; ATTACH=0
+for arg in "$@"; do case "$arg" in --keep) KEEP=1 ;; --attach) ATTACH=1; KEEP=1 ;; *) echo "不明な引数: $arg" >&2; exit 2 ;; esac; done
 FAIL=0
 
 step() { echo "== $*"; }
@@ -20,9 +23,14 @@ add_seconds() { python3 -c 'import sys; h,m,s,_=map(int,sys.argv[1].replace(";",
 mkdir -p "$TCB3_RUN_DIR"
 OSC_OUT="$TCB3_RUN_DIR/osc-$(date +%H%M%S).jsonl"
 
-"$CTL" stop >/dev/null 2>&1 || true
-step "起動(自己テスト LTC → $DEVICE)"
-"$CTL" start --selftest "$DEVICE" || { echo "SMOKE FAIL: 起動できません"; exit 1; }
+if [ $ATTACH = 1 ]; then
+  step "起動済みの Host を使う(TCB3_PORT=${TCB3_PORT:-47300})"
+  "$CTL" health >/dev/null 2>&1 || { echo "SMOKE FAIL: Host が応答しません(--attach)"; exit 1; }
+else
+  "$CTL" stop >/dev/null 2>&1 || true
+  step "起動(自己テスト LTC → $DEVICE)"
+  "$CTL" start --selftest "$DEVICE" || { echo "SMOKE FAIL: 起動できません"; exit 1; }
+fi
 
 step "LTC 受信"
 if "$CTL" wait '.state.transport.status=="receiving"' 20; then ok "transport.status=receiving"; else ng "receiving にならない"; fi
@@ -53,5 +61,10 @@ if [ "$("$CTL" state '[.state.logs[]|select(.success and (.message|test("/smoke/
 step "撮影"
 shot=$("$CTL" shot) && ok "$shot" || ng "撮影失敗"
 
+if [ $ATTACH = 1 ]; then
+  step "後片付け(追加したキューとホストを消す)"
+  [ -n "$cid" ] && "$CTL" cmd cue.remove "{\"ids\":[\"$cid\"]}" >/dev/null
+  [ -n "$hid" ] && "$CTL" cmd host.remove "{\"id\":\"$hid\"}" >/dev/null
+fi
 if [ $KEEP = 0 ]; then "$CTL" stop; fi
 if [ $FAIL = 0 ]; then echo "SMOKE PASS"; else echo "SMOKE FAIL"; exit 1; fi

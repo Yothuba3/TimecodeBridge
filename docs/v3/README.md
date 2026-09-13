@@ -66,7 +66,7 @@ tools/tcb3/tcb3ctl stop
 | `POST /reload` | Web UI を読み込み直す(Host の状態は保つ)。`TIMECODEBRIDGE_WEB_DIST` を指していれば dist の変更がそのまま反映される |
 | `GET /screenshot` | ウィンドウの PNG(撮れない環境は 501) |
 
-`tools/tcb3/smoke.sh` は「起動 → LTC 受信(誤り 0%・時計が進む)→ ホストとキューを登録 → 発火した OSC を `tools/tcb3/osc_listen.py` で受ける → 送信ログとキューの発火記録を確認 → 撮影」を一続きで行い、`SMOKE PASS` / `SMOKE FAIL` で終わります。
+`tools/tcb3/smoke.sh` は「起動 → LTC 受信(誤り 0%・時計が進む)→ ホストとキューを登録 → 発火した OSC を `tools/tcb3/osc_listen.py` で受ける → 送信ログとキューの発火記録を確認 → 撮影」を一続きで行い、`SMOKE PASS` / `SMOKE FAIL` で終わります。 起動済みの Host に対して同じ確認をしたいときは `smoke.sh --attach`(`TCB3_PORT` の Host を使い、起動・停止せず、追加したホストとキューを終了時に消す)。
 
 複数の Host を同時に検証するときは、インスタンスごとに `TCB3_PORT` と `TCB3_RUN_DIR` を分け、以後の全サブコマンドにも同じ 2 変数を付けます(例: `TCB3_PORT=47302 TCB3_RUN_DIR=/tmp/tcb3ctl/codex tools/tcb3/tcb3ctl state`)。Host の実行ファイルは `dotnet build src/TimecodeBridge.Host -o <dir>` で別ディレクトリに作り `TCB3_EXE` で指すと、動作中の Host の bin/Debug を上書きしません。画面ロック中は Avalonia が起動できないので、新しい Host はロックを解除してから起動します。
 
