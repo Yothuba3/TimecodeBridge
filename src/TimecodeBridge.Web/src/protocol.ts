@@ -19,7 +19,7 @@ export type FrameRate = "24" | "25" | "29.97df" | "30";
 
 export interface AppState {
   sessionId: string;
-  project: { displayName: string; filePath: string | null; dirty: boolean; canUndo: boolean; canRedo: boolean };
+  project: { displayName: string; filePath: string | null; dirty: boolean; canUndo: boolean; canRedo: boolean; recentFiles: string[] };
   mode: "ltc" | "generate";
   transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMutedCueId: string | null; autoUnmuteAtUtc: string | null };
   receive: { selectedDeviceId: string | null; devices: AudioDevice[]; offset: string; triggerWindowFrames: number; freerunDurationSeconds: number };
