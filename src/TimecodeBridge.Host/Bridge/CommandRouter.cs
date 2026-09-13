@@ -346,6 +346,10 @@ public sealed class CommandRouter
                     else
                     {
                         long baseFrames = source.TriggerTime.TotalFrames();
+                        var rate = source.TriggerTime.FrameRate;
+                        long maximumFrames = new TimecodeValue(23, 59, 59, rate.FramesPerSecond() - 1, rate).TotalFrames();
+                        if (baseFrames + interval * count > maximumFrames)
+                            return Validation(id, "interval", "複製後のトリガー時間が 23:59:59:FF を超えます");
                         for (int i = 1; i <= count; i++)
                         {
                             var copy = CloneCue(source, TimecodeValue.FromTotalFrames(baseFrames + interval * i, source.TriggerTime.FrameRate));

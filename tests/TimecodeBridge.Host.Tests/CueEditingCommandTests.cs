@@ -92,6 +92,12 @@ public class CueEditingCommandTests
         var bad = h.Run("cue.duplicate", $$"""{"id":"{{id}}","count":2,"interval":"2s"}""");
         Assert.Equal(ErrorCode.Validation, bad.Error!.Code);
         Assert.Equal("interval", bad.Error!.FieldErrors!.Keys.Single());
+
+        var dayEnd = Data(h.Run("cue.add", """{"cue":{"name":"終端","triggerTime":"23:59:59:29","frameRate":"30","oscAddress":"/end"}}"""), "id");
+        var overflow = h.Run("cue.duplicate", $$"""{"id":"{{dayEnd}}","count":2,"interval":"00:00:00:01"}""");
+        Assert.Equal(ErrorCode.Validation, overflow.Error!.Code);
+        Assert.Equal("interval", overflow.Error!.FieldErrors!.Keys.Single());
+        Assert.DoesNotContain(h.Cues.Cues, cue => cue.TriggerTime.Hours >= 24);
     }
 
     [AvaloniaFact]
