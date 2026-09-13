@@ -74,7 +74,9 @@ cmd_start() {
     if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then die "port $PORT は pid $other が使用中です(TCB3_PORT を変えてください)"; fi
   done
 
-  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "TIMECODEBRIDGE_BRIDGE_TRACE=$trace")
+  mkdir -p "$RUN_DIR/data"
+  # 試験用インスタンスが利用者の settings.json(最近使ったプロジェクト)を書き換えないよう、設定保存先を run dir に分ける
+  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "TIMECODEBRIDGE_BRIDGE_TRACE=$trace" "TIMECODEBRIDGE_DATA_DIR=$RUN_DIR/data")
   if [ -n "$selftest" ]; then vars+=("TIMECODEBRIDGE_SELFTEST_OUTPUT=$selftest" "TIMECODEBRIDGE_AUTOSTART_INPUT=$selftest"); fi
   if [ "$devweb" = 1 ]; then vars+=("TIMECODEBRIDGE_WEB_DIST=$ROOT/src/TimecodeBridge.Web/dist"); fi
   vars+=(${envs[@]+"${envs[@]}"})

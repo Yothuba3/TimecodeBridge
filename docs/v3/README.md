@@ -28,6 +28,7 @@ dotnet build src/TimecodeBridge.Host/TimecodeBridge.Host.csproj
 | `TIMECODEBRIDGE_WEB_DIST=<dist ディレクトリ>` | 同梱の web/ ではなくそのディレクトリの index.html を開く(Web 開発中に便利) |
 | `TIMECODEBRIDGE_LIBLTC=<dylib のフルパス>` | 同梱の libltc ではなくそのファイルを読み込む |
 | `TIMECODEBRIDGE_AUTOMATION_PORT=<port>` | 127.0.0.1:<port> で自動操作用の HTTP を待ち受ける(下記「人手なしの実機確認」) |
+| `TIMECODEBRIDGE_DATA_DIR=<dir>` | 設定(最近使ったプロジェクト)の保存先を変える。tcb3ctl は `$TCB3_RUN_DIR/data` を渡し、試験用インスタンスが利用者の設定を書き換えないようにする |
 
 Pro Tools Audio Bridge のような仮想ループバックは、再生と取り込みが別プロセスだとタイムコードが乱れます。ハードウェアなしで確かめるときは `TIMECODEBRIDGE_SELFTEST_OUTPUT` を使ってください。
 

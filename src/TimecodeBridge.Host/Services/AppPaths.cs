@@ -14,5 +14,9 @@ public static class AppPaths
         return Path.Combine(root, appFolderName);
     }
 
-    public static string DataDirectory => DataDirectoryFor(AppFolderName);
+    /// <summary>自動操作や試験用のインスタンスが利用者の設定(最近使ったプロジェクト)を書き換えないよう、環境変数で別の場所にできる。</summary>
+    public const string DataDirectoryVariable = "TIMECODEBRIDGE_DATA_DIR";
+
+    public static string DataDirectory =>
+        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden ? overridden : DataDirectoryFor(AppFolderName);
 }
