@@ -89,7 +89,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |command|args|成功data / 主なエラー|
 |---|---|---|
 |`app.undo`, `app.redo`|`{}`|`notAvailable`|
-|`project.new/open/save/saveAs`|`{path?,suggestedName?}`|`{cancelled,path?}` / `invalidProject`,`ioError`|
+|`project.new/open/save/saveAs`|`{path?,suggestedName?}`|`{cancelled,path?}` / `invalidProject`,`ioError`。open/save/saveAs は `path` を渡すとネイティブダイアログを出さずにそのファイルを読む/書く(自動操作向け。フォルダが無ければ `ioError`)|
 |`mode.set`|`{mode}`|`{ltcStarted}` / `validation`。ltc へ切り替えたとき、選択済みの入力デバイスがあれば Host が自動で受信を再開する(未選択なら停止のまま)|
 |`ltc.start/stop/reconnect`|`{deviceId?}`|`deviceNotFound`,`audioError`,`nativeError`|
 |`audio.refreshDevices`|`{direction}`|patch / `audioError`|
@@ -168,7 +168,7 @@ interface CueBatchDraft {
 
 // project.new {} → {cancelled}            未保存があれば Host がネイティブ確認ダイアログを出す(Web 側の確認は不要)
 // project.open {path?} → {cancelled, path}  path 省略時は Host のファイルダイアログ。存在しない path は notFound、読めなければ ioError
-// project.save {} / project.saveAs {suggestedName?} → {cancelled, path}  未保存パスなら save も saveAs と同じくダイアログ
+// project.save {path?} / project.saveAs {path?, suggestedName?} → {cancelled, path}  path 指定ならダイアログなしで保存。未指定で未保存パスなら save も saveAs と同じくダイアログ
 // app.undo / app.redo {} → 成功 or invalidState(履歴なし)。可否は state.project.canUndo/canRedo
 //   履歴は ProjectData のスナップショット(最大 50、500ms 以内の連続変更は集約)。ソース設定(デバイス・生成器)は Undo 対象外
 // macOS のメニュー(Cmd+N/O/S/Shift+S, Cmd+Z/Shift+Z, 最近使ったプロジェクト)は Host が同じ command を内部で実行し、結果は patch として届く

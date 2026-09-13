@@ -72,7 +72,10 @@ public sealed class CommandRouter
                 {
                     try
                     {
-                        var (cancelled, saved) = await _projects.SaveAsync(msg.Command == "project.saveAs", Str(msg.Args, "suggestedName"));
+                        var explicitPath = Str(msg.Args, "path");
+                        if (explicitPath is not null && !Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(explicitPath))))
+                            return Fail(id, ErrorCode.IoError, $"保存先のフォルダがありません: {explicitPath}");
+                        var (cancelled, saved) = await _projects.SaveAsync(msg.Command == "project.saveAs", Str(msg.Args, "suggestedName"), explicitPath);
                         return Ok(id, new { cancelled, path = saved });
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

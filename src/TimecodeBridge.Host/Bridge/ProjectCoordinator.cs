@@ -164,9 +164,10 @@ public sealed class ProjectCoordinator : IProjectHistory
         return (false, path);
     }
 
-    public async Task<(bool Cancelled, string? Path)> SaveAsync(bool saveAs, string? suggestedName)
+    /// <summary>path を渡すとダイアログを出さずにそこへ保存する(自動操作・スクリプト向け)。</summary>
+    public async Task<(bool Cancelled, string? Path)> SaveAsync(bool saveAs, string? suggestedName, string? path = null)
     {
-        var path = saveAs ? null : _project.CurrentFilePath;
+        path ??= saveAs ? null : _project.CurrentFilePath;
         path ??= await PickSavePathAsync(suggestedName ?? Path.GetFileName(_project.CurrentFilePath) ?? "project");
         if (path is null) return (true, null);
         _project.SaveProject(path, Capture(includeSource: true));

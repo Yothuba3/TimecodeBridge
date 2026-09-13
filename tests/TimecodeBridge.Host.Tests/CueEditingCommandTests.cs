@@ -185,6 +185,31 @@ public class CueEditingCommandTests
     }
 
     [AvaloniaFact]
+    public void SaveWithExplicitPathWritesWithoutDialog()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"tcb3-save-{Guid.NewGuid():N}.json");
+        try
+        {
+            var h = new HostHarness();
+            h.Run("cue.add", """{"cue":{"name":"A","triggerTime":"00:00:01:00","oscAddress":"/a"}}""");
+            var r = h.Run("project.saveAs", $$"""{"path":"{{path.Replace("\\", "/")}}"}""");
+            Assert.True(r.Ok, r.Error?.Message);
+            Assert.Equal("false", Data(r, "cancelled"));
+            Assert.True(File.Exists(path));
+            Assert.Equal(path, h.Project.CurrentFilePath);
+            Assert.False(h.Project.HasUnsavedChanges);
+
+            h.Run("cue.add", """{"cue":{"name":"B","triggerTime":"00:00:02:00","oscAddress":"/b"}}""");
+            Assert.True(h.Run("project.save").Ok); // 既知のパスへ上書き
+            Assert.False(h.Project.HasUnsavedChanges);
+            Assert.Contains("\"B\"", File.ReadAllText(path));
+
+            Assert.Equal(ErrorCode.IoError, h.Run("project.saveAs", """{"path":"/nonexistent-dir/x.json"}""").Error!.Code);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [AvaloniaFact]
     public void NewClearsEverythingWhenNothingUnsaved()
     {
         var h = new HostHarness();
