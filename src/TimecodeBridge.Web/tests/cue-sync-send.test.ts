@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {acceptResult} from "../src/commands";
-import {cueSyncTargetCount,sendCueSync} from "../src/components/app";
+import {cueSyncTargetCount,noticeIfNotSent,sendCueSync} from "../src/components/app";
 import {fakeState} from "../src/testing/fake-host";
 
 function stubBridge():string[]{const messages:string[]=[];Object.defineProperty(globalThis,"window",{value:{invokeCSharpAction:(json:string)=>messages.push(json)},writable:true,configurable:true});return messages}
 const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+
+test("cue fire result with zero targets shows a toast",()=>{const notices:string[]=[];noticeIfNotSent({sent:false,sentCount:0,skippedHostIds:["off"]},text=>notices.push(text));assert.deepEqual(notices,["送信先ホストがありません"])});
+test("cue fire result with a sent target does not show a toast",()=>{const notices:string[]=[];noticeIfNotSent({sent:true,sentCount:1,skippedHostIds:[]},text=>notices.push(text));assert.deepEqual(notices,[])});
 
 test("cueSyncTargetCount counts only enabled hosts among the targets",()=>{const state=fakeState();assert.equal(cueSyncTargetCount(state),2);state.hosts[0]!.enabled=false;assert.equal(cueSyncTargetCount(state),1);state.cueSync.targetHostIds=["missing"];assert.equal(cueSyncTargetCount(state),0)});
 

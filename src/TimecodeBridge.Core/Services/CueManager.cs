@@ -202,7 +202,9 @@ public class CueManager : ICueManager
         cue.IsEnabled = enabled;
     }
 
-    public void ManualTrigger(string cueId)
+    public void ManualTrigger(string cueId) => ManualTriggerWithResult(cueId);
+
+    public OscDispatchResult ManualTriggerWithResult(string cueId)
     {
         Cue? found;
         lock (_gate)
@@ -212,7 +214,7 @@ public class CueManager : ICueManager
         var cue = found
             ?? throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
 
-        SendCueOsc(cue);
+        var result = SendCueOsc(cue);
         ApplyAutoMute(cue);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
@@ -220,18 +222,20 @@ public class CueManager : ICueManager
             TriggerTimecode = _timecodeEngine.CurrentOffsetTimecode,
             IsManual = true,
         });
+        return result;
     }
 
     // メインアドレス（引数あり）＋追加アドレス（引数なし）をまとめて送出する
-    private void SendCueOsc(Cue cue)
+    private OscDispatchResult SendCueOsc(Cue cue)
     {
         var args = BuildArguments(cue);
-        _oscSender.Send(cue.OscAddress, args, cue.TargetHostIds);
+        var result = _oscSender.SendWithResult(cue.OscAddress, args, cue.TargetHostIds);
 
-        foreach (var address in cue.AdditionalOscAddresses)
+        foreach (var address in cue.AdditionalOscAddresses.Where(_ => result.Sent))
         {
             _oscSender.Send(address, [], cue.TargetHostIds);
         }
+        return result;
     }
 
     /// <summary>
@@ -363,7 +367,9 @@ public class CueManager : ICueManager
         _highWaterMark = tc;
     }
 
-    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds)
+    public void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds) => SendCueSyncWithResult(oscAddress, targetHostIds);
+
+    public OscDispatchResult SendCueSyncWithResult(string oscAddress, IReadOnlyList<string> targetHostIds)
     {
         var current = _timecodeEngine.CurrentOffsetTimecode;
         long currentOrd = current.ToOrdinal();
@@ -401,7 +407,7 @@ public class CueManager : ICueManager
             totalSeconds = (float)(sendSeconds + elapsedSeconds);
         }
 
-        _oscSender.Send(oscAddress, [new OscFloat32Argument(totalSeconds)], targetHostIds);
+        return _oscSender.SendWithResult(oscAddress, [new OscFloat32Argument(totalSeconds)], targetHostIds);
     }
 
     private void TriggerCue(Cue cue, TimecodeValue triggerTimecode)

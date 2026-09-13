@@ -397,7 +397,9 @@ public sealed class HostState : IDisposable
 
     private void OnOscSendCompleted(object? sender, OscSendResultEventArgs e)
     {
-        var text = e.Success
+        var text = !e.Success && string.IsNullOrEmpty(e.HostId)
+            ? $"{e.OscAddress} {e.ErrorMessage}"
+            : e.Success
             ? $"{e.OscAddress} → {e.HostName}"
             : $"{e.OscAddress} → {e.HostName} 失敗: {e.ErrorMessage}";
         if (Dispatcher.UIThread.CheckAccess()) AppendLog(text, e.Success);

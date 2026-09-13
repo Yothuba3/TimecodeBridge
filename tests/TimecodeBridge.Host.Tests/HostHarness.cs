@@ -23,6 +23,7 @@ public sealed class HostHarness
 
     public HostHarness()
     {
+        Osc.HostRegistry = Hosts;
         Cues = new CueManager(Engine, Osc);
         Panel = new OscTriggerPanelManager(Osc, Hosts);
         State = new HostState(Engine, Cues, Hosts, Osc, Panel, Project, Devices, Recent);

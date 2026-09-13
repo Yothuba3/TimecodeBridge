@@ -8,6 +8,57 @@ namespace TimecodeBridge.Host.Tests;
 public class CommandRouterTests
 {
     [AvaloniaFact]
+    public void CueFireReportsDisabledMissingAndMixedTargets()
+    {
+        static System.Text.Json.JsonElement Data(ResultMessage result) => System.Text.Json.JsonSerializer.SerializeToElement(result.Data, Protocol.Json);
+        var h = new HostHarness();
+        h.Hosts.AddHost(new OscHost { Id = "off", Name = "無効Host", IpAddress = "127.0.0.1", Port = 9000, IsEnabled = false });
+        h.Hosts.AddHost(new OscHost { Id = "on", Name = "有効Host", IpAddress = "127.0.0.1", Port = 9001, IsEnabled = true });
+
+        ResultMessage Fire(string id, string targets)
+        {
+            var add = h.Run("cue.add", $$$"""{"cue":{"name":"{{{id}}}","triggerTime":"00:00:01:00","oscAddress":"/go","targetHostIds":{{{targets}}}}}""");
+            var cueId = Data(add).GetProperty("id").GetString();
+            return h.Run("cue.fire", System.Text.Json.JsonSerializer.Serialize(new { id = cueId }, Protocol.Json));
+        }
+
+        var disabled = Data(Fire("disabled", "[\"off\"]"));
+        Assert.False(disabled.GetProperty("sent").GetBoolean());
+        Assert.Equal(0, disabled.GetProperty("sentCount").GetInt32());
+        Assert.Equal("off", disabled.GetProperty("skippedHostIds")[0].GetString());
+        Assert.Contains(h.State.BuildSnapshot().Logs, l => !l.Success && l.Message.Contains("送信先がありません(無効: 無効Host)"));
+
+        var missing = Data(Fire("missing", "[\"missing\"]"));
+        Assert.False(missing.GetProperty("sent").GetBoolean());
+        Assert.Equal("missing", missing.GetProperty("skippedHostIds")[0].GetString());
+
+        var mixed = Data(Fire("mixed", "[\"on\",\"off\",\"missing\"]"));
+        Assert.True(mixed.GetProperty("sent").GetBoolean());
+        Assert.Equal(1, mixed.GetProperty("sentCount").GetInt32());
+        Assert.Equal(2, mixed.GetProperty("skippedHostIds").GetArrayLength());
+    }
+
+    [AvaloniaFact]
+    public void TriggerPanelAndCueSyncReturnDispatchDetails()
+    {
+        static System.Text.Json.JsonElement Data(ResultMessage result) => System.Text.Json.JsonSerializer.SerializeToElement(result.Data, Protocol.Json);
+        var h = new HostHarness();
+        h.Hosts.AddHost(new OscHost { Id = "off", Name = "無効Host", IpAddress = "127.0.0.1", Port = 9000, IsEnabled = false });
+        Assert.True(h.Run("triggerPanel.upsertButton", """{"button":{"id":"b1","row":0,"column":0,"label":"GO","oscAddress":"/go","targetHostIds":["off"]}}""").Ok);
+        var panel = Data(h.Run("triggerPanel.fire", """{"id":"b1"}"""));
+        Assert.False(panel.GetProperty("sent").GetBoolean());
+        Assert.Equal(0, panel.GetProperty("sentCount").GetInt32());
+        Assert.Equal("off", panel.GetProperty("skippedHostIds")[0].GetString());
+        Assert.Equal("送信できませんでした", panel.GetProperty("reason").GetString());
+
+        Assert.True(h.Run("cueSync.configure", """{"targetHostIds":["missing"]}""").Ok);
+        var sync = Data(h.Run("cueSync.send"));
+        Assert.False(sync.GetProperty("sent").GetBoolean());
+        Assert.Equal(0, sync.GetProperty("sentCount").GetInt32());
+        Assert.Equal("missing", sync.GetProperty("skippedHostIds")[0].GetString());
+    }
+
+    [AvaloniaFact]
     public void ExpectedRevisionMismatchIsRejectedWithoutMutation()
     {
         var h = new HostHarness();

@@ -42,6 +42,11 @@ public interface ICueManager
     void ReorderCues(IReadOnlyList<string> orderedCueIds);
     void SetCueEnabled(string cueId, bool enabled);
     void ManualTrigger(string cueId);
+    OscDispatchResult ManualTriggerWithResult(string cueId)
+    {
+        ManualTrigger(cueId);
+        return new OscDispatchResult(0, []);
+    }
 
     /// <summary>再生位置の追跡状態を仕切り直す（位置ジャンプ時の中間キュー一斉発火を防ぐ）。</summary>
     void ResetTracking();
@@ -53,6 +58,11 @@ public interface ICueManager
     /// 基準キューがなければ 0.0 を送る。
     /// </summary>
     void SendCueSync(string oscAddress, IReadOnlyList<string> targetHostIds);
+    OscDispatchResult SendCueSyncWithResult(string oscAddress, IReadOnlyList<string> targetHostIds)
+    {
+        SendCueSync(oscAddress, targetHostIds);
+        return new OscDispatchResult(0, targetHostIds);
+    }
 
     event EventHandler<CueTriggeredEventArgs> CueTriggered;
 }

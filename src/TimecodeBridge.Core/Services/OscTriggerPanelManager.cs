@@ -81,12 +81,9 @@ public class OscTriggerPanelManager : IOscTriggerPanelManager
         if (button is null || string.IsNullOrWhiteSpace(button.OscAddress))
             return new TriggerResult(false, TriggerSkipReason.NotConfigured);
 
-        var enabledHosts = _hostRegistry.GetEnabledHosts(button.TargetHostIds);
-        if (enabledHosts.Count == 0)
-            return new TriggerResult(false, TriggerSkipReason.NoEnabledTarget);
-
-        _oscSender.Send(button.OscAddress, button.Arguments, button.TargetHostIds);
-        return new TriggerResult(true, TriggerSkipReason.None);
+        var result = _oscSender.SendWithResult(button.OscAddress, button.Arguments, button.TargetHostIds);
+        return new TriggerResult(result.Sent, result.Sent ? TriggerSkipReason.None : TriggerSkipReason.NoEnabledTarget,
+            result.SentCount, result.SkippedHostIds);
     }
 
     public OscTriggerPanelSettings GetSettings()

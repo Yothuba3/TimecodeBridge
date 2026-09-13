@@ -295,8 +295,8 @@ public sealed class CommandRouter
                 {
                     var cueId = Str(a, "id");
                     if (cueId is null || FindCue(cueId) is null) return Fail(id, ErrorCode.NotFound, "キューが見つかりません");
-                    _cues.ManualTrigger(cueId);
-                    return Ok(id, new { sent = true });
+                    var cueDispatch = _cues.ManualTriggerWithResult(cueId);
+                    return Ok(id, new { sent = cueDispatch.Sent, sentCount = cueDispatch.SentCount, skippedHostIds = cueDispatch.SkippedHostIds });
                 }
                 case "cue.remove":
                 {
@@ -410,8 +410,8 @@ public sealed class CommandRouter
                     _state.MarkDirty(Domain.CueSync);
                     return Ok(id);
                 case "cueSync.send":
-                    _cues.SendCueSync(_state.CueSync.OscAddress, _state.CueSync.TargetHostIds);
-                    return Ok(id, new { sent = true });
+                    var syncDispatch = _cues.SendCueSyncWithResult(_state.CueSync.OscAddress, _state.CueSync.TargetHostIds);
+                    return Ok(id, new { sent = syncDispatch.Sent, sentCount = syncDispatch.SentCount, skippedHostIds = syncDispatch.SkippedHostIds });
 
                 // ---- 送信先ホスト ----
                 case "host.add":
@@ -498,7 +498,8 @@ public sealed class CommandRouter
                     var buttonId = Str(a, "id");
                     if (buttonId is null) return Validation(id, "id", "必須");
                     var r = _panel.Trigger(buttonId);
-                    return Ok(id, new { sent = r.Sent, reason = r.Reason.ToString() });
+                    var reason = r.Reason == TriggerSkipReason.NoEnabledTarget ? "送信できませんでした" : r.Reason.ToString();
+                    return Ok(id, new { sent = r.Sent, sentCount = r.SentCount, skippedHostIds = r.SkippedHostIds ?? [], reason });
                 }
 
                 // ---- その他 ----

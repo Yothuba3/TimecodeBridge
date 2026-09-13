@@ -36,11 +36,32 @@ public sealed class FakeEngine : ITimecodeEngine
 
 public sealed class FakeOscSender : IOscSender
 {
+    public IHostRegistry? HostRegistry { get; set; }
     public List<(string Address, IReadOnlyList<string> Hosts)> Sent { get; } = new();
     public List<string> Pinged { get; } = new();
     public event EventHandler<OscSendResultEventArgs>? SendCompleted;
 
     public void Send(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds) => Sent.Add((oscAddress, targetHostIds));
+    public OscDispatchResult SendWithResult(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds)
+    {
+        var enabled = HostRegistry is null ? targetHostIds.Distinct().ToList() : HostRegistry.GetEnabledHosts(targetHostIds).Select(h => h.Id).ToList();
+        var skipped = targetHostIds.Distinct().Except(enabled).ToList();
+        if (enabled.Count > 0) Sent.Add((oscAddress, enabled));
+        else
+        {
+            var disabled = HostRegistry?.Hosts.Where(h => skipped.Contains(h.Id) && !h.IsEnabled).Select(h => h.Name).ToList() ?? [];
+            var missing = skipped.Where(id => HostRegistry?.Hosts.All(h => h.Id != id) != false).ToList();
+            var details = new List<string>();
+            if (disabled.Count > 0) details.Add($"無効: {string.Join(", ", disabled)}");
+            if (missing.Count > 0) details.Add($"見つからない: {string.Join(", ", missing)}");
+            SendCompleted?.Invoke(this, new OscSendResultEventArgs
+            {
+                OscAddress = oscAddress, HostId = "", HostName = "", Success = false,
+                ErrorMessage = details.Count == 0 ? "送信先がありません" : $"送信先がありません({string.Join(", ", details)})",
+            });
+        }
+        return new OscDispatchResult(enabled.Count, skipped);
+    }
     public void SendPing(string hostId) => Pinged.Add(hostId);
     public Task SendIcmpPingAsync(string hostId, int framesPerSecond) => Task.CompletedTask;
     public void Complete(string address, string host, bool success, string? error = null) =>
