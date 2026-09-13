@@ -4,3 +4,5 @@ test("maps milestone shortcuts",()=>{assert.equal(shortcutFor(event(" "),false),
 test("suppresses composition repeat and modal",()=>{assert.equal(shortcutFor(event(" ",{isComposing:true}),false),null);assert.equal(shortcutFor(event("l",{repeat:true}),false),null);assert.equal(shortcutFor(event("p"),true),null)});
 test("maps project shortcuts and suppresses them in modal",()=>{assert.equal(shortcutFor(event("s",{metaKey:true}),false),"projectSave");assert.equal(shortcutFor(event("S",{ctrlKey:true,shiftKey:true}),false),"projectSaveAs");assert.equal(shortcutFor(event("z",{metaKey:true}),true),null)});
 test("suppresses editable targets",()=>{class Element{isContentEditable=false;tagName="INPUT"};Object.assign(globalThis,{HTMLElement:Element});assert.equal(shortcutFor(event(" ",{target:new Element()}),false),null)});
+
+test("Ctrl+Y redoes on Windows, Cmd+Y does nothing",()=>{assert.equal(shortcutFor(event("y",{ctrlKey:true}),false),"redo");assert.equal(shortcutFor(event("y",{metaKey:true}),false),null);assert.equal(shortcutFor(event("y",{ctrlKey:true}),true),null)});
