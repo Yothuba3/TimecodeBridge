@@ -51,6 +51,11 @@ public class CueEditingCommandTests
         Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"bad","value":1}]}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"int32","value":"1"}]}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"string","value":7}]}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.name", h.Run("cue.add", """{"cue":{"name":"a\u0001b","triggerTime":"00:00:01:00","oscAddress":"/a"}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.oscAddress", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a b"}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.additionalOscAddresses", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","additionalOscAddresses":["/b c"]}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("host.name", h.Run("host.add", """{"host":{"name":"bad\u0007","ipAddress":"10.0.0.1","port":1}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("button.oscAddress", h.Run("triggerPanel.upsertButton", """{"button":{"row":0,"column":0,"label":"GO","oscAddress":"/go here"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Empty(h.Cues.Cues);
         Assert.False(h.Project.HasUnsavedChanges);
     }

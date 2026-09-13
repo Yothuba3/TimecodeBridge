@@ -402,7 +402,7 @@ public sealed class CommandRouter
                 case "cueSync.configure":
                     if (Str(a, "oscAddress") is { } addr)
                     {
-                        if (!addr.StartsWith('/')) return Validation(id, "oscAddress", "/ で始まる OSCアドレス");
+                        if (IsBadOscAddress(addr)) return Validation(id, "oscAddress", "'/' で始まり、空白と制御文字を含まない OSCアドレス");
                         _state.CueSync.OscAddress = addr;
                     }
                     if (Has(a, "targetHostIds")) { _state.CueSync.TargetHostIds.Clear(); _state.CueSync.TargetHostIds.AddRange(StrArray(a, "targetHostIds")); }
@@ -420,6 +420,7 @@ public sealed class CommandRouter
                     var h = Get(a, "host");
                     var name = Str(h, "name")?.Trim(); var ip = Str(h, "ipAddress")?.Trim(); var port = Int(h, "port");
                     if (string.IsNullOrEmpty(name)) return Validation(id, "host.name", "必須");
+                    if (HasControlChars(name)) return Validation(id, "host.name", "制御文字は使えません");
                     if (!OscHost.TryParseIpAddress(ip, out _)) return Validation(id, "host.ipAddress", "IPv4/IPv6 アドレス");
                     if (port is null or < 1 or > 65535) return Validation(id, "host.port", "1〜65535");
                     var enabled = Bool(h, "enabled") ?? true;
@@ -470,12 +471,15 @@ public sealed class CommandRouter
                     var buttonId = Str(b, "id") ?? Guid.NewGuid().ToString("N");
                     var existing = _panel.GetButtonAt(row.Value, col.Value);
                     if (existing is not null && existing.Id != buttonId) return Fail(id, ErrorCode.Conflict, "そのセルには別のボタンがあります");
+                    var buttonLabel = Str(b, "label") ?? "";
+                    if (HasControlChars(buttonLabel)) return Validation(id, "button.label", "制御文字は使えません");
+                    if (IsBadOscAddress(Str(b, "oscAddress") ?? "")) return Validation(id, "button.oscAddress", "'/' で始まり、空白と制御文字を含まない OSCアドレス");
                     var (buttonArgs, buttonArgError) = ParseOscArgs(Get(b, "arguments"));
                     if (buttonArgError is not null) return Validation(id, "button.arguments", buttonArgError);
                     _panel.UpsertButton(new OscTriggerButton
                     {
                         Id = buttonId, Row = row.Value, Column = col.Value,
-                        Label = Str(b, "label") ?? "", OscAddress = Str(b, "oscAddress") ?? "",
+                        Label = buttonLabel, OscAddress = Str(b, "oscAddress") ?? "",
                         Arguments = buttonArgs, TargetHostIds = StrArray(b, "targetHostIds").ToList(),
                     });
                     _projects.Commit();
@@ -542,15 +546,16 @@ public sealed class CommandRouter
     {
         var name = Str(d, "name")?.Trim();
         if (string.IsNullOrEmpty(name)) return (null, new("cue.name", "必須"));
+        if (HasControlChars(name)) return (null, new("cue.name", "制御文字は使えません"));
 
         var rate = defaultRate;
         if (Str(d, "frameRate") is { } rateCode && !HostState.TryParseFrameRate(rateCode, out rate)) return (null, new("cue.frameRate", "24 / 25 / 29.97df / 30"));
         if (!HostState.TryParseTimecode(Str(d, "triggerTime"), rate, out var trigger)) return (null, new("cue.triggerTime", "HH:MM:SS:FF の形式で入力してください"));
 
         var osc = Str(d, "oscAddress")?.Trim() ?? "";
-        if (!osc.StartsWith('/')) return (null, new("cue.oscAddress", "OSCアドレスは '/' で始まる必要があります"));
+        if (IsBadOscAddress(osc)) return (null, new("cue.oscAddress", "OSCアドレスは '/' で始まり、空白と制御文字を含まない必要があります"));
         var additional = StrArray(d, "additionalOscAddresses").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
-        if (additional.Any(x => !x.StartsWith('/'))) return (null, new("cue.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"));
+        if (additional.Any(IsBadOscAddress)) return (null, new("cue.additionalOscAddresses", "追加アドレスも '/' で始まり、空白と制御文字を含まない必要があります"));
         var (cueArgs, cueArgError) = ParseOscArgs(Get(d, "arguments"));
         if (cueArgError is not null) return (null, new("cue.arguments", cueArgError));
 
@@ -632,13 +637,13 @@ public sealed class CommandRouter
         if (Has(c, "oscAddress"))
         {
             var osc = Str(c, "oscAddress")?.Trim() ?? "";
-            if (!osc.StartsWith('/')) { b.Error = new("changes.oscAddress", "OSCアドレスは '/' で始まる必要があります"); return b; }
+            if (IsBadOscAddress(osc)) { b.Error = new("changes.oscAddress", "OSCアドレスは '/' で始まり、空白と制御文字を含まない必要があります"); return b; }
             b.OscAddress = osc;
         }
         if (Has(c, "additionalOscAddresses"))
         {
             var list = StrArray(c, "additionalOscAddresses").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
-            if (list.Any(x => !x.StartsWith('/'))) { b.Error = new("changes.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"); return b; }
+            if (list.Any(IsBadOscAddress)) { b.Error = new("changes.additionalOscAddresses", "追加アドレスも '/' で始まり、空白と制御文字を含まない必要があります"); return b; }
             b.AdditionalOscAddresses = list;
         }
         if (Has(c, "arguments"))
@@ -734,6 +739,10 @@ public sealed class CommandRouter
         Get(obj, name) is { ValueKind: JsonValueKind.Array } arr
             ? arr.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToArray()
             : Array.Empty<string>();
+
+    private static bool HasControlChars(string s) => s.Any(char.IsControl);
+    // OSC アドレスは空白と制御文字を含めない(パターン文字の検査は送信側に任せる)
+    private static bool IsBadOscAddress(string s) => !s.StartsWith('/') || s.Any(c => char.IsControl(c) || char.IsWhiteSpace(c));
 
     // 未知の type や型に合わない value は黙って落とさず validation にする(Web は事前に弾くが、Host が信頼境界)
     private static (List<OscArgument> Args, string? Error) ParseOscArgs(JsonElement? arr)
