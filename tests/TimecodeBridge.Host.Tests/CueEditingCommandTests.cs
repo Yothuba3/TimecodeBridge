@@ -48,6 +48,9 @@ public class CueEditingCommandTests
         Assert.Equal("cue.oscAddress", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"go"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.triggerOffset", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","triggerOffset":"-00:00:02:00"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.triggerOffset", h.Run("cue.add", """{"cue":{"name":"df end","triggerTime":"23:59:59;29","frameRate":"29.97df","oscAddress":"/a","triggerOffset":"+00:00:00;01"}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"bad","value":1}]}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"int32","value":"1"}]}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.arguments", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","arguments":[{"type":"string","value":7}]}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Empty(h.Cues.Cues);
         Assert.False(h.Project.HasUnsavedChanges);
     }
@@ -207,6 +210,22 @@ public class CueEditingCommandTests
             Assert.Equal(ErrorCode.IoError, h.Run("project.saveAs", """{"path":"/nonexistent-dir/x.json"}""").Error!.Code);
         }
         finally { File.Delete(path); }
+    }
+
+    [AvaloniaFact]
+    public void PanelAndBatchRejectInvalidOscArguments()
+    {
+        var h = new HostHarness();
+        var bad = h.Run("triggerPanel.upsertButton", """{"button":{"row":0,"column":0,"label":"GO","oscAddress":"/go","arguments":[{"type":"float32","value":"x"}]}}""");
+        Assert.Equal(ErrorCode.Validation, bad.Error!.Code);
+        Assert.Equal("button.arguments", bad.Error!.FieldErrors!.Keys.Single());
+        Assert.Empty(h.Panel.Buttons);
+
+        var id = Data(h.Run("cue.add", """{"cue":{"name":"A","triggerTime":"00:00:01:00","oscAddress":"/a"}}"""), "id");
+        var batch = h.Run("cue.batchUpdate", $$$"""{"ids":["{{{id}}}"],"changes":{"arguments":[{"type":"int32","value":1.5}]}}""");
+        Assert.Equal(ErrorCode.Validation, batch.Error!.Code);
+        Assert.Equal("changes.arguments", batch.Error!.FieldErrors!.Keys.Single());
+        Assert.Empty(h.Cues.Cues[0].Arguments);
     }
 
     [AvaloniaFact]

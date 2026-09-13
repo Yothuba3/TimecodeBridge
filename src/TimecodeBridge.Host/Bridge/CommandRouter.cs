@@ -396,7 +396,7 @@ public sealed class CommandRouter
                 case "cueSync.configure":
                     if (Str(a, "oscAddress") is { } addr)
                     {
-                        if (!addr.StartsWith('/')) return Validation(id, "oscAddress", "/ で始まる OSC アドレス");
+                        if (!addr.StartsWith('/')) return Validation(id, "oscAddress", "/ で始まる OSCアドレス");
                         _state.CueSync.OscAddress = addr;
                     }
                     if (Has(a, "targetHostIds")) { _state.CueSync.TargetHostIds.Clear(); _state.CueSync.TargetHostIds.AddRange(StrArray(a, "targetHostIds")); }
@@ -464,11 +464,13 @@ public sealed class CommandRouter
                     var buttonId = Str(b, "id") ?? Guid.NewGuid().ToString("N");
                     var existing = _panel.GetButtonAt(row.Value, col.Value);
                     if (existing is not null && existing.Id != buttonId) return Fail(id, ErrorCode.Conflict, "そのセルには別のボタンがあります");
+                    var (buttonArgs, buttonArgError) = ParseOscArgs(Get(b, "arguments"));
+                    if (buttonArgError is not null) return Validation(id, "button.arguments", buttonArgError);
                     _panel.UpsertButton(new OscTriggerButton
                     {
                         Id = buttonId, Row = row.Value, Column = col.Value,
                         Label = Str(b, "label") ?? "", OscAddress = Str(b, "oscAddress") ?? "",
-                        Arguments = OscArgs(Get(b, "arguments")), TargetHostIds = StrArray(b, "targetHostIds").ToList(),
+                        Arguments = buttonArgs, TargetHostIds = StrArray(b, "targetHostIds").ToList(),
                     });
                     _projects.Commit();
                     return Ok(id, new { id = buttonId });
@@ -543,6 +545,8 @@ public sealed class CommandRouter
         if (!osc.StartsWith('/')) return (null, new("cue.oscAddress", "OSCアドレスは '/' で始まる必要があります"));
         var additional = StrArray(d, "additionalOscAddresses").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
         if (additional.Any(x => !x.StartsWith('/'))) return (null, new("cue.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"));
+        var (cueArgs, cueArgError) = ParseOscArgs(Get(d, "arguments"));
+        if (cueArgError is not null) return (null, new("cue.arguments", cueArgError));
 
         TimecodeOffset? triggerOffset = null;
         if (Str(d, "triggerOffset") is { } offsetText && offsetText.Trim().Length > 0)
@@ -574,7 +578,7 @@ public sealed class CommandRouter
             TriggerTime = trigger,
             OscAddress = osc,
             AdditionalOscAddresses = additional,
-            Arguments = OscArgs(Get(d, "arguments")),
+            Arguments = cueArgs,
             TargetHostIds = StrArray(d, "targetHostIds").ToList(),
             IsEnabled = Bool(d, "enabled") ?? true,
             SendTriggerTimeAsSeconds = Bool(d, "sendTriggerTimeAsSeconds") ?? false,
@@ -631,7 +635,12 @@ public sealed class CommandRouter
             if (list.Any(x => !x.StartsWith('/'))) { b.Error = new("changes.additionalOscAddresses", "追加アドレスも '/' で始まる必要があります"); return b; }
             b.AdditionalOscAddresses = list;
         }
-        if (Has(c, "arguments")) b.Arguments = OscArgs(Get(c, "arguments"));
+        if (Has(c, "arguments"))
+        {
+            var (args, argError) = ParseOscArgs(Get(c, "arguments"));
+            if (argError is not null) { b.Error = new("changes.arguments", argError); return b; }
+            b.Arguments = args;
+        }
         if (Has(c, "targetHostIds")) b.TargetHostIds = StrArray(c, "targetHostIds").ToList();
         if (Has(c, "memo")) b.Memo = Str(c, "memo") ?? "";
         if (Has(c, "enabled")) b.Enabled = Bool(c, "enabled");
@@ -720,21 +729,26 @@ public sealed class CommandRouter
             ? arr.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToArray()
             : Array.Empty<string>();
 
-    private static List<OscArgument> OscArgs(JsonElement? arr)
+    // 未知の type や型に合わない value は黙って落とさず validation にする(Web は事前に弾くが、Host が信頼境界)
+    private static (List<OscArgument> Args, string? Error) ParseOscArgs(JsonElement? arr)
     {
         var list = new List<OscArgument>();
-        if (arr is not { ValueKind: JsonValueKind.Array } items) return list;
+        if (arr is null || arr.Value.ValueKind == JsonValueKind.Null) return (list, null);
+        if (arr is not { ValueKind: JsonValueKind.Array } items) return (list, "配列で指定してください");
+        var index = 0;
         foreach (var e in items.EnumerateArray())
         {
+            index++;
             var type = Str(e, "type");
             var v = Get(e, "value");
             switch (type)
             {
                 case "int32" when v is { ValueKind: JsonValueKind.Number } n && n.TryGetInt32(out var i): list.Add(new OscInt32Argument(i)); break;
                 case "float32" when v is { ValueKind: JsonValueKind.Number } n: list.Add(new OscFloat32Argument((float)n.GetDouble())); break;
-                case "string": list.Add(new OscStringArgument(v is { ValueKind: JsonValueKind.String } s ? s.GetString()! : "")); break;
+                case "string" when v is { ValueKind: JsonValueKind.String } str: list.Add(new OscStringArgument(str.GetString()!)); break;
+                default: return (list, $"{index} 番目の引数が不正です(type は int32 / float32 / string、value は型に合う値)");
             }
         }
-        return list;
+        return (list, null);
     }
 }
