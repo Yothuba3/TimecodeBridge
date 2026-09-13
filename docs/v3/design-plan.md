@@ -31,11 +31,11 @@ native/libltc/                   取得元 version・sha256・build script(mac u
 
 ## Host ⇄ Web ブリッジ
 詳細は bridge-protocol.md。要点:
-- Host を唯一の正とする。C#→JS は `window.tcb.receive(json)` の一入口、4系統: `snapshot`(初期・再同期の全量) / `patch`(revision 付き、状態変更時のみ、ドメイン単位置換) / `clock`(最大30Hz、最新1件のみ) / `wave`(縮約済み、初期30Hz、実測後 60Hz)。
+- Host を唯一の正とする。C#→JS は `window.tcb.receive(json)` の一入口、4系統: `snapshot`(初期・再同期の全量) / `patch`(revision 付き、状態変更時のみ、ドメイン単位置換。次キュー消滅は `nextCueCleared:true` で明示) / `clock`(最大30Hz、最新1件のみ) / `wave`(縮約済み、初期30Hz、実測後 60Hz)。
 - JS→C# は全て `requestId` 付き command、Host は必ず `result` を返す。編集系は `expectedRevision` 必須。`cue.fire`/`cueSync.send` 等の単発送信は requestId で重複排除。
 - 編集 draft・選択・scroll・列幅・drawer は Web ローカル状態。snapshot で潰さない。
 - キュー発火→OSC は C# 内で完結(Audio → libltc → CueManager → UDP)。WebView はレイテンシ経路に入らない。
-- キー操作: WebView 内は Web 側(IME 変換中・入力欄フォーカス中・key repeat は抑止)、Cmd/Ctrl+O/S/Z 等のメニューアクセラレータは Host 側。
+- キー操作: WebView 内は Web 側(IME 変換中・入力欄フォーカス中・key repeat は抑止)。キュー行はTabでfocusでき、Enterで編集、Delete/Backspaceで削除する。Cmd/Ctrl+O/S/Z 等のメニューアクセラレータは Host 側。
 - 契約テスト: C# 出力 fixture を TS で parse、TS fixture を C# で deserialize(共同成果物)。
 
 ## libltc 同梱の課題（mac）と対処
@@ -52,12 +52,12 @@ native/libltc/                   取得元 version・sha256・build script(mac u
 
 ## マイルストーン
 - **M0 スパイク**: 完了(上記)。Windows/WebView2 側の負荷計測と publish 成果物からの起動確認は M1 の完了条件に繰り越す。
-- **M1**: LTC受信 → TC表示 → 状態表示(Host+Ltc+Audio 配線、Web は表示のみ)。**Host/Web とも実装済み(2026-09-11)。同一プロセス生成の実機確認で受信安定・逆行0・誤り0%。**完了条件の 10分連続負荷・1000 cues の snapshot/描画時間・IME 中の Space/L/P 抑止・publish 成果物起動は 2026-09-13 に確認(`verification-2026-09-13.md`)。Web への clock 到達が 5 秒止まった 1 回を追跡中。
+- **M1**: LTC受信 → TC表示 → 状態表示(Host+Ltc+Audio 配線、Web は表示のみ)。**Host/Web とも実装済み(2026-09-11)。同一プロセス生成の実機確認で受信安定・逆行0・誤り0%。** モニターの入力レベルは縮約波形の直近ピークをdBFS表示する。完了条件の 10分連続負荷・1000 cues の snapshot/描画時間・IME 中の Space/L/P 抑止・publish 成果物起動は 2026-09-13 に確認(`verification-2026-09-13.md`)。Web への clock 到達が 5 秒止まった 1 回を追跡中。
 - **M2a**: キュー一覧・手動▶・キュー発火→OSC・CUE SYNC・LIVE/MUTE。**Host/Web とも実装済み。2026-09-13 に実機で一通り確認(`verification-2026-09-13.md`)。**
-- **M2b**: キュー追加/編集/一括編集/複製/削除、プロジェクト保存/読込、未保存確認、Undo/Redo。**Host/Web とも実装済み(2026-09-11)。**
+- **M2b**: キュー追加/編集/一括編集/複製/削除、プロジェクト保存/読込、未保存確認、Undo/Redo。**Host/Web とも実装済み(2026-09-11)。** project open/save/saveAs commandは自動操作向けの`{path}`指定にも対応し、ダイアログなしで往復できる。
 - **M3**: 内部生成(再生/停止トグル・リセット・出力・音量)、ホスト管理、ログ、OSCポン出しドロワー。**Host/Web とも実装済み(2026-09-11)。2026-09-13 に実機で一通り確認。見つかった Web の表示不具合 3 件は 2026-09-14 に修正済み(Codex)。**
 - **M4**: パッケージング(mac .app(arm64) + libltc.dylib / win zip + libltc.dll)、LGPL 表記、CI。**release-v3.yml・THIRD_PARTY_NOTICES.md・インストーラー(Inno Setup, WebView2 ランタイム未導入なら導入)を作成済み。CI は未実行(feature/v3 は未 push)。Windows の WASAPI 実装・libltc.dll ビルドは実機未確認。**
-- **実機確認の自動化**: Host の自動操作口(`TIMECODEBRIDGE_AUTOMATION_PORT`)と `tools/tcb3/`(tcb3ctl, osc_listen.py, smoke.sh)。**2026-09-13 導入。README「人手なしの実機確認」参照。**
+- **実機確認の自動化**: Host の自動操作口(`TIMECODEBRIDGE_AUTOMATION_PORT`)と `tools/tcb3/`(tcb3ctl, osc_listen.py, smoke.sh)。**2026-09-13 導入。README「人手なしの実機確認」参照。** 複数インスタンス時はHostごとに`TCB3_PORT`と`TCB3_RUN_DIR`を分離する。
 
 ## 未決事項
 - なし(名前・対象アーキ・フレームワーク方針は 2026-09-11 に決定)。

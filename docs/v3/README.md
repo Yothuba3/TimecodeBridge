@@ -68,6 +68,15 @@ tools/tcb3/tcb3ctl stop
 
 `tools/tcb3/smoke.sh` は「起動 → LTC 受信(誤り 0%・時計が進む)→ ホストとキューを登録 → 発火した OSC を `tools/tcb3/osc_listen.py` で受ける → 送信ログとキューの発火記録を確認 → 撮影」を一続きで行い、`SMOKE PASS` / `SMOKE FAIL` で終わります。
 
+複数の Host を同時に検証するときは、インスタンスごとに `TCB3_PORT` と `TCB3_RUN_DIR` を分け、以後の全サブコマンドにも同じ 2 変数を付けます(例: `TCB3_PORT=47302 TCB3_RUN_DIR=/tmp/tcb3ctl/codex tools/tcb3/tcb3ctl state`)。Host の実行ファイルは `dotnet build src/TimecodeBridge.Host -o <dir>` で別ディレクトリに作り `TCB3_EXE` で指すと、動作中の Host の bin/Debug を上書きしません。画面ロック中は Avalonia が起動できないので、新しい Host はロックを解除してから起動します。
+
+### 現行 UI・自動操作の補足
+
+- モニターの入力レベルは波形の直近ピークを dBFS で表示します(波形が届いていない間は `-- dBFS`)。
+- キュー行は Tab で辿れます。行にフォーカスして Enter で編集、Delete / Backspace で削除。行内の有効チェックと ▶ にも Tab で移動できます。
+- `project.open` / `project.save` / `project.saveAs` は command に `{path}` を渡すとネイティブダイアログなしで読み書きできます。自動試験では `/tmp` などの専用領域を指定してください。
+- 最後のキューを過ぎた patch は `nextCueCleared:true` を送り、Web の NEXT CUE を「次のキューはありません」に戻します(`bridge-protocol.md`)。
+
 ### Web を直しながら実機で見る(Codex でも同じ)
 
 ```sh
