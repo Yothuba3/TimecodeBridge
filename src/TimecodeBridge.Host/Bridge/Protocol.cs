@@ -114,7 +114,6 @@ public sealed record TransportState(
     string DetailText,
     double? SignalErrorRatePercent,
     bool Locked,
-    double? LevelVpp,
     bool TriggerMuted,
     bool AutoMuteEnabled,
     string? AutoMutedCueId,

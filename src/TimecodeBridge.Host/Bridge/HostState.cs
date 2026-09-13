@@ -197,7 +197,6 @@ public sealed class HostState : IDisposable
         return new TransportState(
             status, text, detail, errorRate,
             Locked: _engine.IsReceiving,
-            LevelVpp: null,
             TriggerMuted: _cues.IsMuted,
             AutoMuteEnabled: _cues.IsAutoMuteEnabled,
             AutoMutedCueId: _cues.AutoMutedCueId,
