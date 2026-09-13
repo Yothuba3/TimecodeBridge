@@ -98,7 +98,13 @@ cmd_start() {
 cmd_stop() {
   local pid=""
   [ -f "$PIDFILE" ] && pid="$(cat "$PIDFILE")"
-  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then pid="$(pgrep -x "$(basename "$EXE")" || true)"; fi
+  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+    # pidfile が無いときは、この PORT の自動操作口を持つプロセスだけを探す(他の Host を巻き込まない)
+    pid=""
+    for other in $(pgrep -x "$(basename "$EXE")"); do
+      if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then pid="$other"; break; fi
+    done
+  fi
   if [ -z "$pid" ]; then echo "not running"; rm -f "$PIDFILE"; return 0; fi
   kill "$pid" 2>/dev/null || true
   local i
