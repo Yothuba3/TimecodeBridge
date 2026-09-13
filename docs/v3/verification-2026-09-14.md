@@ -13,6 +13,7 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 - プロジェクト: `project.open {path}`(ヘッダー、内容、recentFiles)、`project.new`、存在しないパス、壊れた JSON
 - 見た目: 120 文字級の名前・アドレス・ホスト名、1100px 幅相当(style 注入)での overflow、スクロール(300 件)
 - 通し: `tools/tcb3/smoke.sh`(新ビルドで PASS)。release-v3.yml と同じ手順で `.app`(Release・self-contained・osx-arm64・ad-hoc 署名)を作り、その実行ファイルに対しても smoke PASS(同梱の web/ に当日の変更が入っていることを確認)
+- Codex の第 6・7 ラウンド: Windows 経路の静的レビュー(WebView2 / WASAPI / パス / libltc / installer)、可視コントロールのアクセシブル名走査、Host のエラー(validation / notFound / ioError / conflict)の UI 表示、送信ログ 610 回、未使用コードの整理、仕上げの回帰(確認済み範囲と修正項目の全件、回帰なし)
 - Codex の第 4・5 ラウンド: 29.97df で 20 キューの通し運用(自動ミュート・無効・オフセット・複数宛先・再生中の追加/編集/削除/OFFSET/L/CUE SYNC)、LTC 受信モードで 15 キュー、判定幅 0/3/10 の境界、疎通確認の連打と ping 中の削除、発火 610 回。いずれも OSC 実受信と Host ログが一致
 
 ## 見つけて直したもの(すべて feature/v3 にコミット済み)
@@ -41,6 +42,19 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 | Web 送信ログ | logsAppend を無制限に連結し長時間運用で DOM が増え続ける(Codex) | 最新 500 件に |
 | Host project.save | path 無しでは常にネイティブ保存パネル(無人保存不可、Codex 指摘) | `{path}` でダイアログなし保存 |
 | キュー行 | onFocus のフラグが残り、同じ行を続けて押した後の Tab 到達で選択が同期されない | pointerdown からの経過時間で判定 |
+| Host MainWindow | ネイティブメニューの修飾キーが全 OS で Meta 固定(Windows で Ctrl+N/O/S/Z にならない、Codex) | macOS は Cmd、それ以外は Ctrl |
+| native/libltc/build-windows.cmd | 出力先の相対パスが work へ cd した後にずれる(Codex) | 先に絶対化 |
+| Web a11y | キューの有効/▶、Undo/Redo、入力デバイス、フリーラン、Cue-Sync、ポン出しの空セルにアクセシブル名が無い(Codex) | aria-label を付与(可視コントロールで欠落 0) |
+| Host OSC 引数 | 未知の type や型に合わない value を黙って落として ok を返す(Codex P0) | validation(cue/changes/button.arguments) |
+
+## 次にやるべきこと(Codex 第 7 ラウンドの優先順、未着手)
+
+1. 内部生成(29.97df)から LTC 受信(30fps)へ戻した直後、約 1 秒 `29.97df / DROP` と `;FF` が残ってから収束する。検出待ちなら「検出中」を出すか、前ソースの設定を即時復元する
+2. Windows の CI/実機(WebView2、WASAPI、Inno Setup、build-windows.cmd)は macOS では動かせない。release workflow の PR 検証と installer の起動 smoke を追加する
+3. 外部から LTC 信号を落とす統合試験(フリーラン→信号なし、その間の NEXT と発火抑止)
+4. 無効ホストをスキップしたことをログで観測できるようにする。UDP 送信の「成功」を「送信済み」と表現し、疎通状態を併記する
+5. NEXT/current 行の自動スクロール(旧 UI 同等だが運用性の改善余地)
+6. 起動済みの Host に対して smoke.sh を使える `--attach` 相当のモード
 
 ## 仕様どおり・記録のみ
 
