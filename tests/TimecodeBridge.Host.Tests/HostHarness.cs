@@ -30,9 +30,10 @@ public sealed class HostHarness
         Router = new CommandRouter(State, Engine, Cues, Hosts, Panel, Projects);
     }
 
-    public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1")
+    public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1", long? expectedRevision = null)
     {
-        var json = $$"""{"protocolVersion":1,"type":"command","requestId":"{{requestId}}","command":"{{command}}","args":{{argsJson}}}""";
+        var revision = expectedRevision is null ? "" : $$""", "expectedRevision":{{expectedRevision}}""";
+        var json = $$"""{"protocolVersion":1,"type":"command","requestId":"{{requestId}}","command":"{{command}}","args":{{argsJson}}{{revision}}}""";
         var msg = JsonSerializer.Deserialize<WebMessage>(json, Protocol.Json)!;
         return Router.ExecuteAsync(msg).GetAwaiter().GetResult();
     }

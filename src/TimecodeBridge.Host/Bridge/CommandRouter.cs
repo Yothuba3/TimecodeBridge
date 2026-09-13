@@ -33,6 +33,8 @@ public sealed class CommandRouter
             return Fail(id, ErrorCode.UnsupportedVersion, $"protocolVersion {msg.ProtocolVersion} は未対応です");
         if (string.IsNullOrEmpty(msg.Command))
             return Fail(id, ErrorCode.BadMessage, "command がありません");
+        if (msg.ExpectedRevision is { } expected && expected != _state.Revision)
+            return Fail(id, ErrorCode.Conflict, $"状態が更新されています (expectedRevision: {expected}, currentRevision: {_state.Revision})", retryable: true);
 
         // ダイアログを伴うものだけ非同期。それ以外は同期処理へ
         try
@@ -98,6 +100,8 @@ public sealed class CommandRouter
     public ResultMessage Execute(WebMessage msg)
     {
         var id = msg.RequestId ?? "";
+        if (msg.ExpectedRevision is { } expected && expected != _state.Revision)
+            return Fail(id, ErrorCode.Conflict, $"状態が更新されています (expectedRevision: {expected}, currentRevision: {_state.Revision})", retryable: true);
         var a = msg.Args;
         try
         {

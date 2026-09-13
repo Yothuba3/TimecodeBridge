@@ -8,6 +8,22 @@ namespace TimecodeBridge.Host.Tests;
 public class CommandRouterTests
 {
     [AvaloniaFact]
+    public void ExpectedRevisionMismatchIsRejectedWithoutMutation()
+    {
+        var h = new HostHarness();
+        var current = h.State.Revision;
+
+        var conflict = h.Run("receive.setTriggerWindow", """{"frames":9}""", expectedRevision: current + 1);
+
+        Assert.False(conflict.Ok);
+        Assert.Equal(ErrorCode.Conflict, conflict.Error!.Code);
+        Assert.True(conflict.Error.Retryable);
+        Assert.NotEqual(9, h.Cues.TriggerWindowFrames);
+        Assert.True(h.Run("receive.setTriggerWindow", """{"frames":9}""", expectedRevision: current).Ok);
+        Assert.Equal(9, h.Cues.TriggerWindowFrames);
+    }
+
+    [AvaloniaFact]
     public void UnknownCommandIsRejected()
     {
         var h = new HostHarness();
