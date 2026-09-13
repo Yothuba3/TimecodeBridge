@@ -52,11 +52,12 @@ native/libltc/                   取得元 version・sha256・build script(mac u
 
 ## マイルストーン
 - **M0 スパイク**: 完了(上記)。Windows/WebView2 側の負荷計測と publish 成果物からの起動確認は M1 の完了条件に繰り越す。
-- **M1**: LTC受信 → TC表示 → 状態表示(Host+Ltc+Audio 配線、Web は表示のみ)。**Host/Web とも実装済み(2026-09-11)。同一プロセス生成の実機確認で受信安定・逆行0・誤り0%。**完了条件に 10分連続負荷・1000 cues の snapshot/描画時間・IME 中の Space/L/P 抑止・publish 成果物起動を含める。
-- **M2a**: キュー一覧・手動▶・キュー発火→OSC・CUE SYNC・LIVE/MUTE。**Host 側 command 実装済み、Web 側実装済み(Codex)。実機での目視確認待ち。**
+- **M1**: LTC受信 → TC表示 → 状態表示(Host+Ltc+Audio 配線、Web は表示のみ)。**Host/Web とも実装済み(2026-09-11)。同一プロセス生成の実機確認で受信安定・逆行0・誤り0%。**完了条件の 10分連続負荷・1000 cues の snapshot/描画時間・IME 中の Space/L/P 抑止・publish 成果物起動は 2026-09-13 に確認(`verification-2026-09-13.md`)。Web への clock 到達が 5 秒止まった 1 回を追跡中。
+- **M2a**: キュー一覧・手動▶・キュー発火→OSC・CUE SYNC・LIVE/MUTE。**Host/Web とも実装済み。2026-09-13 に実機で一通り確認(`verification-2026-09-13.md`)。**
 - **M2b**: キュー追加/編集/一括編集/複製/削除、プロジェクト保存/読込、未保存確認、Undo/Redo。**Host/Web とも実装済み(2026-09-11)。**
-- **M3**: 内部生成(再生/停止トグル・リセット・出力・音量)、ホスト管理、ログ、OSCポン出しドロワー。**Host 側 command は実装済み。Web 側は Codex 作業中(2026-09-11)。**
-- **M4**: パッケージング(mac .app(arm64) + libltc.dylib / win zip + libltc.dll)、LGPL 表記、CI。**release-v3.yml と THIRD_PARTY_NOTICES.md を作成済み(未実行)。Windows の WASAPI 実装は実機未確認。インストーラー(Inno Setup, WebView2 ランタイム同梱)は未着手。**
+- **M3**: 内部生成(再生/停止トグル・リセット・出力・音量)、ホスト管理、ログ、OSCポン出しドロワー。**Host/Web とも実装済み(2026-09-11)。2026-09-13 に実機で一通り確認。見つかった Web の表示不具合 3 件は 2026-09-14 に修正済み(Codex)。**
+- **M4**: パッケージング(mac .app(arm64) + libltc.dylib / win zip + libltc.dll)、LGPL 表記、CI。**release-v3.yml・THIRD_PARTY_NOTICES.md・インストーラー(Inno Setup, WebView2 ランタイム未導入なら導入)を作成済み。CI は未実行(feature/v3 は未 push)。Windows の WASAPI 実装・libltc.dll ビルドは実機未確認。**
+- **実機確認の自動化**: Host の自動操作口(`TIMECODEBRIDGE_AUTOMATION_PORT`)と `tools/tcb3/`(tcb3ctl, osc_listen.py, smoke.sh)。**2026-09-13 導入。README「人手なしの実機確認」参照。**
 
 ## 未決事項
 - なし(名前・対象アーキ・フレームワーク方針は 2026-09-11 に決定)。

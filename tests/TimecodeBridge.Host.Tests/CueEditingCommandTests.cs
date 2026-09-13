@@ -83,6 +83,15 @@ public class CueEditingCommandTests
         Assert.Equal("01:23:41:00", h.Cues.Cues[2].TriggerTime.ToString());
         Assert.Equal("01:23:43:00", h.Cues.Cues[4].TriggerTime.ToString());
         Assert.Equal(ErrorCode.Validation, h.Run("cue.duplicate", $$"""{"id":"{{id}}","count":0}""").Error!.Code);
+
+        var timed = h.Run("cue.duplicate", $$"""{"id":"{{id}}","count":2,"interval":"00:00:02:00","intervalFrames":1}""");
+        Assert.True(timed.Ok, timed.Error?.Message);
+        Assert.Equal(7, h.Cues.Cues.Count);
+        Assert.Equal("01:23:42:00", h.Cues.Cues[5].TriggerTime.ToString());
+        Assert.Equal("01:23:44:00", h.Cues.Cues[6].TriggerTime.ToString());
+        var bad = h.Run("cue.duplicate", $$"""{"id":"{{id}}","count":2,"interval":"2s"}""");
+        Assert.Equal(ErrorCode.Validation, bad.Error!.Code);
+        Assert.Equal("interval", bad.Error!.FieldErrors!.Keys.Single());
     }
 
     [AvaloniaFact]

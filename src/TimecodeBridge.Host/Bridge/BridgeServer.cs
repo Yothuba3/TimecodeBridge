@@ -46,6 +46,9 @@ public sealed class BridgeServer : IDisposable
         _timer.Start();
     }
 
+    /// <summary>Web から ready を受け取り、snapshot を送った後か。</summary>
+    public bool Ready => _ready;
+
     /// <summary>
     /// ページ読込後、Web に「Host が接続済み」を知らせて ready を送らせる。
     /// invokeCSharpAction はページのスクリプト評価より後に注入されるため、Web 側が起動時に送った ready は届かない。

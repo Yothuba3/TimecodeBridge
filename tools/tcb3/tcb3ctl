@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# tcb3ctl — TimecodeBridge v3(Host)を外部から起動・操作・撮影する。実機確認を人手なしで回すための道具。
+# Host 側の受け口は src/TimecodeBridge.Host/Services/DevAutomation.cs(環境変数 TIMECODEBRIDGE_AUTOMATION_PORT)。
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PORT="${TCB3_PORT:-47300}"
+RUN_DIR="${TCB3_RUN_DIR:-/tmp/tcb3ctl}"
+EXE="${TCB3_EXE:-$ROOT/src/TimecodeBridge.Host/bin/Debug/net8.0/TimecodeBridge3}"
+BASE="http://127.0.0.1:$PORT"
+LOG="$RUN_DIR/host.log"
+PIDFILE="$RUN_DIR/host.pid"
+
+usage() {
+  cat <<USAGE
+usage: tcb3ctl <subcommand> [args]
+
+  start [--build] [--selftest <出力デバイス名の一部>] [--dev-web] [--trace 1|2] [--env K=V ...]
+                      Host を起動し、Web が ready になるまで待つ。--selftest は同一プロセスで LTC を生成して
+                      同じ名前の入力から受信も始める(Pro Tools Audio Bridge 等のループバック向け)。
+                      --dev-web は同梱の web/ でなくリポジトリの src/TimecodeBridge.Web/dist を直接読む
+                      (npm run build → tcb3ctl reload で Host を再ビルドせずに Web の変更を反映できる)
+  stop                Host を終了する(SIGTERM → 5 秒で SIGKILL)
+  activate            ウィンドウを前面に出す(隠れていると WebKit が描画を止め、DOM も撮影も古いままになる。start は自動で行う)
+  reload              Web UI を読み込み直し、ready に戻るまで待つ(Host の状態はそのまま)
+  health              /health
+  state [jq-filter]   状態スナップショット(既定は全体)。例: tcb3ctl state '.state.transport'
+  clock               現在の時計
+  cmd <command> [argsJson] [expectedRevision]
+                      Web と同じ command を実行。例: tcb3ctl cmd receive.setTriggerWindow '{"frames":2}'
+  eval <js>           WebView 内で JS を評価し、結果(文字列)を出す
+  text <css>          最初に一致した要素の textContent
+  click <css>         最初に一致した要素を click
+  click-text <text> [css=button]
+                      textContent(trim)が <text> に一致する最初の要素を click
+  shot [out.png]      ウィンドウを PNG で保存(既定: \$TCB3_RUN_DIR/shot-<時刻>.png)
+  wait <jq-filter> [timeoutSec=15]
+                      /state に jq-filter を当てて true になるまで待つ
+  log [n=50]          Host の標準出力の末尾
+
+環境変数: TCB3_PORT(既定 47300) TCB3_RUN_DIR(既定 /tmp/tcb3ctl) TCB3_EXE(既定 Debug ビルドの TimecodeBridge3)
+         自動操作口つきの Host は TCB3_PORT/TCB3_RUN_DIR/TCB3_EXE を変えれば複数同時に起動できる(bin/Debug を上書きしないよう dotnet build -o <dir> で別ビルドを TCB3_EXE に指定する)
+USAGE
+}
+
+die() { echo "tcb3ctl: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "$1 が必要です"; }
+need curl; need jq
+
+api() { curl -sS --max-time 30 "$@"; }
+json_string() { jq -Rn --arg s "$1" '$s'; }
+
+is_up() { curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.ok' >/dev/null 2>&1; }
+
+cmd_start() {
+  local build=0 selftest="" devweb=0 trace="${TCB3_TRACE:-1}" envs=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --build) build=1 ;;
+      --selftest) selftest="$2"; shift ;;
+      --dev-web) devweb=1 ;;
+      --trace) trace="$2"; shift ;;
+      --env) envs+=("$2"); shift ;;
+      *) die "start: 不明な引数 $1" ;;
+    esac
+    shift
+  done
+  mkdir -p "$RUN_DIR"
+  if is_up; then echo "already running: $(api "$BASE/health")"; return 0; fi
+  if [ "$build" = 1 ]; then dotnet build "$ROOT/src/TimecodeBridge.Host/TimecodeBridge.Host.csproj" -v q; fi
+  [ -x "$EXE" ] || die "実行ファイルがありません: $EXE(tcb3ctl start --build を試してください)"
+  for other in $(pgrep -x "$(basename "$EXE")"); do
+    if ! ps eww -p "$other" -o args= 2>/dev/null | grep -q TIMECODEBRIDGE_AUTOMATION_PORT; then die "自動操作口の無い $(basename "$EXE") (pid $other) が既に動いています。先に終了してください"; fi
+    if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then die "port $PORT は pid $other が使用中です(TCB3_PORT を変えてください)"; fi
+  done
+
+  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "TIMECODEBRIDGE_BRIDGE_TRACE=$trace")
+  if [ -n "$selftest" ]; then vars+=("TIMECODEBRIDGE_SELFTEST_OUTPUT=$selftest" "TIMECODEBRIDGE_AUTOSTART_INPUT=$selftest"); fi
+  if [ "$devweb" = 1 ]; then vars+=("TIMECODEBRIDGE_WEB_DIST=$ROOT/src/TimecodeBridge.Web/dist"); fi
+  vars+=(${envs[@]+"${envs[@]}"})
+  env "${vars[@]}" nohup "$EXE" >"$LOG" 2>&1 &
+  echo $! >"$PIDFILE"
+
+  local i
+  for i in $(seq 1 60); do
+    if curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.webReady' >/dev/null 2>&1; then
+      cmd_activate
+      echo "started pid=$(cat "$PIDFILE") port=$PORT log=$LOG"
+      return 0
+    fi
+    if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "--- $LOG" >&2; tail -n 30 "$LOG" >&2; die "Host が起動直後に終了しました"; fi
+    sleep 0.5
+  done
+  echo "--- $LOG" >&2; tail -n 30 "$LOG" >&2
+  die "30 秒待っても Web が ready になりません"
+}
+
+cmd_stop() {
+  local pid=""
+  [ -f "$PIDFILE" ] && pid="$(cat "$PIDFILE")"
+  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then pid="$(pgrep -x "$(basename "$EXE")" || true)"; fi
+  if [ -z "$pid" ]; then echo "not running"; rm -f "$PIDFILE"; return 0; fi
+  kill "$pid" 2>/dev/null || true
+  local i
+  for i in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || { echo "stopped pid=$pid"; rm -f "$PIDFILE"; return 0; }; sleep 0.5; done
+  kill -9 "$pid" 2>/dev/null || true
+  echo "killed pid=$pid"; rm -f "$PIDFILE"
+}
+
+cmd_activate() { api -X POST "$BASE/activate" >/dev/null; }
+cmd_reload() {
+  api -X POST "$BASE/reload" >/dev/null
+  local i
+  for i in $(seq 1 40); do
+    sleep 0.25
+    if curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.webReady' >/dev/null 2>&1; then echo "reloaded"; return 0; fi
+  done
+  die "reload 後 10 秒待っても Web が ready になりません(tcb3ctl log を確認)"
+}
+cmd_state() { api "$BASE/state" | jq "${1:-.}"; }
+cmd_clock() { api "$BASE/clock" | jq .; }
+cmd_health() { api "$BASE/health" | jq .; }
+
+cmd_cmd() {
+  [ $# -ge 1 ] || die "cmd: command が必要です"
+  local body
+  body="$(jq -cn --arg c "$1" --argjson a "${2:-null}" --argjson r "${3:-null}" '{command:$c} + (if $a != null then {args:$a} else {} end) + (if $r != null then {expectedRevision:$r} else {} end)')"
+  api -X POST "$BASE/command" -H 'Content-Type: application/json' --data-binary "$body" | jq .
+}
+
+cmd_eval() {
+  [ $# -ge 1 ] || die "eval: JS が必要です"
+  api -X POST "$BASE/eval" -H 'Content-Type: text/plain; charset=utf-8' --data-binary "$1" | jq -r '.result // empty'
+}
+
+cmd_text() { [ $# -ge 1 ] || die "text: CSS セレクタが必要です"; cmd_eval "(function(){var e=document.querySelector($(json_string "$1"));return e?e.textContent.trim():null})()"; }
+cmd_click() { [ $# -ge 1 ] || die "click: CSS セレクタが必要です"; cmd_eval "(function(){var e=document.querySelector($(json_string "$1"));if(!e)return 'not found';e.click();return 'clicked'})()"; }
+cmd_click_text() {
+  [ $# -ge 1 ] || die "click-text: 文字列が必要です"
+  cmd_eval "(function(){var t=$(json_string "$1");var e=[...document.querySelectorAll($(json_string "${2:-button}"))].find(function(x){return x.textContent.trim()===t});if(!e)return 'not found';e.click();return 'clicked'})()"
+}
+
+cmd_shot() {
+  mkdir -p "$RUN_DIR"
+  local out="${1:-$RUN_DIR/shot-$(date +%H%M%S).png}"
+  if [ "$(cmd_eval 'document.visibilityState')" != visible ]; then
+    echo "tcb3ctl: ウィンドウが他のウィンドウに隠れています(document.hidden)。描画が止まっているので古い画面が写ります。tcb3ctl activate で前面に出してください" >&2
+  fi
+  local code
+  code="$(curl -sS --max-time 30 -o "$out" -w '%{http_code}' "$BASE/screenshot")"
+  [ "$code" = 200 ] || { cat "$out" >&2; echo >&2; rm -f "$out"; die "screenshot が $code を返しました"; }
+  echo "$out"
+}
+
+cmd_wait() {
+  [ $# -ge 1 ] || die "wait: jq フィルタが必要です"
+  local deadline=$(( $(date +%s) + ${2:-15} ))
+  while :; do
+    if api "$BASE/state" | jq -e "$1" >/dev/null 2>&1; then return 0; fi
+    [ "$(date +%s)" -lt "$deadline" ] || { echo "wait: タイムアウト: $1" >&2; api "$BASE/state" | jq -c '{transport:.state.transport,mode:.state.mode}' >&2; return 1; }
+    sleep 0.5
+  done
+}
+
+cmd_log() { tail -n "${1:-50}" "$LOG"; }
+
+sub="${1:-}"; [ $# -gt 0 ] && shift
+case "$sub" in
+  start) cmd_start "$@" ;;
+  stop) cmd_stop ;;
+  activate) cmd_activate ;;
+  reload) cmd_reload ;;
+  health) cmd_health ;;
+  state) cmd_state "$@" ;;
+  clock) cmd_clock ;;
+  cmd) cmd_cmd "$@" ;;
+  eval) cmd_eval "$@" ;;
+  text) cmd_text "$@" ;;
+  click) cmd_click "$@" ;;
+  click-text) cmd_click_text "$@" ;;
+  shot) cmd_shot "$@" ;;
+  wait) cmd_wait "$@" ;;
+  log) cmd_log "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; die "不明なサブコマンド: $sub" ;;
+esac

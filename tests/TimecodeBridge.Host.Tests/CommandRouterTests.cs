@@ -101,6 +101,35 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
+    public void SelectDeviceCanReturnToUnselected()
+    {
+        var h = new HostHarness();
+        Assert.True(h.Run("receive.selectDevice", """{"deviceId":"loop-1"}""").Ok);
+        Assert.Contains("StartLtc:loop-1:True", h.Engine.Calls);
+        Assert.Equal("loop-1", h.State.SelectedInputDeviceId);
+
+        Assert.Equal(ErrorCode.DeviceNotFound, h.Run("receive.selectDevice", """{"deviceId":"ghost"}""").Error!.Code);
+        Assert.Equal("loop-1", h.State.SelectedInputDeviceId);
+
+        h.Engine.Calls.Clear();
+        foreach (var args in new[] { """{"deviceId":null}""", """{"deviceId":""}""", "{}" })
+        {
+            Assert.True(h.Run("receive.selectDevice", args).Ok);
+            Assert.Contains("Stop", h.Engine.Calls);
+            Assert.False(h.State.LtcStarted);
+            Assert.Null(h.State.SelectedInputDeviceId);
+        }
+
+        // 未選択のまま LTC 受信モードへ戻っても自動再接続はしない
+        Assert.True(h.Run("mode.set", """{"mode":"generate"}""").Ok);
+        h.Engine.Calls.Clear();
+        var back = h.Run("mode.set", """{"mode":"ltc"}""");
+        Assert.True(back.Ok);
+        Assert.DoesNotContain(h.Engine.Calls, c => c.StartsWith("StartLtc"));
+        Assert.False(h.State.LtcStarted);
+    }
+
+    [AvaloniaFact]
     public void CueFireAndEnableUseCueManager()
     {
         var h = new HostHarness();

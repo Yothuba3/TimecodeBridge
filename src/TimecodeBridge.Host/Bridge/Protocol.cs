@@ -102,7 +102,6 @@ public sealed record AppState(
     IReadOnlyList<CueDto> Cues,
     IReadOnlyList<HostDto> Hosts,
     CueSyncState CueSync,
-    RelayState Relay,
     TriggerPanelState TriggerPanel,
     IReadOnlyList<LogDto> Logs,
     UiCapabilities UiCapabilities);
@@ -150,9 +149,9 @@ public sealed record ClockState(
 
 /// <summary>
 /// 波形モニター用の縮約データ。Web の viewport 幅に合わせた点数で、各点は表示区間の [min, max] (−1..1)。
-/// protocol.ts では未定義(unknown)なので、この形を Codex に共有する。
+/// 表示区間は <see cref="WaveReducer.WindowSeconds"/>(約 3.3ms)なので、点数がサンプル数を上回ると min と max が同じ値になる。
 /// </summary>
-public sealed record WaveState(int SampleRate, int WindowMs, float[] Min, float[] Max, double? LevelDbfs);
+public sealed record WaveState(int SampleRate, double WindowMs, float[] Min, float[] Max, double? LevelDbfs);
 
 public sealed record NextCueState(string Id, string Name, string TriggerTime, string EffectiveTriggerTime, long FramesUntil);
 
@@ -190,10 +189,6 @@ public sealed record HostDto(string Id, string Name, string IpAddress, int Port,
 
 public sealed record CueSyncState(string OscAddress, IReadOnlyList<string> TargetHostIds);
 
-public sealed record RelayState(string OscAddressPattern, RelayInterval Interval, IReadOnlyList<string> TargetHostIds, bool ContinuousEnabled);
-
-public sealed record RelayInterval(string Mode, int IntervalMs);
-
 public sealed record TriggerPanelState(int Rows, int Columns, IReadOnlyList<TriggerButtonDto> Buttons);
 
 public sealed record TriggerButtonDto(string Id, int Row, int Column, string Label, string OscAddress, IReadOnlyList<OscArgumentDto> Arguments, IReadOnlyList<string> TargetHostIds);
@@ -213,7 +208,6 @@ public sealed record StateChanges(
     IReadOnlyList<CueDto>? Cues = null,
     IReadOnlyList<HostDto>? Hosts = null,
     CueSyncState? CueSync = null,
-    RelayState? Relay = null,
     TriggerPanelState? TriggerPanel = null,
     IReadOnlyList<LogDto>? LogsAppend = null,
     IReadOnlyList<LogDto>? LogsReset = null);

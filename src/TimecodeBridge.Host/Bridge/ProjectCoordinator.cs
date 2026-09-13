@@ -8,7 +8,7 @@ using TimecodeBridge.Host.Services;
 namespace TimecodeBridge.Host.Bridge;
 
 /// <summary>
-/// プロジェクト(キュー・ホスト・中継・ポン出し・CueSync・オフセット・ソース設定)の新規/開く/保存と、
+/// プロジェクト(キュー・ホスト・ポン出し・CueSync・オフセット・ソース設定)の新規/開く/保存と、
 /// 編集履歴(Undo/Redo)を担う。v2 の MainViewModel と同じ方針: 履歴は ProjectData の JSON スナップショット、
 /// ソース設定(デバイス・生成器)は Undo 対象外(取り消しのたびに受信が止まるとライブを乱す)。
 /// </summary>
@@ -22,7 +22,6 @@ public sealed class ProjectCoordinator : IProjectHistory
     private readonly ITimecodeEngine _engine;
     private readonly ICueManager _cues;
     private readonly IHostRegistry _hosts;
-    private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
     private readonly IProjectService _project;
     private readonly RecentProjectsStore _recent;
@@ -33,9 +32,9 @@ public sealed class ProjectCoordinator : IProjectHistory
     private DateTime _lastSnapshotAt;
 
     public ProjectCoordinator(HostState state, ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts,
-        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project, RecentProjectsStore recent)
+        IOscTriggerPanelManager panel, IProjectService project, RecentProjectsStore recent)
     {
-        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _relay = relay; _panel = panel; _project = project; _recent = recent;
+        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _panel = panel; _project = project; _recent = recent;
         _state.History = this;
         RecordBaseline();
     }
@@ -130,10 +129,6 @@ public sealed class ProjectCoordinator : IProjectHistory
     {
         if (!await ConfirmDiscardIfDirtyAsync()) return false;
         ClearAll();
-        _relay.OscAddressPattern = new RelaySettings().OscAddressPattern;
-        _relay.ContinuousInterval = new RelaySettings().ContinuousInterval;
-        _relay.TargetHostIds = Array.Empty<string>();
-        _relay.IsContinuousEnabled = false;
         _engine.Offset = TimecodeOffset.Zero(_engine.FrameRate);
         _state.CueSync.OscAddress = new CueSyncSettings().OscAddress;
         _state.CueSync.TargetHostIds.Clear();
@@ -225,13 +220,6 @@ public sealed class ProjectCoordinator : IProjectHistory
         {
             Cues = _cues.Cues.ToList(),
             Hosts = _hosts.Hosts.ToList(),
-            RelaySettings = new RelaySettings
-            {
-                OscAddressPattern = _relay.OscAddressPattern,
-                ContinuousInterval = _relay.ContinuousInterval,
-                TargetHostIds = _relay.TargetHostIds.ToList(),
-                IsContinuousEnabled = _relay.IsContinuousEnabled,
-            },
             Offset = _engine.Offset,
             OscTriggerPanel = _panel.GetSettings(),
             CueSync = new CueSyncSettings { OscAddress = _state.CueSync.OscAddress, TargetHostIds = _state.CueSync.TargetHostIds.ToList() },
@@ -273,10 +261,6 @@ public sealed class ProjectCoordinator : IProjectHistory
         foreach (var cue in data.Cues.DistinctBy(c => c.Id)) _cues.AddCue(cue);
         foreach (var host in data.Hosts.DistinctBy(h => h.Id)) _hosts.AddHost(host);
 
-        _relay.OscAddressPattern = data.RelaySettings.OscAddressPattern;
-        _relay.ContinuousInterval = data.RelaySettings.ContinuousInterval;
-        _relay.TargetHostIds = data.RelaySettings.TargetHostIds;
-        _relay.IsContinuousEnabled = data.RelaySettings.IsContinuousEnabled;
         _engine.Offset = data.Offset;
         _panel.LoadSettings(data.OscTriggerPanel);
         _state.CueSync.OscAddress = data.CueSync.OscAddress;

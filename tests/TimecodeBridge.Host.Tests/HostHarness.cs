@@ -6,7 +6,7 @@ using TimecodeBridge.Host.Services;
 
 namespace TimecodeBridge.Host.Tests;
 
-/// <summary>実サービス(CueManager/HostRegistry/Relay/Panel/Project)とフェイク(エンジン/OSC 送信/デバイス)で Host 側を組み立てる。</summary>
+/// <summary>実サービス(CueManager/HostRegistry/Panel/Project)とフェイク(エンジン/OSC 送信/デバイス)で Host 側を組み立てる。</summary>
 public sealed class HostHarness
 {
     public FakeEngine Engine { get; } = new();
@@ -16,7 +16,6 @@ public sealed class HostHarness
     public IProjectService Project { get; } = new ProjectService();
     public RecentProjectsStore Recent { get; } = new(Path.Combine(Path.GetTempPath(), $"tcb3-settings-{Guid.NewGuid():N}.json"), Path.Combine(Path.GetTempPath(), "tcb3-no-legacy.json"));
     public ICueManager Cues { get; }
-    public ITimecodeRelay Relay { get; }
     public IOscTriggerPanelManager Panel { get; }
     public HostState State { get; }
     public ProjectCoordinator Projects { get; }
@@ -25,11 +24,10 @@ public sealed class HostHarness
     public HostHarness()
     {
         Cues = new CueManager(Engine, Osc);
-        Relay = new TimecodeRelay(Engine, Osc);
         Panel = new OscTriggerPanelManager(Osc, Hosts);
-        State = new HostState(Engine, Cues, Hosts, Osc, Relay, Panel, Project, Devices, Recent);
-        Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Relay, Panel, Project, Recent);
-        Router = new CommandRouter(State, Engine, Cues, Hosts, Relay, Panel, Projects);
+        State = new HostState(Engine, Cues, Hosts, Osc, Panel, Project, Devices, Recent);
+        Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Panel, Project, Recent);
+        Router = new CommandRouter(State, Engine, Cues, Hosts, Panel, Projects);
     }
 
     public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1")

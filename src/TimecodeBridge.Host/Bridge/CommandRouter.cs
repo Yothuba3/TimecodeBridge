@@ -11,14 +11,13 @@ public sealed class CommandRouter
     private readonly ITimecodeEngine _engine;
     private readonly ICueManager _cues;
     private readonly IHostRegistry _hosts;
-    private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
     private readonly ProjectCoordinator _projects;
 
     public CommandRouter(HostState state, ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts,
-        ITimecodeRelay relay, IOscTriggerPanelManager panel, ProjectCoordinator projects)
+        IOscTriggerPanelManager panel, ProjectCoordinator projects)
     {
-        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _relay = relay; _panel = panel; _projects = projects;
+        _state = state; _engine = engine; _cues = cues; _hosts = hosts; _panel = panel; _projects = projects;
     }
 
     public Action? CloseRequested { get; set; }
@@ -155,6 +154,19 @@ public sealed class CommandRouter
                     _state.LtcStarted = false;
                     _state.MarkDirty(Domain.Transport);
                     return Ok(id);
+                case "receive.selectDevice":
+                {
+                    // deviceId が null/空なら「未選択」に戻す(受信を止めて選択を消す)。それ以外は ltc.reconnect と同じ
+                    var deviceId = Str(a, "deviceId");
+                    if (!string.IsNullOrEmpty(deviceId))
+                        return Execute(msg with { Command = "ltc.reconnect" });
+                    _engine.Stop();
+                    _state.LtcStarted = false;
+                    _state.SelectedInputDeviceId = null;
+                    _state.SetError(null);
+                    _state.MarkDirty(Domain.Receive | Domain.Transport);
+                    return Ok(id);
+                }
                 case "audio.refreshDevices":
                     _state.MarkDirty(Domain.Receive | Domain.Generator);
                     return Ok(id);
@@ -318,6 +330,11 @@ public sealed class CommandRouter
                     if (source is null) return Fail(id, ErrorCode.NotFound, "キューが見つかりません");
                     int count = Int(a, "count") ?? 1;
                     long interval = Int(a, "intervalFrames") ?? 0;
+                    if (Str(a, "interval") is { } intervalText && intervalText.Trim().Length > 0)
+                    {
+                        if (!HostState.TryParseTimecode(intervalText, source.TriggerTime.FrameRate, out var intervalValue)) return Validation(id, "interval", "HH:MM:SS:FF の形式で入力してください");
+                        interval = intervalValue.TotalFrames();
+                    }
                     if (count is < 1 or > 500) return Validation(id, "count", "1〜500");
                     if (interval < 0) return Validation(id, "intervalFrames", "0 以上");
                     var ids = new List<string>();
@@ -422,33 +439,6 @@ public sealed class CommandRouter
                     _projects.Commit();
                     return Ok(id);
                 }
-
-                // ---- タイムコード中継 ----
-                case "relay.configure":
-                    if (Str(a, "oscAddressPattern") is { } pattern) _relay.OscAddressPattern = pattern;
-                    if (Get(a, "interval") is { } iv)
-                    {
-                        var mode = Str(iv, "mode") == "custom" ? RelayIntervalMode.Custom : RelayIntervalMode.EveryFrame;
-                        var ms = Int(iv, "intervalMs") ?? 0;
-                        if (mode == RelayIntervalMode.Custom && ms < 1) return Validation(id, "interval.intervalMs", "1 以上");
-                        _relay.ContinuousInterval = new(mode, ms);
-                    }
-                    if (Has(a, "targetHostIds")) _relay.TargetHostIds = StrArray(a, "targetHostIds");
-                    _projects.Commit();
-                    _state.MarkDirty(Domain.Relay);
-                    return Ok(id);
-                case "relay.setContinuous":
-                {
-                    var enabled = Bool(a, "enabled");
-                    if (enabled is null) return Validation(id, "enabled", "true/false");
-                    _relay.IsContinuousEnabled = enabled.Value;
-                    _projects.Commit();
-                    _state.MarkDirty(Domain.Relay);
-                    return Ok(id);
-                }
-                case "relay.sendOnce":
-                    _relay.TriggerOneShot();
-                    return Ok(id, new { sent = true });
 
                 // ---- OSC ポン出し ----
                 case "triggerPanel.configureGrid":

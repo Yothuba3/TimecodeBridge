@@ -10,6 +10,7 @@ namespace TimecodeBridge.Host;
 public sealed class MainWindow : Window
 {
     private readonly BridgeServer? _bridge;
+    private readonly DevAutomation? _automation;
     private readonly ITimecodeEngine _engine;
 
     public MainWindow(HostState state, CommandRouter router, ProjectCoordinator projects, ITimecodeEngine engine, RecentProjectsStore recent)
@@ -49,10 +50,12 @@ public sealed class MainWindow : Window
         }
         Content = webView;
         _bridge = new BridgeServer(webView, state, router, Close);
+        _automation = DevAutomation.StartIfRequested(new HostAutomationTarget(this, webView, state, router, _bridge));
 
         Opened += (_, _) => webView.Navigate(WebAssets.IndexUri());
         Closing += (_, _) =>
         {
+            _automation?.Dispose();
             _bridge?.Dispose();
             _engine.Stop();
         };

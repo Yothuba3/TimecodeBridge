@@ -99,10 +99,14 @@ public class HostStateTests
     public void WaveReducerReducesToMinMaxAndReportsLevel()
     {
         var w = new WaveReducer();
-        w.Configure(48000, 100);
-        var samples = new float[4800];
-        for (int i = 0; i < samples.Length; i++) samples[i] = i < 2400 ? 0.5f : -0.25f;
-        samples[100] = float.NaN;
+        // 表示区間は v2 と同じ約 0.1 フレーム(48kHz で 160 サンプル)。サンプルレートが変わっても時間幅を保つ
+        Assert.Equal(160, w.WindowSamples);
+        w.Configure(96000);
+        Assert.Equal(320, w.WindowSamples);
+        w.Configure(48000);
+        var samples = new float[160];
+        for (int i = 0; i < samples.Length; i++) samples[i] = i < 80 ? 0.5f : -0.25f;
+        samples[10] = float.NaN;
         w.Write(samples);
 
         // 点数は 16 未満に丸められる(表示幅が極端に狭くても最低限の形は出す)
@@ -116,5 +120,51 @@ public class HostStateTests
         Assert.InRange(snap.LevelDbfs!.Value, -6.1, -6.0);
 
         Assert.Null(w.Snapshot(16)!.Value.LevelDbfs);
+    }
+}
+
+public class NextCuePatchTests
+{
+    private static (StateChanges? Changes, long Revision) FlushAndCapture(HostHarness h)
+    {
+        StateChanges? captured = null; long rev = 0;
+        h.State.Changed += (c, r, _) => { captured = c; rev = r; };
+        h.State.Flush();
+        return (captured, rev);
+    }
+
+    [AvaloniaFact]
+    public void AddingACueSendsNextCueInThePatch()
+    {
+        var h = new HostHarness();
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        h.State.Flush();
+        Assert.True(h.Run("cue.add", """{"cue":{"name":"first","triggerTime":"01:00:10:00","oscAddress":"/a"}}""").Ok);
+
+        var (changes, _) = FlushAndCapture(h);
+        Assert.NotNull(changes?.Cues);
+        Assert.Equal("first", changes!.NextCue?.Name);
+    }
+
+    [AvaloniaFact]
+    public void PassingTheCueUpdatesNextCueWithoutACueChange()
+    {
+        var h = new HostHarness();
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        Assert.True(h.Run("cue.add", """{"cue":{"name":"first","triggerTime":"01:00:10:00","oscAddress":"/a"}}""").Ok);
+        Assert.True(h.Run("cue.add", """{"cue":{"name":"second","triggerTime":"01:00:20:00","oscAddress":"/b"}}""").Ok);
+        h.State.BuildClock();
+        h.State.Flush();
+
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 15, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 15, 0, FrameRate.Fps30));
+        var clock = h.State.BuildClock();
+        var (changes, _) = FlushAndCapture(h);
+        Assert.Equal(changes?.NextCue?.Id, clock.NextCueId);
+        Assert.Equal("second", changes?.NextCue?.Name);
+        Assert.Null(changes?.Cues);
+
+        h.State.BuildClock();
+        var (again, _) = FlushAndCapture(h);
+        Assert.Null(again);
     }
 }

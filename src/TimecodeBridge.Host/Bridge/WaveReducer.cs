@@ -5,18 +5,23 @@ namespace TimecodeBridge.Host.Bridge;
 /// </summary>
 public sealed class WaveReducer
 {
+    /// <summary>表示区間。UI 改修前(v2 の AudioWaveformView)と同じ約 0.1 フレーム分(30fps 基準、約 3.3ms)。LTC の矩形が数個見える幅。</summary>
+    public const double WindowSeconds = 0.1 / 30.0;
+
     private readonly object _lock = new();
-    private float[] _ring = new float[4800];
+    private float[] _ring = new float[SamplesFor(48000)];
     private int _write;
     private int _count;
     private float _peak;
 
     public int WindowSamples => _ring.Length;
 
-    /// <summary>保持する時間窓を設定する(サンプルレート変更時)。</summary>
-    public void Configure(int sampleRate, int windowMs)
+    private static int SamplesFor(int sampleRate) => Math.Max(16, (int)(sampleRate * WindowSeconds));
+
+    /// <summary>実際のサンプルレートに合わせて時間窓を保つ(同じなら何もしない)。</summary>
+    public void Configure(int sampleRate)
     {
-        int n = Math.Max(256, sampleRate * windowMs / 1000);
+        int n = SamplesFor(sampleRate);
         lock (_lock)
         {
             if (_ring.Length == n) return;

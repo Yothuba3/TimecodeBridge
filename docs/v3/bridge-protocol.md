@@ -39,7 +39,6 @@ interface AppState {
  generator:{running:boolean;startTime:string;frameRate:FrameRate;selectedOutputDeviceId:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
  currentClock:ClockState; nextCue:NextCueState|null; cues:CueDto[]; hosts:HostDto[];
  cueSync:{oscAddress:string;targetHostIds:string[]};
- relay:{oscAddressPattern:string;interval:{mode:"everyFrame"|"custom";intervalMs:number};targetHostIds:string[];continuousEnabled:boolean};
  triggerPanel:{rows:number;columns:number;buttons:TriggerButtonDto[]};
  logs:LogDto[];
  uiCapabilities:{supportsNativeOpenDialog:boolean;supportsNativeSaveDialog:boolean;platform:"windows"|"macos"};
@@ -61,7 +60,7 @@ interface LogDto {id:string;timestampUtc:string;message:string;success:boolean}
 JSON Patchや配列index差分は並べ替えに弱いため使わず、v1はドメイン単位で置換する。
 
 ```ts
-interface StateChanges {project?:AppState["project"];mode?:AppState["mode"];transport?:AppState["transport"];receive?:AppState["receive"];generator?:AppState["generator"];nextCue?:NextCueState|null;cues?:CueDto[];hosts?:HostDto[];cueSync?:AppState["cueSync"];relay?:AppState["relay"];triggerPanel?:AppState["triggerPanel"];logsAppend?:LogDto[];logsReset?:LogDto[]}
+interface StateChanges {project?:AppState["project"];mode?:AppState["mode"];transport?:AppState["transport"];receive?:AppState["receive"];generator?:AppState["generator"];nextCue?:NextCueState|null;cues?:CueDto[];hosts?:HostDto[];cueSync?:AppState["cueSync"];triggerPanel?:AppState["triggerPanel"];logsAppend?:LogDto[];logsReset?:LogDto[]}
 ```
 
 - Hostの低頻度状態変更ごとにrevisionを増やす。Webは `baseRevision === currentRevision` のpatchだけ適用し、不一致ならresyncしてsnapshotまで破壊的編集を止める。
@@ -69,7 +68,7 @@ interface StateChanges {project?:AppState["project"];mode?:AppState["mode"];tran
 - 編集・削除・並べ替え・Undo/RedoはexpectedRevision必須。送信やmuteは省略可。
 - Hostはcommandを直列処理し、状態変更→revision更新→patch作成を一dispatcher処理にする。
 - draft、選択、scroll、列幅、drawerはWebローカル状態。snapshotで潰さない。
-- `cue.fire`, `cueSync.send`, `triggerPanel.fire`, `relay.sendOnce` はHostでrequestIdを短時間記憶し重複排除する。
+- `cue.fire`, `cueSync.send`, `triggerPanel.fire` はHostでrequestIdを短時間記憶し重複排除する。
 
 ## 頻度とバックプレッシャー
 
@@ -92,6 +91,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`mode.set`|`{mode}`|`{ltcStarted}` / `validation`。ltc へ切り替えたとき、選択済みの入力デバイスがあれば Host が自動で受信を再開する(未選択なら停止のまま)|
 |`ltc.start/stop/reconnect`|`{deviceId?}`|`deviceNotFound`,`audioError`,`nativeError`|
 |`audio.refreshDevices`|`{direction}`|patch / `audioError`|
+|`receive.selectDevice`|`{deviceId}`|`deviceId` が null/空なら「未選択」に戻す(受信を止めて選択を消す)。それ以外は `ltc.reconnect` と同じ / `deviceNotFound`,`audioError`|
 |`receive.setOffset`|`{value}`|`{normalized}` / `validation`|
 |`receive.setTriggerWindow`|`{frames}`|`{frames}` / `validation`|
 |`receive.setFreerunDuration`|`{seconds}`|`validation`|
@@ -100,12 +100,11 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`mute.set`, `autoMute.setEnabled`|`{muted? ,enabled?}`|`invalidState`|
 |`cue.add/update`|`{id?,cue:CueDraft}`|`{id?}` / `notFound`,`validation`,`conflict`|
 |`cue.remove`|`{ids}`|`notFound`,`conflict`|
-|`cue.duplicate`|`{id,count?,intervalFrames?}`|`{ids}` / `validation`|
+|`cue.duplicate`|`{id,count?,interval?,intervalFrames?}`|`{ids}` / `validation`。`interval` は `"HH:MM:SS:FF"`(元キューの基準フレームレートで換算、`intervalFrames` より優先)|
 |`cue.batchUpdate`|`{ids,changes:CueBatchDraft}`|`{updated,offsetSkipped}` / `validation`|
 |`cue.sortByTime/setEnabled/fire`|`{id?,enabled?}`|`{sent?,failed?}` / `notFound`,`oscError`|
 |`cueSync.configure/send`|`{oscAddress?,targetHostIds?}`|`{sent?,failed?}` / `validation`,`oscError`|
 |`host.add/update/remove/setEnabled/ping`|`{id?,host?,enabled?}`|`{id?,reachable?,latencyMs?}` / `validation`,`inUse`,`networkError`。ping は ICMP 実測(3 秒打ち切り)で `{reachable, latencyMs}` を返し、hosts[].reachability を checking→reachable/unreachable に更新、送信ログにも残す|
-|`relay.configure/setContinuous/sendOnce`|設定または`{enabled}`|`{sent?,failed?}` / `validation`,`oscError`|
 |`triggerPanel.configureGrid/upsertButton/removeButton/fire`|grid/button/id|`{id?,sent?,failed?}` / `validation`,`occupiedCell`,`oscError`|
 |`logs.clear`|`{}`|なし|
 |`app.requestClose`|`{}`|`{cancelled}`|
@@ -130,7 +129,7 @@ Host はページ読込完了後、`window.tcb.hostAttached()` を 250ms 間隔�
 ```ts
 interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:number[]; levelDbfs:number|null }
 ```
-`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。
+`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。表示区間は UI 改修前(v2)と同じ約 0.1 フレーム分(30fps 基準で約 3.3ms、48kHz で 160 サンプル)なので、点数がサンプル数を上回るときは `min[i] == max[i]`(1 点 1 サンプル)になる。Web は塗りだけでなく線(stroke)で描くこと。
 
 ## M2b で確定した command の引数と結果(Host 実装済み, 2026-09-11)
 
@@ -154,7 +153,7 @@ interface CueDraft {
 }
 // validation エラーの fieldErrors のキーは "cue.<field>"
 
-// cue.duplicate {id, count?=1, intervalFrames?=0} → {ids: string[]}
+// cue.duplicate {id, count?=1, interval?: "HH:MM:SS:FF", intervalFrames?=0} → {ids: string[]}  interval があれば元キューのフレームレートでフレーム数に換算して使う
 //   count=1 かつ intervalFrames=0 なら同時刻に「<name> (コピー)」を 1 件。それ以外は基準時刻 + interval×i (i=1..count)
 // cue.batchUpdate {ids: string[], changes: CueBatchDraft} → {updated, offsetSkipped}
 //   changes に存在するフィールドだけ適用(値 null は「クリア」)。triggerOffset 適用後が範囲外のキューはオフセットだけ見送り offsetSkipped に数える

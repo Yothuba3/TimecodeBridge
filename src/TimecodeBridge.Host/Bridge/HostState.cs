@@ -21,9 +21,8 @@ public enum Domain
     Cues = 1 << 6,
     Hosts = 1 << 7,
     CueSync = 1 << 8,
-    Relay = 1 << 9,
-    TriggerPanel = 1 << 10,
-    All = (1 << 11) - 1,
+    TriggerPanel = 1 << 9,
+    All = (1 << 10) - 1,
 }
 
 /// <summary>
@@ -38,7 +37,6 @@ public sealed class HostState : IDisposable
     private readonly ICueManager _cues;
     private readonly IHostRegistry _hosts;
     private readonly IOscSender _osc;
-    private readonly ITimecodeRelay _relay;
     private readonly IOscTriggerPanelManager _panel;
     private readonly IProjectService _project;
     private readonly IAudioDeviceService _devices;
@@ -53,16 +51,17 @@ public sealed class HostState : IDisposable
     private Domain _dirty;
     private bool _flushScheduled;
     private TimecodeUpdatedEventArgs? _lastUpdate;
+    private string? _lastNextCueId;
     private TimecodeReceiveStatus _receiveStatus = TimecodeReceiveStatus.NotReceiving;
     private string? _lastError;
 
     public HostState(
         ITimecodeEngine engine, ICueManager cues, IHostRegistry hosts, IOscSender osc,
-        ITimecodeRelay relay, IOscTriggerPanelManager panel, IProjectService project, IAudioDeviceService devices,
+        IOscTriggerPanelManager panel, IProjectService project, IAudioDeviceService devices,
         RecentProjectsStore recent)
     {
         _engine = engine; _cues = cues; _hosts = hosts; _osc = osc;
-        _relay = relay; _panel = panel; _project = project; _devices = devices; _recent = recent;
+        _panel = panel; _project = project; _devices = devices; _recent = recent;
         _recent.Changed += () => MarkDirty(Domain.Project);
 
         _engine.TimecodeUpdated += OnTimecodeUpdated;
@@ -127,11 +126,10 @@ public sealed class HostState : IDisposable
             Transport: d.HasFlag(Domain.Transport) ? BuildTransport() : null,
             Receive: d.HasFlag(Domain.Receive) ? BuildReceive() : null,
             Generator: d.HasFlag(Domain.Generator) ? BuildGenerator() : null,
-            NextCue: d.HasFlag(Domain.NextCue | Domain.Cues) ? BuildNextCue() : null,
+            NextCue: (d & (Domain.NextCue | Domain.Cues)) != 0 ? BuildNextCue() : null,
             Cues: d.HasFlag(Domain.Cues) ? BuildCues() : null,
             Hosts: d.HasFlag(Domain.Hosts) ? BuildHosts() : null,
             CueSync: d.HasFlag(Domain.CueSync) ? BuildCueSync() : null,
-            Relay: d.HasFlag(Domain.Relay) ? BuildRelay() : null,
             TriggerPanel: d.HasFlag(Domain.TriggerPanel) ? BuildTriggerPanel() : null,
             LogsAppend: !_logsReset && _pendingLogAppend.Count > 0 ? _pendingLogAppend.ToArray() : null,
             LogsReset: _logsReset ? _logs.ToArray() : null);
@@ -157,7 +155,6 @@ public sealed class HostState : IDisposable
         BuildCues(),
         BuildHosts(),
         BuildCueSync(),
-        BuildRelay(),
         BuildTriggerPanel(),
         _logs.ToArray(),
         new UiCapabilities(true, true, OperatingSystem.IsWindows() ? "windows" : "macos"));
@@ -230,6 +227,11 @@ public sealed class HostState : IDisposable
         var raw = update?.RawTimecode ?? _engine.CurrentRawTimecode;
         var display = update?.OffsetTimecode ?? _engine.CurrentOffsetTimecode;
         var next = FindNextCue(display);
+        if (next?.Id != _lastNextCueId)
+        {
+            _lastNextCueId = next?.Id;
+            MarkDirty(Domain.NextCue);
+        }
         return new ClockState(
             raw.ToString(), display.ToString(), display.TotalFrames(), ToCode(display.FrameRate), display.FrameRate.IsDropFrame(),
             _clock.Elapsed.TotalMilliseconds,
@@ -241,7 +243,7 @@ public sealed class HostState : IDisposable
         var snap = Wave.Snapshot(points);
         if (snap is null) return null;
         int rate = _engine is TimecodeEngine e ? e.CaptureSampleRate : 48000;
-        return new WaveState(rate, Wave.WindowSamples * 1000 / Math.Max(1, rate), snap.Value.Min, snap.Value.Max, snap.Value.LevelDbfs);
+        return new WaveState(rate, Wave.WindowSamples * 1000.0 / Math.Max(1, rate), snap.Value.Min, snap.Value.Max, snap.Value.LevelDbfs);
     }
 
     private NextCueState? BuildNextCue()
@@ -301,12 +303,6 @@ public sealed class HostState : IDisposable
 
     private CueSyncState BuildCueSync() => new(CueSync.OscAddress, CueSync.TargetHostIds.ToArray());
 
-    private RelayState BuildRelay() => new(
-        _relay.OscAddressPattern,
-        new RelayInterval(_relay.ContinuousInterval.Mode == RelayIntervalMode.EveryFrame ? "everyFrame" : "custom", _relay.ContinuousInterval.IntervalMs),
-        _relay.TargetHostIds.ToArray(),
-        _relay.IsContinuousEnabled);
-
     private TriggerPanelState BuildTriggerPanel() => new(
         _panel.Rows, _panel.Columns,
         _panel.Buttons.Select(b => new TriggerButtonDto(b.Id, b.Row, b.Column, b.Label, b.OscAddress, b.Arguments.Select(ToDto).ToArray(), b.TargetHostIds.ToArray())).ToArray());
@@ -346,7 +342,11 @@ public sealed class HostState : IDisposable
         MarkDirty(Domain.Transport);
     }
 
-    private void OnAudioSamples(object? sender, AudioSamplesEventArgs e) => Wave.Write(e.Samples);
+    private void OnAudioSamples(object? sender, AudioSamplesEventArgs e)
+    {
+        if (_engine is TimecodeEngine concrete) Wave.Configure(concrete.CaptureSampleRate);
+        Wave.Write(e.Samples);
+    }
 
     private void OnAudioError(object? sender, AudioErrorEventArgs e)
     {

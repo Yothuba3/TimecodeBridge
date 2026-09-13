@@ -29,7 +29,6 @@ export interface AppState {
   cues: CueDto[];
   hosts: HostDto[];
   cueSync: { oscAddress: string; targetHostIds: string[] };
-  relay: { oscAddressPattern: string; interval: { mode: "everyFrame" | "custom"; intervalMs: number }; targetHostIds: string[]; continuousEnabled: boolean };
   triggerPanel: { rows: number; columns: number; buttons: TriggerButtonDto[] };
   logs: LogDto[];
   uiCapabilities: { supportsNativeOpenDialog: boolean; supportsNativeSaveDialog: boolean; platform: "windows" | "macos" };
@@ -46,7 +45,7 @@ export interface HostDto { id: string; name: string; ipAddress: string; port: nu
 export interface TriggerButtonDto { id: string; row: number; column: number; label: string; oscAddress: string; arguments: OscArgumentDto[]; targetHostIds: string[] }
 export interface LogDto { id: string; timestampUtc: string; message: string; success: boolean }
 
-export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState | null; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; relay?: AppState["relay"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
+export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState | null; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
 
 export interface ProtocolError { code: "badMessage" | "unsupportedVersion" | "unknownCommand" | "validation" | "notFound" | "conflict" | "invalidState" | "deviceNotFound" | "audioError" | "nativeError" | "networkError" | "oscError" | "ioError" | "internal"; message: string; fieldErrors?: Record<string, string>; retryable: boolean; details?: Record<string, unknown> }
 
@@ -57,14 +56,13 @@ export type CommandName =
   | "mode.set"
   | "ltc.start" | "ltc.stop" | "ltc.reconnect"
   | "audio.refreshDevices"
-  | "receive.setOffset" | "receive.setTriggerWindow" | "receive.setFreerunDuration"
+  | "receive.selectDevice" | "receive.setOffset" | "receive.setTriggerWindow" | "receive.setFreerunDuration"
   | "generator.configure" | "generator.start" | "generator.stop" | "generator.reset"
   | "mute.set" | "autoMute.setEnabled"
   | "cue.add" | "cue.update" | "cue.remove" | "cue.duplicate" | "cue.batchUpdate"
   | "cue.sortByTime" | "cue.setEnabled" | "cue.fire"
   | "cueSync.configure" | "cueSync.send"
   | "host.add" | "host.update" | "host.remove" | "host.setEnabled" | "host.ping"
-  | "relay.configure" | "relay.setContinuous" | "relay.sendOnce"
   | "triggerPanel.configureGrid" | "triggerPanel.upsertButton" | "triggerPanel.removeButton" | "triggerPanel.fire"
   | "logs.clear";
 /** Waveform samples are normalized to -1..1. */
