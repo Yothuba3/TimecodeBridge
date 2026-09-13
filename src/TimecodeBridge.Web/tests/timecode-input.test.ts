@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {clampTimecodePart,enterTimecodeDigits,joinTimecode,normalizeTimecodeDigits,splitTimecode,timecodeFocusForKey} from "../src/components/timecode-input";
+import {clampTimecode,clampTimecodePart,enterTimecodeDigits,joinTimecode,normalizeTimecodeDigits,splitTimecode,timecodeFocusForKey} from "../src/components/timecode-input";
 
 test("normalizes full-width digits and discards every other character",()=>{
   assert.equal(normalizeTimecodeDigits("１２a３：四4"),"1234");
@@ -30,4 +30,11 @@ test("field bounds include the frame-rate-specific FF maximum",()=>{
   assert.equal(clampTimecodePart("80",1,"30"),"59");
   assert.equal(clampTimecodePart("29",3,"25"),"24");
   assert.equal(clampTimecodePart("29",3,"29.97df"),"29");
+});
+
+test("clampTimecode limits every field to the frame rate and keeps the sign",()=>{
+  assert.equal(clampTimecode("01:05:00:29","24"),"01:05:00:23");
+  assert.equal(clampTimecode("-00:00:01:29","25",true),"-00:00:01:24");
+  assert.equal(clampTimecode("","24"),"");
+  assert.equal(clampTimecode("00:00:00:29","29.97df"),"00:00:00:29");
 });

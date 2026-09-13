@@ -3,7 +3,7 @@ import {useEffect,useState} from "preact/hooks";
 import type {CueDto,FrameRate,HostDto,ProtocolError} from "../protocol";
 import {buildCueDraft,cueToForm,emptyCueForm,fieldErrorsFor,type CueForm} from "../cue-draft";
 import {command} from "../commands";
-import {TimecodeInput,frameMaximum} from "./timecode-input";
+import {TimecodeInput,clampTimecode,frameMaximum} from "./timecode-input";
 
 export function ModalShell(p:{title:string;close:()=>void;children:ComponentChildren;wide?:boolean;class?:string;titleExtra?:ComponentChildren}) {useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==="Escape"&&!e.isComposing){e.preventDefault();p.close()}};window.addEventListener("keydown",key,true);return()=>window.removeEventListener("keydown",key,true)},[p.close]);return <div class="modal-shade" onMouseDown={e=>{if(e.target===e.currentTarget)p.close()}}><div class={`dialog ${p.wide?"wide":""} ${p.class??""}`} role="dialog" aria-modal="true" onKeyDown={(e:JSX.TargetedKeyboardEvent<HTMLDivElement>)=>e.stopPropagation()}><div class="dialog-title"><b>{p.title}</b>{p.titleExtra}<button class="btn" onClick={p.close}>閉じる</button></div>{p.children}</div></div>}
 const Shell=ModalShell;
@@ -18,7 +18,7 @@ export function CueDialog({cue,frameRate,hosts,close,done}:{cue?:CueDto;frameRat
  const check=(key:"enabled"|"sendTriggerTimeAsSeconds"|"autoMuteOnFire",label:string)=><label class="check"><input type="checkbox" checked={f[key]} onChange={e=>set(key,e.currentTarget.checked)}/>{label}</label>;
  const optionalTc=(key:"sendTimecode"|"autoUnmuteAfter",label:string,enabled:boolean,initial:string)=><div class="check-row"><label class="check"><input type="checkbox" aria-label={`${label}を指定`} disabled={!enabled} checked={f[key]!==""} onChange={e=>set(key,e.currentTarget.checked?initial:"")}/>指定</label>{tc(key,label,{disabled:!enabled||f[key]===""})}</div>;
  const save=async(e:Event)=>{e.preventDefault();const result=buildCueDraft(f);if(!result.draft){setErrors(result.errors);return}try{await command(cue?"cue.update":"cue.add",cue?{id:cue.id,cue:result.draft}:{cue:result.draft});done()}catch(error){setErrors(fieldErrorsFor(error as ProtocolError,"cue"))}};
- const rate=<label class="cue-frame-rate"><span>基準フレームレート</span><select class="field" value={f.frameRate} onChange={e=>set("frameRate",e.currentTarget.value as FrameRate)}>{rates.map(x=><option value={x}>{x} fps</option>)}</select><small>FF 00–{String(frameMaximum(f.frameRate)).padStart(2,"0")}</small></label>;
+ const rate=<label class="cue-frame-rate"><span>基準フレームレート</span><select class="field" value={f.frameRate} onChange={e=>{const rate=e.currentTarget.value as FrameRate;setF(x=>({...x,frameRate:rate,triggerTime:clampTimecode(x.triggerTime,rate),sendTimecode:clampTimecode(x.sendTimecode,rate),triggerOffset:clampTimecode(x.triggerOffset,rate,true),autoUnmuteAfter:clampTimecode(x.autoUnmuteAfter,rate)}))}}>{rates.map(x=><option value={x}>{x} fps</option>)}</select><small>FF 00–{String(frameMaximum(f.frameRate)).padStart(2,"0")}</small></label>;
  return <Shell title={cue?"キューを編集":"キューを追加"} close={close} class="cue" titleExtra={rate}><form onSubmit={save} class="cue-edit">
   <Row label="名前" name="name" errors={errors}><input autofocus class="field" aria-label="名前" value={f.name} onInput={e=>set("name",e.currentTarget.value)}/></Row>
   <Row label="トリガー時間" name="triggerTime" errors={errors}>{tc("triggerTime","トリガー時間")}</Row>
