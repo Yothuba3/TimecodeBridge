@@ -290,6 +290,7 @@ public sealed class ProjectCoordinator : IProjectHistory
         {
             try
             {
+                _state.PrepareForLtcStart();
                 _engine.StartLtc(device.Id, device.IsLoopback);
                 _state.LtcStarted = true;
                 _state.SetError(null);

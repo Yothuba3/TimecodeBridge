@@ -51,6 +51,8 @@ public sealed class HostState : IDisposable
     private Domain _dirty;
     private bool _flushScheduled;
     private TimecodeUpdatedEventArgs? _lastUpdate;
+    private TimecodeUpdatedEventArgs? _lastLtcUpdate;
+    private FrameRate _lastLtcFrameRate = FrameRate.Fps30;
     private string? _lastNextCueId;
     private TimecodeReceiveStatus _receiveStatus = TimecodeReceiveStatus.NotReceiving;
     private string? _lastError;
@@ -336,7 +338,28 @@ public sealed class HostState : IDisposable
 
     // ---- engine / service events ------------------------------------------------------
 
-    private void OnTimecodeUpdated(object? sender, TimecodeUpdatedEventArgs e) => _lastUpdate = e;
+    private void OnTimecodeUpdated(object? sender, TimecodeUpdatedEventArgs e)
+    {
+        _lastUpdate = e;
+        if (Mode == "ltc" && _engine.IsReceiving)
+        {
+            _lastLtcUpdate = e;
+            _lastLtcFrameRate = e.OffsetTimecode.FrameRate;
+        }
+    }
+
+    /// <summary>
+    /// generator が設定したレートを LTC 自動検出の初期値に持ち込まないよう、最後に受信した LTC の
+    /// レートへ戻す。最初のフレームが届くまでは生成値でなく前回の LTC 表示を保つ。
+    /// </summary>
+    internal void PrepareForLtcStart()
+    {
+        _engine.FrameRate = _lastLtcFrameRate;
+        if (_lastLtcUpdate is not null)
+        {
+            _lastUpdate = _lastLtcUpdate;
+        }
+    }
 
     private void OnStatusChanged(object? sender, TimecodeStatusChangedEventArgs e)
     {

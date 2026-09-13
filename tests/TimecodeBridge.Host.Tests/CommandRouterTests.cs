@@ -78,6 +78,30 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
+    public void ReturningFromDropFrameGeneratorRestoresLastLtcClockImmediately()
+    {
+        var h = new HostHarness();
+        Assert.True(h.Run("ltc.reconnect", """{"deviceId":"in-1"}""").Ok);
+        h.Engine.IsReceiving = true;
+        h.Engine.RaiseTimecode(
+            new TimecodeValue(1, 0, 5, 12, FrameRate.Fps30),
+            new TimecodeValue(1, 0, 5, 12, FrameRate.Fps30));
+
+        Assert.True(h.Run("mode.set", """{"mode":"generate"}""").Ok);
+        h.Engine.FrameRate = FrameRate.Fps2997Drop;
+        h.Engine.RaiseTimecode(
+            new TimecodeValue(10, 0, 0, 18, FrameRate.Fps2997Drop),
+            new TimecodeValue(10, 0, 0, 18, FrameRate.Fps2997Drop));
+
+        Assert.True(h.Run("mode.set", """{"mode":"ltc"}""").Ok);
+        var clock = h.State.BuildClock();
+        Assert.Equal(FrameRate.Fps30, h.Engine.FrameRate);
+        Assert.Equal(FrameRateCode.Fps30, clock.FrameRate);
+        Assert.False(clock.DropFrame);
+        Assert.Equal("01:00:05:12", clock.Display);
+    }
+
+    [AvaloniaFact]
     public void LtcReconnectRequiresKnownDevice()
     {
         var h = new HostHarness();

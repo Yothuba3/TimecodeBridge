@@ -118,6 +118,7 @@ public sealed class CommandRouter
                     {
                         try
                         {
+                            _state.PrepareForLtcStart();
                             _engine.StartLtc(input.Id, input.IsLoopback);
                             _state.LtcStarted = true;
                         }
@@ -138,6 +139,7 @@ public sealed class CommandRouter
                     try
                     {
                         _engine.Stop();
+                        _state.PrepareForLtcStart();
                         _engine.StartLtc(device.Id, device.IsLoopback);
                     }
                     catch (Exception ex)
