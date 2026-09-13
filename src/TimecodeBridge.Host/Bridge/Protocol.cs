@@ -117,7 +117,8 @@ public sealed record TransportState(
     bool TriggerMuted,
     bool AutoMuteEnabled,
     string? AutoMutedCueId,
-    string? AutoUnmuteAtUtc);
+    string? AutoUnmuteAtUtc,
+    string? LastLtcReceivedAtUtc);
 
 public sealed record ReceiveState(
     string? SelectedDeviceId,

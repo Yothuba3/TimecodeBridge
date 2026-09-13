@@ -53,6 +53,7 @@ public sealed class HostState : IDisposable
     private TimecodeUpdatedEventArgs? _lastUpdate;
     private TimecodeUpdatedEventArgs? _lastLtcUpdate;
     private FrameRate _lastLtcFrameRate = FrameRate.Fps30;
+    private DateTime? _lastLtcReceivedAtUtc;
     private string? _lastNextCueId;
     private TimecodeReceiveStatus _receiveStatus = TimecodeReceiveStatus.NotReceiving;
     private string? _lastError;
@@ -205,7 +206,8 @@ public sealed class HostState : IDisposable
             TriggerMuted: _cues.IsMuted,
             AutoMuteEnabled: _cues.IsAutoMuteEnabled,
             AutoMutedCueId: _cues.AutoMutedCueId,
-            AutoUnmuteAtUtc: _cues.AutoUnmuteAt?.ToUniversalTime().ToString("O"));
+            AutoUnmuteAtUtc: _cues.AutoUnmuteAt?.ToUniversalTime().ToString("O"),
+            LastLtcReceivedAtUtc: _lastLtcReceivedAtUtc?.ToString("O"));
     }
 
     private ReceiveState BuildReceive() => new(
@@ -345,6 +347,7 @@ public sealed class HostState : IDisposable
         {
             _lastLtcUpdate = e;
             _lastLtcFrameRate = e.OffsetTimecode.FrameRate;
+            _lastLtcReceivedAtUtc = DateTime.UtcNow;
         }
     }
 

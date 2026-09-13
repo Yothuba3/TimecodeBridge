@@ -49,6 +49,25 @@ public class HostStateTests
     }
 
     [AvaloniaFact]
+    public void TransportReportsTheLastRealLtcReceptionTime()
+    {
+        var h = new HostHarness();
+        h.State.Mode = "ltc";
+        h.State.LtcStarted = true;
+        Assert.Null(h.State.BuildSnapshot().Transport.LastLtcReceivedAtUtc);
+
+        h.Engine.IsReceiving = true;
+        var before = DateTime.UtcNow;
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        var received = DateTime.Parse(h.State.BuildSnapshot().Transport.LastLtcReceivedAtUtc!, null, System.Globalization.DateTimeStyles.RoundtripKind);
+        Assert.InRange(received, before, DateTime.UtcNow);
+
+        h.Engine.IsReceiving = false;
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 0, 1, FrameRate.Fps30), new TimecodeValue(1, 0, 0, 1, FrameRate.Fps30));
+        Assert.Equal(received.ToString("O"), h.State.BuildSnapshot().Transport.LastLtcReceivedAtUtc);
+    }
+
+    [AvaloniaFact]
     public void ClockUsesLatestUpdateAndNextCue()
     {
         var h = new HostHarness();

@@ -34,7 +34,7 @@ interface AppState {
  sessionId:string;
  project:{displayName:string;filePath:string|null;dirty:boolean;canUndo:boolean;canRedo:boolean;recentFiles:string[]};
  mode:"ltc"|"generate";
- transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent:number|null;locked:boolean;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId:string|null;autoUnmuteAtUtc:string|null};
+ transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent:number|null;locked:boolean;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId:string|null;autoUnmuteAtUtc:string|null;lastLtcReceivedAtUtc:string|null};
  receive:{selectedDeviceId:string|null;devices:AudioDevice[];offset:string;triggerWindowFrames:number;freerunDurationSeconds:number};
  generator:{running:boolean;startTime:string;frameRate:FrameRate;selectedOutputDeviceId:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
  currentClock:ClockState; nextCue:NextCueState|null; cues:CueDto[]; hosts:HostDto[];
@@ -52,6 +52,8 @@ interface HostDto {id:string;name:string;ipAddress:string;port:number;enabled:bo
 interface TriggerButtonDto {id:string;row:number;column:number;label:string;oscAddress:string;arguments:OscArgumentDto[];targetHostIds:string[]}
 interface LogDto {id:string;timestampUtc:string;message:string;success:boolean}
 ```
+
+`transport.lastLtcReceivedAtUtc` は最後に有効な LTC フレームを受信した UTC 時刻の ISO 8601 文字列。起動後に一度も受信していなければ `null`。フリーラン中に生成されるフレームでは更新しない。
 
 `currentClock` は初期描画用。以後の毎フレーム更新はclockだけで行う。
 

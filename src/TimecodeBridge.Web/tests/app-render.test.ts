@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {App,fileName} from "../src/components/app";import {appStore} from "../src/store";import {fakeState} from "../src/testing/fake-host";
+import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {App,fileName} from "../src/components/app";import {lastLtcText} from "../src/components/receive-panel";import {appStore} from "../src/store";import {fakeState} from "../src/testing/fake-host";
 
 test("App keeps the operational panels in the server-rendered shell",()=>{const state=fakeState();appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));for(const text of ["動作モード","LTC受信","内部生成","判定幅","TC 入出力","Cue-Sync 送信設定","送信ログ","ホスト管理","OSC ポン出し","実行モード","編集モード","フリーラン","発火後オートミュート","NEXT CUE","キューリスト"])assert.ok(html.includes(text),`missing rendered text: ${text}`);const modeControls=html.match(/<div class="mode">([\s\S]*?)<\/div>/)?.[1]??"";assert.doesNotMatch(modeControls,/>停止<\/button>/)});
 
@@ -7,6 +7,8 @@ test("TC panel switches with state.mode",()=>{const state=fakeState();appStore.v
 test("NEXT CUE countdown uses the latest clock",()=>{const state=fakeState();appStore.value.host.state=state;appStore.value.host.clock={...state.currentClock,framesUntilNextCue:47};assert.match(render(h(App,{})),/T− 47f/);state.nextCue=null;assert.match(render(h(App,{})),/T− --f/)});
 
 test("LTC panel asks for a device when none is selected",()=>{const state=fakeState();state.receive.selectedDeviceId=null;state.transport.status="stopped";state.transport.statusText="停止中";state.transport.locked=false;appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));assert.match(html,/入力デバイスを選んでください/);assert.match(html,/<button class="btn" disabled>再接続<\/button>/)});
+
+test("signal loss shows seconds since the last real LTC frame",()=>{const now=Date.parse("2026-09-14T01:00:10.900Z");assert.equal(lastLtcText("signalLost","2026-09-14T01:00:03.100Z",now),"最終受信 7 秒前");assert.equal(lastLtcText("freerun",null,now),"最終受信なし");assert.equal(lastLtcText("receiving","2026-09-14T01:00:03.100Z",now),null)});
 
 test("auto-muted cue shows MUTE and the unmute countdown in its row and on the MUTE button",()=>{const state=fakeState();state.transport.triggerMuted=true;state.transport.autoMutedCueId="cue-1";state.cues[0]!.runtime.muteCountdownText="0:02";appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));assert.match(html,/<b class="mute-tag">MUTE 0:02<\/b>/);assert.match(html,/自動解除まで 0:02/);state.transport.autoMutedCueId=null;assert.doesNotMatch(render(h(App,{})),/mute-tag/)});
 
