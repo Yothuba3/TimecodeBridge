@@ -46,10 +46,10 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 | native/libltc/build-windows.cmd | 出力先の相対パスが work へ cd した後にずれる(Codex) | 先に絶対化 |
 | Web a11y | キューの有効/▶、Undo/Redo、入力デバイス、フリーラン、Cue-Sync、ポン出しの空セルにアクセシブル名が無い(Codex) | aria-label を付与(可視コントロールで欠落 0) |
 | Host OSC 引数 | 未知の type や型に合わない value を黙って落として ok を返す(Codex P0) | validation(cue/changes/button.arguments) |
+| Host 受信レート | 内部生成(29.97df)から LTC へ戻すと約 2.6 秒、30fps の LTC に生成側のレートが付く(検出器の初期値に generator 設定が流用されていた、Codex) | 最後に受信した LTC のレートと表示に戻してから受信開始 |
 
-## 次にやるべきこと(Codex 第 7 ラウンドの優先順、未着手)
+## 次にやるべきこと(Codex 第 7 ラウンドの優先順、未着手。1 番目の FPS 表示と 6 番目の smoke --attach は対応済み)
 
-1. 内部生成(29.97df)から LTC 受信(30fps)へ戻した直後、約 1 秒 `29.97df / DROP` と `;FF` が残ってから収束する。検出待ちなら「検出中」を出すか、前ソースの設定を即時復元する
 2. Windows の CI/実機(WebView2、WASAPI、Inno Setup、build-windows.cmd)は macOS では動かせない。release workflow の PR 検証と installer の起動 smoke を追加する
 3. 外部から LTC 信号を落とす統合試験(フリーラン→信号なし、その間の NEXT と発火抑止)
 4. 無効ホストをスキップしたことをログで観測できるようにする。UDP 送信の「成功」を「送信済み」と表現し、疎通状態を併記する
