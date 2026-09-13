@@ -105,9 +105,9 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`cue.duplicate`|`{id,count?,interval?,intervalFrames?}`|`{ids}` / `validation`。`interval` は `"HH:MM:SS:FF"`(元キューの基準フレームレートで換算、`intervalFrames` より優先)|
 |`cue.batchUpdate`|`{ids,changes:CueBatchDraft}`|`{updated,offsetSkipped}` / `validation`|
 |`cue.sortByTime/setEnabled/fire`|`{id?,enabled?}`|`{sent?,failed?}` / `notFound`,`oscError`|
-|`cueSync.configure/send`|`{oscAddress?,targetHostIds?}`|`{sent?,failed?}` / `validation`,`oscError`|
+|`cueSync.configure/send`|`{oscAddress?,targetHostIds?}`|`{sent?,failed?}` / `validation`。UDP 送信の失敗は result ではなく送信ログ(success:false)に出る|
 |`host.add/update/remove/setEnabled/ping`|`{id?,host?,enabled?}`|`{id?,reachable?,latencyMs?}` / `validation`,`inUse`,`networkError`。ping は ICMP 実測(3 秒打ち切り)で `{reachable, latencyMs}` を返し、hosts[].reachability を checking→reachable/unreachable に更新、送信ログにも残す|
-|`triggerPanel.configureGrid/upsertButton/removeButton/fire`|grid/button/id|`{id?,sent?,failed?}` / `validation`,`occupiedCell`,`oscError`|
+|`triggerPanel.configureGrid/upsertButton/removeButton/fire`|grid/button/id|`{id?,sent?,failed?}` / `validation`,`conflict`(セルが占有済み)|
 |`logs.clear`|`{}`|なし|
 |`app.requestClose`|`{}`|`{cancelled}`|
 

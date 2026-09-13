@@ -3,8 +3,9 @@ rem libltc を MSVC で libltc.dll としてビルドする(CI windows-latest �
 rem usage: build-windows.cmd <出力ディレクトリ>   ※ Developer Command Prompt(vcvars64)上で実行
 setlocal
 set VER=1.3.2
-set OUT=%~1
-if "%OUT%"=="" (echo 出力ディレクトリを指定 & exit /b 1)
+if "%~1"=="" (echo 出力ディレクトリを指定 & exit /b 1)
+rem この後 work へ移動しても CI から渡されたリポジトリ相対パスの意味が変わらないよう絶対化する
+set OUT=%~f1
 set HERE=%~dp0
 set WORK=%HERE%work
 if not exist "%WORK%" mkdir "%WORK%"

@@ -63,11 +63,15 @@ public sealed class MainWindow : Window
         };
     }
 
-    // macOS のメニューバー。Web 側のショートカット(Cmd+O/S/Z 等)は WebView 内では拾えないため、ここで受けて同じ command に流す
+    // WebView 内で拾えない標準ショートカットをネイティブメニューで受け、同じ command に流す。
+    // macOS は Cmd、Windows は Ctrl を主修飾キーにする。
     private void BuildNativeMenu(CommandRouter router, RecentProjectsStore recent)
     {
-        NativeMenuItem Item(string header, string command, Key key, KeyModifiers modifiers = KeyModifiers.Meta)
+        var primaryModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+
+        NativeMenuItem Item(string header, string command, Key key, bool shift = false)
         {
+            var modifiers = primaryModifier | (shift ? KeyModifiers.Shift : KeyModifiers.None);
             var item = new NativeMenuItem(header) { Gesture = new KeyGesture(key, modifiers) };
             item.Click += async (_, _) => await router.ExecuteAsync(CommandRouter.Synthetic("menu", command));
             return item;
@@ -82,11 +86,11 @@ public sealed class MainWindow : Window
         file.Items.Add(_recentItem);
         file.Items.Add(new NativeMenuItemSeparator());
         file.Items.Add(Item("保存", "project.save", Key.S));
-        file.Items.Add(Item("名前を付けて保存…", "project.saveAs", Key.S, KeyModifiers.Meta | KeyModifiers.Shift));
+        file.Items.Add(Item("名前を付けて保存…", "project.saveAs", Key.S, shift: true));
 
         var edit = new NativeMenu();
         edit.Items.Add(Item("取り消す", "app.undo", Key.Z));
-        edit.Items.Add(Item("やり直す", "app.redo", Key.Z, KeyModifiers.Meta | KeyModifiers.Shift));
+        edit.Items.Add(Item("やり直す", "app.redo", Key.Z, shift: true));
 
         var menu = new NativeMenu();
         menu.Items.Add(new NativeMenuItem("ファイル") { Menu = file });
