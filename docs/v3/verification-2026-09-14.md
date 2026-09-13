@@ -12,7 +12,8 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 - OSC ポン出し: P/Esc、グリッド変更、編集モードでの作成/編集/削除、実行モードでの発火→OSC 受信
 - プロジェクト: `project.open {path}`(ヘッダー、内容、recentFiles)、`project.new`、存在しないパス、壊れた JSON
 - 見た目: 120 文字級の名前・アドレス・ホスト名、1100px 幅相当(style 注入)での overflow、スクロール(300 件)
-- 通し: `tools/tcb3/smoke.sh`(新ビルドで PASS)
+- 通し: `tools/tcb3/smoke.sh`(新ビルドで PASS)。release-v3.yml と同じ手順で `.app`(Release・self-contained・osx-arm64・ad-hoc 署名)を作り、その実行ファイルに対しても smoke PASS(同梱の web/ に当日の変更が入っていることを確認)
+- Codex の第 4・5 ラウンド: 29.97df で 20 キューの通し運用(自動ミュート・無効・オフセット・複数宛先・再生中の追加/編集/削除/OFFSET/L/CUE SYNC)、LTC 受信モードで 15 キュー、判定幅 0/3/10 の境界、疎通確認の連打と ping 中の削除、発火 610 回。いずれも OSC 実受信と Host ログが一致
 
 ## 見つけて直したもの(すべて feature/v3 にコミット済み)
 
@@ -36,6 +37,10 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 | Web 全般 | 長文が 1100px 幅で NEXT/フッター/Cue-Sync/ログ/ポン出しボタンからはみ出す(Codex) | min-width:0 と省略記号 |
 | キューリスト | Tab で行に到達できない(Codex) | tabIndex と aria-label。キーボードで来たときだけ選択を同期(マウスの Shift 範囲選択は維持) |
 | docs | design-plan.md の古いファイル名、README の headless Chrome の案内の矛盾 | 修正 |
+| Web patch | 最後のキューを過ぎても NEXT CUE が残る(patch が null を省くため消せない、Codex) | `nextCueCleared:true` を追加 |
+| Web 送信ログ | logsAppend を無制限に連結し長時間運用で DOM が増え続ける(Codex) | 最新 500 件に |
+| Host project.save | path 無しでは常にネイティブ保存パネル(無人保存不可、Codex 指摘) | `{path}` でダイアログなし保存 |
+| キュー行 | onFocus のフラグが残り、同じ行を続けて押した後の Tab 到達で選択が同期されない | pointerdown からの経過時間で判定 |
 
 ## 仕様どおり・記録のみ
 
