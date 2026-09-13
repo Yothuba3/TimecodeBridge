@@ -13,6 +13,7 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 - プロジェクト: `project.open {path}`(ヘッダー、内容、recentFiles)、`project.new`、存在しないパス、壊れた JSON
 - 見た目: 120 文字級の名前・アドレス・ホスト名、1100px 幅相当(style 注入)での overflow、スクロール(300 件)
 - 通し: `tools/tcb3/smoke.sh`(新ビルドで PASS)。release-v3.yml と同じ手順で `.app`(Release・self-contained・osx-arm64・ad-hoc 署名)を作り、その実行ファイルに対しても smoke PASS(同梱の web/ に当日の変更が入っていることを確認)
+- Codex の第 8・9 ラウンド: 内部生成→LTC 復帰時のレート遷移の計測(100ms 刻み)と修正、不正・境界入力の直送(10,000 文字名、制御文字、型違い、null、count=500×3)、mode/デバイス/生成の 20 往復、1000 キュー・20 ホストの保存/新規/開く(95 / 87 / 159 ms)と 1000 行の描画、壊れた JSON・未知 type・古い revision の patch 注入(resync が動く)。Host は落ちず、expectedRevision の検査漏れ 1 件を修正
 - Codex の第 6・7 ラウンド: Windows 経路の静的レビュー(WebView2 / WASAPI / パス / libltc / installer)、可視コントロールのアクセシブル名走査、Host のエラー(validation / notFound / ioError / conflict)の UI 表示、送信ログ 610 回、未使用コードの整理、仕上げの回帰(確認済み範囲と修正項目の全件、回帰なし)
 - Codex の第 4・5 ラウンド: 29.97df で 20 キューの通し運用(自動ミュート・無効・オフセット・複数宛先・再生中の追加/編集/削除/OFFSET/L/CUE SYNC)、LTC 受信モードで 15 キュー、判定幅 0/3/10 の境界、疎通確認の連打と ping 中の削除、発火 610 回。いずれも OSC 実受信と Host ログが一致
 
@@ -46,6 +47,7 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 | native/libltc/build-windows.cmd | 出力先の相対パスが work へ cd した後にずれる(Codex) | 先に絶対化 |
 | Web a11y | キューの有効/▶、Undo/Redo、入力デバイス、フリーラン、Cue-Sync、ポン出しの空セルにアクセシブル名が無い(Codex) | aria-label を付与(可視コントロールで欠落 0) |
 | Host OSC 引数 | 未知の type や型に合わない value を黙って落として ok を返す(Codex P0) | validation(cue/changes/button.arguments) |
+| Host expectedRevision | 編集系 command の expectedRevision を比較せず、古い revision でも変更が通る(Codex) | 食い違えば変更前に conflict(retryable) |
 | Host 受信レート | 内部生成(29.97df)から LTC へ戻すと約 2.6 秒、30fps の LTC に生成側のレートが付く(検出器の初期値に generator 設定が流用されていた、Codex) | 最後に受信した LTC のレートと表示に戻してから受信開始 |
 
 ## 次にやるべきこと(Codex 第 7 ラウンドの優先順、未着手。1 番目の FPS 表示と 6 番目の smoke --attach は対応済み)
@@ -57,6 +59,10 @@ Claude(ポート 47301)と Codex(ポート 47302、別ワークツリー)がそ�
 6. 起動済みの Host に対して smoke.sh を使える `--attach` 相当のモード
 
 ## 仕様どおり・記録のみ
+
+- キュー名・OSC アドレスに長さや文字種の上限が無い(10,000 文字や制御文字も受理される)。上限を設けるなら仕様値の決定が要る
+- 存在しないホスト id だけを送信先にしたキューの発火は黙ってスキップされ、result は `{sent:true}`。観測性を上げるなら `{sentCount, skippedHostIds}` のような返し方が候補
+- 1000 行のキューリストは仮想化していない(1000 件では操作に支障なし)
 
 - Cue-Sync は過去に発火したキューが無いと引数 0.0 を送る(Core の仕様)
 - 到達不能ホストへの OSC は UDP なので成功ログになる。疎通確認は失敗ログとトースト
