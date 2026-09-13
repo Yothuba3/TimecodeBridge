@@ -12,13 +12,15 @@ public sealed class MainWindow : Window
     private readonly BridgeServer? _bridge;
     private readonly DevAutomation? _automation;
     private readonly ITimecodeEngine _engine;
+    private NativeMenu? _recentMenu;
+    private NativeMenuItem? _recentItem;
 
     public MainWindow(HostState state, CommandRouter router, ProjectCoordinator projects, ITimecodeEngine engine, RecentProjectsStore recent)
     {
         _engine = engine;
         projects.OwnerProvider = () => this;
         BuildNativeMenu(router, recent);
-        recent.Changed += () => BuildNativeMenu(router, recent);
+        recent.Changed += () => UpdateRecentMenu(router, recent);
         Title = "TimecodeBridge";
         Width = 1600;
         Height = 900;
@@ -74,14 +76,10 @@ public sealed class MainWindow : Window
         var file = new NativeMenu();
         file.Items.Add(Item("新規プロジェクト", "project.new", Key.N));
         file.Items.Add(Item("開く…", "project.open", Key.O));
-        var recentMenu = new NativeMenu();
-        foreach (var path in recent.Items)
-        {
-            var entry = new NativeMenuItem(Path.GetFileName(path)) { ToolTip = path };
-            entry.Click += async (_, _) => await router.ExecuteAsync(CommandRouter.Synthetic("menu", "project.open", new { path }));
-            recentMenu.Items.Add(entry);
-        }
-        file.Items.Add(new NativeMenuItem("最近使ったプロジェクト") { Menu = recentMenu, IsEnabled = recent.Items.Count > 0 });
+        _recentMenu = new NativeMenu();
+        _recentItem = new NativeMenuItem("最近使ったプロジェクト") { Menu = _recentMenu };
+        UpdateRecentMenu(router, recent);
+        file.Items.Add(_recentItem);
         file.Items.Add(new NativeMenuItemSeparator());
         file.Items.Add(Item("保存", "project.save", Key.S));
         file.Items.Add(Item("名前を付けて保存…", "project.saveAs", Key.S, KeyModifiers.Meta | KeyModifiers.Shift));
@@ -94,5 +92,20 @@ public sealed class MainWindow : Window
         menu.Items.Add(new NativeMenuItem("ファイル") { Menu = file });
         menu.Items.Add(new NativeMenuItem("編集") { Menu = edit });
         NativeMenu.SetMenu(this, menu);
+    }
+
+    // メニュー全体を作り直して SetMenu し直すと Avalonia.Native が「The menu being updated does not match」を投げ、
+    // project.open の途中(最近使ったファイルの更新)で command が内部エラーになる。既存のサブメニューの項目だけ差し替える
+    private void UpdateRecentMenu(CommandRouter router, RecentProjectsStore recent)
+    {
+        if (_recentMenu is null || _recentItem is null) return;
+        _recentMenu.Items.Clear();
+        foreach (var path in recent.Items)
+        {
+            var entry = new NativeMenuItem(Path.GetFileName(path)) { ToolTip = path };
+            entry.Click += async (_, _) => await router.ExecuteAsync(CommandRouter.Synthetic("menu", "project.open", new { path }));
+            _recentMenu.Items.Add(entry);
+        }
+        _recentItem.IsEnabled = recent.Items.Count > 0;
     }
 }
