@@ -60,8 +60,10 @@ interface LogDto {id:string;timestampUtc:string;message:string;success:boolean}
 JSON Patchや配列index差分は並べ替えに弱いため使わず、v1はドメイン単位で置換する。
 
 ```ts
-interface StateChanges {project?:AppState["project"];mode?:AppState["mode"];transport?:AppState["transport"];receive?:AppState["receive"];generator?:AppState["generator"];nextCue?:NextCueState|null;cues?:CueDto[];hosts?:HostDto[];cueSync?:AppState["cueSync"];triggerPanel?:AppState["triggerPanel"];logsAppend?:LogDto[];logsReset?:LogDto[]}
+interface StateChanges {project?:AppState["project"];mode?:AppState["mode"];transport?:AppState["transport"];receive?:AppState["receive"];generator?:AppState["generator"];nextCue?:NextCueState;nextCueCleared?:true;cues?:CueDto[];hosts?:HostDto[];cueSync?:AppState["cueSync"];triggerPanel?:AppState["triggerPanel"];logsAppend?:LogDto[];logsReset?:LogDto[]}
 ```
+
+`nextCueCleared:true` は次キューがなくなったことを明示し、Web の `nextCue` を `null` にする（通常の `null` はJSONから省略するため）。
 
 - Hostの低頻度状態変更ごとにrevisionを増やす。Webは `baseRevision === currentRevision` のpatchだけ適用し、不一致ならresyncしてsnapshotまで破壊的編集を止める。
 - clock/waveは独立seq。古い値は破棄し、欠番は許容する。

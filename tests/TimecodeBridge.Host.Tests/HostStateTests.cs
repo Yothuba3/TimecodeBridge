@@ -167,4 +167,21 @@ public class NextCuePatchTests
         var (again, _) = FlushAndCapture(h);
         Assert.Null(again);
     }
+
+    [AvaloniaFact]
+    public void PassingTheLastCueExplicitlyClearsNextCue()
+    {
+        var h = new HostHarness();
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 0, 0, FrameRate.Fps30));
+        Assert.True(h.Run("cue.add", """{"cue":{"name":"last","triggerTime":"01:00:10:00","oscAddress":"/a"}}""").Ok);
+        h.State.BuildClock();
+        h.State.Flush();
+
+        h.Engine.RaiseTimecode(new TimecodeValue(1, 0, 11, 0, FrameRate.Fps30), new TimecodeValue(1, 0, 11, 0, FrameRate.Fps30));
+        h.State.BuildClock();
+        var (changes, _) = FlushAndCapture(h);
+
+        Assert.Null(changes?.NextCue);
+        Assert.True(changes?.NextCueCleared);
+    }
 }

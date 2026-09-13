@@ -204,6 +204,7 @@ public sealed record StateChanges(
     ReceiveState? Receive = null,
     GeneratorState? Generator = null,
     NextCueState? NextCue = null,
+    bool? NextCueCleared = null,
     IReadOnlyList<CueDto>? Cues = null,
     IReadOnlyList<HostDto>? Hosts = null,
     CueSyncState? CueSync = null,

@@ -45,7 +45,7 @@ export interface HostDto { id: string; name: string; ipAddress: string; port: nu
 export interface TriggerButtonDto { id: string; row: number; column: number; label: string; oscAddress: string; arguments: OscArgumentDto[]; targetHostIds: string[] }
 export interface LogDto { id: string; timestampUtc: string; message: string; success: boolean }
 
-export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState | null; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
+export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState; nextCueCleared?: boolean; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
 
 export interface ProtocolError { code: "badMessage" | "unsupportedVersion" | "unknownCommand" | "validation" | "notFound" | "conflict" | "invalidState" | "deviceNotFound" | "audioError" | "nativeError" | "networkError" | "oscError" | "ioError" | "internal"; message: string; fieldErrors?: Record<string, string>; retryable: boolean; details?: Record<string, unknown> }
 

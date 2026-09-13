@@ -120,13 +120,16 @@ public sealed class HostState : IDisposable
 
         var d = _dirty;
         _dirty = Domain.None;
+        var nextCueChanged = (d & (Domain.NextCue | Domain.Cues)) != 0;
+        var nextCue = nextCueChanged ? BuildNextCue() : null;
         var changes = new StateChanges(
             Project: d.HasFlag(Domain.Project) ? BuildProject() : null,
             Mode: d.HasFlag(Domain.Mode) ? Mode : null,
             Transport: d.HasFlag(Domain.Transport) ? BuildTransport() : null,
             Receive: d.HasFlag(Domain.Receive) ? BuildReceive() : null,
             Generator: d.HasFlag(Domain.Generator) ? BuildGenerator() : null,
-            NextCue: (d & (Domain.NextCue | Domain.Cues)) != 0 ? BuildNextCue() : null,
+            NextCue: nextCue,
+            NextCueCleared: nextCueChanged && nextCue is null ? true : null,
             Cues: d.HasFlag(Domain.Cues) ? BuildCues() : null,
             Hosts: d.HasFlag(Domain.Hosts) ? BuildHosts() : null,
             CueSync: d.HasFlag(Domain.CueSync) ? BuildCueSync() : null,
