@@ -47,6 +47,7 @@ public class CueEditingCommandTests
         Assert.Equal("cue.triggerTime", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:30","oscAddress":"/a"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.oscAddress", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"go"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Equal("cue.triggerOffset", h.Run("cue.add", """{"cue":{"name":"x","triggerTime":"00:00:01:00","oscAddress":"/a","triggerOffset":"-00:00:02:00"}}""").Error!.FieldErrors!.Keys.Single());
+        Assert.Equal("cue.triggerOffset", h.Run("cue.add", """{"cue":{"name":"df end","triggerTime":"23:59:59;29","frameRate":"29.97df","oscAddress":"/a","triggerOffset":"+00:00:00;01"}}""").Error!.FieldErrors!.Keys.Single());
         Assert.Empty(h.Cues.Cues);
         Assert.False(h.Project.HasUnsavedChanges);
     }

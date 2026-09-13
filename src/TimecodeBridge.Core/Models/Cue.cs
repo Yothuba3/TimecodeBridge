@@ -75,7 +75,9 @@ public class Cue
                 Math.Min(o.Frames, fps - 1), triggerTime.FrameRate);
 
         long resultFrames = triggerTime.TotalFrames() + normalized.TotalFrames();
-        long framesPerDay = 24L * 3600 * fps; // DFでは僅かに大きい近似だが範囲判定には十分
+        // DF は 00/01 フレームが間引かれる分、単純な 24 * 3600 * fps より一日が短い。
+        // そのレートで表現できる最終 TC から、実際の一日分のフレーム数を求める。
+        long framesPerDay = new TimecodeValue(23, 59, 59, fps - 1, triggerTime.FrameRate).TotalFrames() + 1;
 
         if (resultFrames < 0 || resultFrames >= framesPerDay)
         {

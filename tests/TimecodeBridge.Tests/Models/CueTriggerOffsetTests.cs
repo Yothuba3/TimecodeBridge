@@ -34,6 +34,15 @@ public class CueTriggerOffsetTests
     }
 
     [Fact]
+    public void TryApplyTriggerOffset_DropFrameBeyondMidnight_ReturnsFalse()
+    {
+        var tc = new TimecodeValue(23, 59, 59, 29, FrameRate.Fps2997Drop);
+        var offset = new TimecodeOffset(false, 0, 0, 0, 1, FrameRate.Fps2997Drop);
+
+        Assert.False(Cue.TryApplyTriggerOffset(tc, offset, out _));
+    }
+
+    [Fact]
     public void TryApplyTriggerOffset_DifferentFrameRate_NormalizedToTriggerTimeFps()
     {
         // 24fpsのキューに30fps環境で作られた「+1秒」を適用しても、ちょうど1秒進む
