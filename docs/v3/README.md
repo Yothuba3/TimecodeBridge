@@ -80,7 +80,7 @@ Codex を herdr のペインで動かす場合(`herdr agent start <name> --kind 
 
 ## Web UI の変更
 
-Web は Codex が担当しています。`dist/` は git 管理で、CI が再ビルドして差分が無いことを検査するため、変更後は必ず `npm run build` の結果をコミットしてください。見た目の確認は headless Chrome で描画できます(WebKit だけの見え方、たとえば number input のスピナーは Chrome では出ません)。
+Web は Codex が担当しています。`dist/` は git 管理で、CI が再ビルドして差分が無いことを検査するため、変更後は必ず `npm run build` の結果をコミットしてください。見た目の確認は、手元の macOS では上の tcb3ctl(実機)を使ってください。Codex のサンドボックス外で素早く確認するだけなら headless Chrome でも描画できます(WebKit だけの見え方、たとえば number input のスピナーは Chrome では出ません)。
 
 ```sh
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --hide-scrollbars \

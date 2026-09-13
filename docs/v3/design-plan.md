@@ -2,7 +2,7 @@
 
 作成: Claude / レビュー: Codex(v0.1 レビュー済み、所見を反映) / 決定: yothuba
 ユーザー決定(2026-09-11): 名前は TimecodeBridge のまま、バージョン系列を 3 にする(v2 の慣例に合わせ Product/バンドル名は TimecodeBridge3、バンドルID com.yothuba.timecodebridge3、設定は ~/Library/Application Support/TimecodeBridge3、v2 設定は初回に取り込み)。mac は Apple Silicon(arm64)専用。Web のフレームワーク採否は Codex 判断(素の JS が辛ければ使ってよい)。
-関連文書: tcb3-protocol.md(Host⇄Web プロトコル草案, Codex) / tcb3-web-structure.md(Web 構成案, Codex)
+関連文書: bridge-protocol.md(Host⇄Web プロトコル草案, Codex) / web-structure.md(Web 構成案, Codex)
 
 ## 目的
 既存 TimecodeBridge2(Avalonia UI) とは**完全に別アプリ**として派生版を作る。
@@ -21,7 +21,7 @@
 ## 構成（新規ブランチ。名前は仮、後で変更可）
 ```
 src/TimecodeBridge.Host/         Avalonia 12 シェル(AssemblyName TimecodeBridge3)。MainWindow に NativeWebView 1枚。DI composition root(OS 別音声実装の差し替え)、メニュー、ファイルダイアログ、設定保存先
-src/TimecodeBridge.Web/          HTML/CSS/TS(esbuild)。フレームワーク採否は Codex 判断。構成は tcb3-web-structure.md。dist は git 管理し CI で再ビルド差分ゼロを検査
+src/TimecodeBridge.Web/          HTML/CSS/TS(esbuild)。フレームワーク採否は Codex 判断。構成は web-structure.md。dist は git 管理し CI で再ビルド差分ゼロを検査
 src/TimecodeBridge.Ltc/          libltc P/Invoke ラッパ(ILtcDecoder 実装)。decoder の所有権と破棄、audio thread 境界を明示。callback から UI/CueManager を直接呼ばない
 src/TimecodeBridge.Mac/          既存 App/Services/CoreAudio を **抽出**した共通プロジェクト(TimecodeBridge.Windows と対称)。既存 App も参照を切り替える(移設して重複させない)
 src/TimecodeBridge.Windows/      既存(WASAPI)。そのまま参照
@@ -30,7 +30,7 @@ native/libltc/                   取得元 version・sha256・build script(mac u
 ```
 
 ## Host ⇄ Web ブリッジ
-詳細は tcb3-protocol.md。要点:
+詳細は bridge-protocol.md。要点:
 - Host を唯一の正とする。C#→JS は `window.tcb.receive(json)` の一入口、4系統: `snapshot`(初期・再同期の全量) / `patch`(revision 付き、状態変更時のみ、ドメイン単位置換) / `clock`(最大30Hz、最新1件のみ) / `wave`(縮約済み、初期30Hz、実測後 60Hz)。
 - JS→C# は全て `requestId` 付き command、Host は必ず `result` を返す。編集系は `expectedRevision` 必須。`cue.fire`/`cueSync.send` 等の単発送信は requestId で重複排除。
 - 編集 draft・選択・scroll・列幅・drawer は Web ローカル状態。snapshot で潰さない。
