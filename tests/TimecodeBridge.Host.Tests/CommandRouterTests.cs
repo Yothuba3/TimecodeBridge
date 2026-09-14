@@ -59,6 +59,30 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
+    public void ChangingOutputOrVolumeWhileGeneratingAppliesImmediatelyAndStartSettingsStayPending()
+    {
+        var h = new HostHarness();
+        Assert.True(h.Run("generator.configure", """{"outputDeviceId":"out-1","volume":0.8}""").Ok);
+        Assert.True(h.Run("generator.start").Ok);
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        Assert.True(h.State.BuildSnapshot().Generator.LtcOutputActive);
+
+        Assert.True(h.Run("generator.configure", """{"outputDeviceId":""}""").Ok);
+        Assert.Contains("ApplyGeneratorOutput:", h.Engine.Calls);
+        Assert.False(h.State.BuildSnapshot().Generator.LtcOutputActive);
+        Assert.False(h.State.GeneratorSettingsPending);
+
+        Assert.True(h.Run("generator.configure", """{"volume":0.3}""").Ok);
+        Assert.Contains("SetGeneratorVolume:0.3", h.Engine.Calls);
+
+        Assert.True(h.Run("generator.configure", """{"frameRate":"25"}""").Ok);
+        Assert.True(h.State.GeneratorSettingsPending);
+        Assert.True(h.State.BuildSnapshot().Generator.SettingsPendingReset);
+        Assert.True(h.Run("generator.start").Ok);
+        Assert.False(h.State.GeneratorSettingsPending);
+    }
+
+    [AvaloniaFact]
     public void ExpectedRevisionMismatchIsRejectedWithoutMutation()
     {
         var h = new HostHarness();

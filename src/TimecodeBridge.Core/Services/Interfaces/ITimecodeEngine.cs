@@ -28,6 +28,10 @@ public interface ITimecodeEngine
     void ResetGenerator();
     void ResetGenerator(TimecodeValue startTime);
     void StopGenerator();
+    /// <summary>生成中に出力デバイスを切り替える(なしなら出力を止める)。位置は保つ。</summary>
+    void ApplyGeneratorOutput(GeneratorSettings settings) { }
+    /// <summary>生成中に音量だけ変える。</summary>
+    void SetGeneratorVolume(float level) { }
     void Stop();
 
     event EventHandler<TimecodeUpdatedEventArgs> TimecodeUpdated;

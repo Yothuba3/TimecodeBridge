@@ -85,6 +85,8 @@ public sealed class HostState : IDisposable
     public string? SelectedInputDeviceId { get; set; }
     public bool LtcStarted { get; set; }
     public bool GeneratorRunning { get; set; }
+    /// <summary>生成中に開始 TC やフレームレートを変えた(再生し直すまで反映されない)。</summary>
+    public bool GeneratorSettingsPending { get; set; }
     public GeneratorSettings Generator { get; } = new();
     public CueSyncSettings CueSync { get; } = new();
     public WaveReducer Wave { get; } = new();
@@ -225,7 +227,7 @@ public sealed class HostState : IDisposable
         _devices.GetRenderDevices().Where(d => !d.IsLoopback).Select(ToDto).ToArray(),
         Generator.VolumeLevel,
         LtcOutputActive: GeneratorRunning && !string.IsNullOrEmpty(Generator.OutputDeviceId),
-        SettingsPendingReset: false);
+        SettingsPendingReset: GeneratorSettingsPending);
 
     public ClockState BuildClock()
     {

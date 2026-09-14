@@ -258,6 +258,48 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _generator?.Resume();
     }
 
+    // 生成を止めずに出力先だけ差し替える。デバイスの実レートが変わり得るのでエンコーダも作り直す
+    // (生成器は _ltcEncoder フィールド経由でフレームを積むので、差し替え後のフレームは新しいエンコーダに入る)
+    public void ApplyGeneratorOutput(GeneratorSettings settings)
+    {
+        if (_generator is null) return;
+        ClosePlayback();
+
+        IAudioPlayback? playback = null;
+        int sampleRate = DefaultSampleRate;
+        var outputDevice = FindDevice(settings.OutputDeviceId);
+        if (outputDevice is not null)
+        {
+            try
+            {
+                playback = _playbackFactory();
+                playback.Start(outputDevice);
+                if (playback.SampleRate > 0) sampleRate = playback.SampleRate;
+            }
+            catch (Exception ex)
+            {
+                OnAudioError(this, new AudioErrorEventArgs($"LTC出力デバイスを開けませんでした: {ex.Message}", ex));
+                playback?.Dispose();
+                playback = null;
+            }
+        }
+
+        var encoder = new LtcEncoder();
+        encoder.Initialize(sampleRate, FrameRate);
+        encoder.VolumeLevel = settings.VolumeLevel;
+        _ltcEncoder = encoder;
+        if (playback is not null)
+        {
+            _playback = playback;
+            StartPlaybackFeed(encoder, playback, sampleRate);
+        }
+    }
+
+    public void SetGeneratorVolume(float level)
+    {
+        if (_ltcEncoder is { } encoder) encoder.VolumeLevel = level;
+    }
+
     public void StopGenerator()
     {
         // Pause: stop the timer but keep the generator and its position
@@ -387,6 +429,17 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         thread.Start();
     }
 
+    private void ClosePlayback()
+    {
+        StopPlaybackFeed();
+        if (_playback != null)
+        {
+            try { _playback.Stop(); } catch { /* ignore */ }
+            _playback.Dispose();
+            _playback = null;
+        }
+    }
+
     private void StopPlaybackFeed()
     {
         _playbackFeedCts?.Cancel();
@@ -405,14 +458,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             _generator = null;
         }
 
-        StopPlaybackFeed();
-
-        if (_playback != null)
-        {
-            try { _playback.Stop(); } catch { /* ignore */ }
-            _playback.Dispose();
-            _playback = null;
-        }
+        ClosePlayback();
 
         if (_ltcEncoder != null)
         {

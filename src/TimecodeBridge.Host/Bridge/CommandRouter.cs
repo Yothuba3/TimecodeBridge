@@ -212,6 +212,7 @@ public sealed class CommandRouter
                 case "generator.configure":
                 {
                     var g = _state.Generator;
+                    var previousOutput = g.OutputDeviceId; var previousVolume = g.VolumeLevel; var previousRate = g.FrameRate; var previousStart = g.StartTime;
                     if (Str(a, "frameRate") is { } rateCode)
                     {
                         if (!HostState.TryParseFrameRate(rateCode, out var rate)) return Validation(id, "frameRate", "24 / 25 / 29.97df / 30");
@@ -232,6 +233,13 @@ public sealed class CommandRouter
                         if (vol < 0 || vol > 1) return Validation(id, "volume", "0〜1");
                         g.VolumeLevel = (float)vol;
                     }
+                    // 生成中は出力先と音量をその場で反映する。開始 TC とフレームレートは再生し直すまで保留
+                    if (_engine.ActiveSource == TimecodeSourceType.Generator)
+                    {
+                        if (g.OutputDeviceId != previousOutput) _engine.ApplyGeneratorOutput(g);
+                        else if (g.VolumeLevel != previousVolume) _engine.SetGeneratorVolume(g.VolumeLevel);
+                        if (g.FrameRate != previousRate || g.StartTime != previousStart) _state.GeneratorSettingsPending = true;
+                    }
                     _state.MarkDirty(Domain.Generator);
                     return Ok(id);
                 }
@@ -249,6 +257,7 @@ public sealed class CommandRouter
                         return Fail(id, ErrorCode.AudioError, $"内部生成を開始できません: {ex.Message}", retryable: true);
                     }
                     _state.GeneratorRunning = true;
+                    _state.GeneratorSettingsPending = false;
                     _state.SetError(null);
                     _state.MarkDirty(Domain.Generator | Domain.Transport);
                     return Ok(id);
@@ -259,6 +268,7 @@ public sealed class CommandRouter
                     return Ok(id);
                 case "generator.reset":
                     _engine.ResetGenerator(_state.Generator.StartTime);
+                    _state.GeneratorSettingsPending = false;
                     _state.MarkDirty(Domain.Generator | Domain.NextCue);
                     return Ok(id);
 
