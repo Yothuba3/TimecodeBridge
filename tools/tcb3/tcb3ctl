@@ -15,10 +15,11 @@ usage() {
   cat <<USAGE
 usage: tcb3ctl <subcommand> [args]
 
-  start [--build] [--selftest <出力デバイス名の一部>] [--dev-web] [--trace 1|2] [--env K=V ...]
+  start [--build] [--selftest <出力デバイス名の一部>] [--dev-web] [--keep-data-dir] [--trace 1|2] [--env K=V ...]
                       Host を起動し、Web が ready になるまで待つ。--selftest は同一プロセスで LTC を生成して
                       同じ名前の入力から受信も始める(Pro Tools Audio Bridge 等のループバック向け)。
                       --dev-web は同梱の web/ でなくリポジトリの src/TimecodeBridge.Web/dist を直接読む
+                      --keep-data-dir は設定保存先を通常(~/Library/Application Support)のままにする(利用者が使う Host 向け。既定は run dir に分離)
                       (npm run build → tcb3ctl reload で Host を再ビルドせずに Web の変更を反映できる)
   stop                Host を終了する(SIGTERM → 5 秒で SIGKILL)
   activate            ウィンドウを前面に出す(隠れていると WebKit が描画を止め、DOM も撮影も古いままになる。start は自動で行う)
@@ -53,12 +54,13 @@ json_string() { jq -Rn --arg s "$1" '$s'; }
 is_up() { curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.ok' >/dev/null 2>&1; }
 
 cmd_start() {
-  local build=0 selftest="" devweb=0 trace="${TCB3_TRACE:-1}" envs=()
+  local build=0 selftest="" devweb=0 keepdata=0 trace="${TCB3_TRACE:-1}" envs=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --build) build=1 ;;
       --selftest) selftest="$2"; shift ;;
       --dev-web) devweb=1 ;;
+      --keep-data-dir) keepdata=1 ;;
       --trace) trace="$2"; shift ;;
       --env) envs+=("$2"); shift ;;
       *) die "start: 不明な引数 $1" ;;
@@ -74,9 +76,10 @@ cmd_start() {
     if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then die "port $PORT は pid $other が使用中です(TCB3_PORT を変えてください)"; fi
   done
 
-  mkdir -p "$RUN_DIR/data"
   # 試験用インスタンスが利用者の settings.json(最近使ったプロジェクト)を書き換えないよう、設定保存先を run dir に分ける
-  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "TIMECODEBRIDGE_BRIDGE_TRACE=$trace" "TIMECODEBRIDGE_DATA_DIR=$RUN_DIR/data")
+  # (利用者自身が使う Host を tcb3ctl で起動するときは --keep-data-dir で通常の保存先のまま)
+  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "TIMECODEBRIDGE_BRIDGE_TRACE=$trace")
+  if [ "$keepdata" = 0 ]; then mkdir -p "$RUN_DIR/data"; vars+=("TIMECODEBRIDGE_DATA_DIR=$RUN_DIR/data"); fi
   if [ -n "$selftest" ]; then vars+=("TIMECODEBRIDGE_SELFTEST_OUTPUT=$selftest" "TIMECODEBRIDGE_AUTOSTART_INPUT=$selftest"); fi
   if [ "$devweb" = 1 ]; then vars+=("TIMECODEBRIDGE_WEB_DIST=$ROOT/src/TimecodeBridge.Web/dist"); fi
   vars+=(${envs[@]+"${envs[@]}"})
