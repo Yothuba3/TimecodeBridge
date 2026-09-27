@@ -19,4 +19,13 @@ public static class AppPaths
 
     public static string DataDirectory =>
         Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden ? overridden : DataDirectoryFor(AppFolderName);
+
+    /// <summary>
+    /// Windows の WebView2 のユーザーデータ(キャッシュなど)。既定の「実行ファイルの隣」は Program Files に入れると書けず表示できないので、
+    /// ローミングしない LocalApplicationData の下に置く。TIMECODEBRIDGE_DATA_DIR があればその下。
+    /// </summary>
+    public static string WebView2UserDataDirectory =>
+        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden
+            ? Path.Combine(overridden, "WebView2")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolderName, "WebView2");
 }

@@ -38,4 +38,4 @@ v1(Windows / WPF)と v2(macOS / Avalonia)の後継です。プロジェクトフ
 
 ## ライセンス
 
-本体は [LICENSE](LICENSE) のとおり。LTC の復号・生成に使う libltc は LGPL-2.1 で、動的リンクのまま同梱しています。同梱物の一覧は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本体は [LICENSE](LICENSE) のとおり。LTC の復号に使う libltc は LGPL-3.0-or-later で、動的リンクのまま同梱しています。同梱物の一覧は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

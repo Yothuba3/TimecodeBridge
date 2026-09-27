@@ -101,6 +101,25 @@ jobs:
           test -f publish/libltc.dll
           test -f publish/web/index.html
           cp THIRD_PARTY_NOTICES.md publish/
+
+      # 起動しないビルドを出さない(v3.0.0 の Windows 版は起動直後に落ちていた)。詳しい確認は ci-v3.yml
+      - name: Ensure WebView2 runtime
+        shell: pwsh
+        run: |
+          $id = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $pv = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$id", "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$id" |
+            ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($pv) { "WebView2 runtime $pv"; exit 0 }
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe"
+          Start-Process "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList '/silent', '/install' -Wait
+
+      - name: Smoke (publish)
+        shell: pwsh
+        run: pwsh tools/tcb3/smoke-windows.ps1 -Exe publish\TimecodeBridge3.exe -RunDir "$env:RUNNER_TEMP\smoke-publish"
+
+      - name: Zip (win-x64)
+        shell: bash
+        run: |
           cd publish && 7z a "../TimecodeBridge3-${{ github.ref_name }}-win-x64.zip" .
 
       # WebView2 Evergreen ブートストラッパーを取得し、未導入 PC で実行するインストーラーを作る

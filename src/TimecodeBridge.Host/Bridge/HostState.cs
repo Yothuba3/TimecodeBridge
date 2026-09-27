@@ -212,9 +212,11 @@ public sealed class HostState : IDisposable
             LastLtcReceivedAtUtc: _lastLtcReceivedAtUtc?.ToString("O"));
     }
 
+    // 入力の候補はキャプチャデバイスだけ(Windows ではレンダーデバイスのループバック取り込みもここに含まれる)。
+    // レンダーデバイスを足すと、Windows では同じ id が「(Loopback)」付きと無しで二重に並び、出力専用デバイスまで入力に出る
     private ReceiveState BuildReceive() => new(
         SelectedInputDeviceId,
-        _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices()).Select(ToDto).ToArray(),
+        _devices.GetCaptureDevices().Select(ToDto).ToArray(),
         _engine.Offset.ToString(),
         _cues.TriggerWindowFrames,
         _engine.FreerunDurationSeconds);
@@ -414,12 +416,27 @@ public sealed class HostState : IDisposable
     // ---- 変換 ----------------------------------------------------------------------
 
     public string? DeviceName(string? id) =>
-        id is null ? null : _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices()).FirstOrDefault(d => d.Id == id)?.DisplayName;
+        id is null ? null : AllDevices().FirstOrDefault(d => d.Id == id)?.DisplayName;
 
     public IEnumerable<AudioDeviceInfo> AllDevices() => _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices());
 
-    public AudioDeviceInfo? FindDevice(string? id) =>
-        id is null ? null : _devices.GetCaptureDevices().Concat(_devices.GetRenderDevices()).FirstOrDefault(d => d.Id == id);
+    /// <summary>デバイス一覧を次の取得で列挙し直す。</summary>
+    public void RefreshDevices()
+    {
+        if (_devices is CachedAudioDeviceService cached) cached.Refresh();
+    }
+
+    /// <summary>「再スキャン」。裏のスレッドで列挙し、終わるまでは古い一覧を使う。</summary>
+    public Task RefreshDevicesAsync() => _devices is CachedAudioDeviceService cached ? cached.RefreshAsync() : Task.CompletedTask;
+
+    // 一覧は使い回しなので、見つからなければ一度だけ列挙し直す(起動後に挿したデバイスを、再スキャン無しで開くプロジェクトが指している場合など)
+    public AudioDeviceInfo? FindDevice(string? id)
+    {
+        if (id is null) return null;
+        if (AllDevices().FirstOrDefault(d => d.Id == id) is { } found) return found;
+        RefreshDevices();
+        return AllDevices().FirstOrDefault(d => d.Id == id);
+    }
 
     private static AudioDevice ToDto(AudioDeviceInfo d) => new(d.Id, d.DisplayName, d.IsLoopback);
 

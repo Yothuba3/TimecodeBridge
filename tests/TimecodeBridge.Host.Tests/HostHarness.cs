@@ -26,16 +26,23 @@ public sealed class HostHarness
         Osc.HostRegistry = Hosts;
         Cues = new CueManager(Engine, Osc);
         Panel = new OscTriggerPanelManager(Osc, Hosts);
-        State = new HostState(Engine, Cues, Hosts, Osc, Panel, Project, Devices, Recent);
+        State = new HostState(Engine, Cues, Hosts, Osc, Panel, Project, new CachedAudioDeviceService(Devices), Recent); // 本番(App)と同じく一覧を使い回す
         Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Panel, Project, Recent);
         Router = new CommandRouter(State, Engine, Cues, Hosts, Panel, Projects);
     }
 
-    public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1", long? expectedRevision = null)
+    public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1", long? expectedRevision = null) =>
+        RunAsync(command, argsJson, requestId, expectedRevision).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// 本当に非同期で完了する command(host.ping など)用。<see cref="Run"/> は UI スレッドで同期待ちするため、
+    /// 継続が UI スレッドへ戻る command ではデッドロックする(Windows の Ping.SendPingAsync は必ず非同期で完了する)。
+    /// </summary>
+    public Task<ResultMessage> RunAsync(string command, string argsJson = "{}", string requestId = "r1", long? expectedRevision = null)
     {
         var revision = expectedRevision is null ? "" : $$""", "expectedRevision":{{expectedRevision}}""";
         var json = $$"""{"protocolVersion":1,"type":"command","requestId":"{{requestId}}","command":"{{command}}","args":{{argsJson}}{{revision}}}""";
         var msg = JsonSerializer.Deserialize<WebMessage>(json, Protocol.Json)!;
-        return Router.ExecuteAsync(msg).GetAwaiter().GetResult();
+        return Router.ExecuteAsync(msg);
     }
 }

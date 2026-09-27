@@ -50,6 +50,12 @@ public sealed class MainWindow : Window
             _bridge = null!;
             return;
         }
+        // WebView2 のユーザーデータを実行ファイルの隣に作らせない(Program Files では書けず表示できない)。生成前に聞かれるので Content より先に購読する
+        webView.EnvironmentRequested += (_, e) =>
+        {
+            if (e is Avalonia.Platform.WindowsWebView2EnvironmentRequestedEventArgs windows)
+                windows.UserDataFolder = AppPaths.WebView2UserDataDirectory;
+        };
         Content = webView;
         _bridge = new BridgeServer(webView, state, router, Close);
         _automation = DevAutomation.StartIfRequested(new HostAutomationTarget(this, webView, state, router, _bridge));

@@ -36,11 +36,17 @@ public sealed class CommandRouter
         if (msg.ExpectedRevision is { } expected && expected != _state.Revision)
             return Fail(id, ErrorCode.Conflict, $"状態が更新されています (expectedRevision: {expected}, currentRevision: {_state.Revision})", retryable: true);
 
-        // ダイアログを伴うものだけ非同期。それ以外は同期処理へ
+        // ダイアログを伴うもの・待ち時間のあるものだけ非同期。それ以外は同期処理へ
         try
         {
             switch (msg.Command)
             {
+                case "audio.refreshDevices":
+                    // 列挙(Windows で 0.5〜1 秒)は裏のスレッドで行い、その間も UI スレッド(時計の送信・描画)を止めない。
+                    // 終わるまで古い一覧を使い、終わってから新しい一覧を送る。Web は result が返るまでスキャン中を表示する
+                    await _state.RefreshDevicesAsync();
+                    _state.MarkDirty(Domain.Receive | Domain.Generator);
+                    return Ok(id);
                 case "project.new":
                     return Ok(id, new { cancelled = !await _projects.NewAsync() });
                 case "project.open":
@@ -176,9 +182,6 @@ public sealed class CommandRouter
                     _state.MarkDirty(Domain.Receive | Domain.Transport);
                     return Ok(id);
                 }
-                case "audio.refreshDevices":
-                    _state.MarkDirty(Domain.Receive | Domain.Generator);
-                    return Ok(id);
 
                 // ---- 受信設定 ----
                 case "receive.setOffset":
@@ -246,7 +249,9 @@ public sealed class CommandRouter
                 case "generator.start":
                     try
                     {
-                        if (_engine.ActiveSource == TimecodeSourceType.Generator && !_state.GeneratorRunning && _engine.CurrentRawTimecode.ToOrdinal() > 0)
+                        // 一時停止からの再開は、開始 TC・フレームレートの変更が保留されていないときだけ。
+                        // 保留中に再開すると、画面は新しい設定を示したまま古いレートと位置で LTC を出し続ける
+                        if (_engine.ActiveSource == TimecodeSourceType.Generator && !_state.GeneratorRunning && !_state.GeneratorSettingsPending && _engine.CurrentRawTimecode.ToOrdinal() > 0)
                             _engine.ResumeGenerator();
                         else
                             _engine.StartGenerator(_state.Generator);
@@ -267,7 +272,24 @@ public sealed class CommandRouter
                     _state.MarkDirty(Domain.Generator | Domain.Transport);
                     return Ok(id);
                 case "generator.reset":
-                    _engine.ResetGenerator(_state.Generator.StartTime);
+                    // ResetGenerator は開始 TC だけを差し替え、生成器は古いレートのまま数える。レートが変わっていれば作り直す
+                    if (_engine.ActiveSource == TimecodeSourceType.Generator && _engine.FrameRate != _state.Generator.FrameRate)
+                    {
+                        try
+                        {
+                            _engine.StartGenerator(_state.Generator);
+                            if (!_state.GeneratorRunning) _engine.StopGenerator(); // 一時停止中なら開始位置で止めておく
+                        }
+                        catch (Exception ex)
+                        {
+                            _state.SetError(ex.Message);
+                            return Fail(id, ErrorCode.AudioError, $"内部生成をリセットできません: {ex.Message}", retryable: true);
+                        }
+                    }
+                    else
+                    {
+                        _engine.ResetGenerator(_state.Generator.StartTime);
+                    }
                     _state.GeneratorSettingsPending = false;
                     _state.MarkDirty(Domain.Generator | Domain.NextCue);
                     return Ok(id);

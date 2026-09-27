@@ -173,7 +173,7 @@ public class CueEditingCommandTests
             Assert.False(h.Project.HasUnsavedChanges);
 
             var h2 = new HostHarness();
-            var r = h2.Run("project.open", $$"""{"path":"{{path.Replace("\\", "/")}}"}""");
+            var r = h2.Run("project.open", $$"""{"path":{{JsonSerializer.Serialize(path)}}}""");
             Assert.True(r.Ok, r.Error?.Message);
             Assert.Equal("false", Data(r, "cancelled"));
             Assert.Single(h2.Cues.Cues);
@@ -200,7 +200,7 @@ public class CueEditingCommandTests
         {
             var h = new HostHarness();
             h.Run("cue.add", """{"cue":{"name":"A","triggerTime":"00:00:01:00","oscAddress":"/a"}}""");
-            var r = h.Run("project.saveAs", $$"""{"path":"{{path.Replace("\\", "/")}}"}""");
+            var r = h.Run("project.saveAs", $$"""{"path":{{JsonSerializer.Serialize(path)}}}""");
             Assert.True(r.Ok, r.Error?.Message);
             Assert.Equal("false", Data(r, "cancelled"));
             Assert.True(File.Exists(path));

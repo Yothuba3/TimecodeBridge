@@ -94,7 +94,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`project.new/open/save/saveAs`|`{path?,suggestedName?}`|`{cancelled,path?}` / `invalidProject`,`ioError`。open/save/saveAs は `path` を渡すとネイティブダイアログを出さずにそのファイルを読む/書く(自動操作向け。フォルダが無ければ `ioError`)|
 |`mode.set`|`{mode}`|`{ltcStarted}` / `validation`。ltc へ切り替えたとき、選択済みの入力デバイスがあれば Host が自動で受信を再開する(未選択なら停止のまま)|
 |`ltc.start/stop/reconnect`|`{deviceId?}`|`deviceNotFound`,`audioError`,`nativeError`|
-|`audio.refreshDevices`|`{direction}`|patch / `audioError`|
+|`audio.refreshDevices`|`{direction}`|patch / `audioError`。Host は裏のスレッドでデバイスを列挙し直し、終わってから一覧の patch と result を返す(Windows で 0.5〜1 秒。その間も時計や他の command は止まらず、一覧は古いまま)。Web は result が返るまでスキャン中を表示する。一覧はこの command まで使い回す|
 |`receive.selectDevice`|`{deviceId}`|`deviceId` が null/空なら「未選択」に戻す(受信を止めて選択を消す)。それ以外は `ltc.reconnect` と同じ / `deviceNotFound`,`audioError`|
 |`receive.setOffset`|`{value}`|`{normalized}` / `validation`|
 |`receive.setTriggerWindow`|`{frames}`|`{frames}` / `validation`|
