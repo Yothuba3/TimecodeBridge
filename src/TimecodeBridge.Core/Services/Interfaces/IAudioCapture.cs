@@ -21,6 +21,12 @@ public interface IAudioCapture : IDisposable
     void Stop();
 
     /// <summary>
+    /// キャプチャの実サンプルレート(Hz)。Start 後に有効。
+    /// デバイスの動作レートに従うため 48kHz とは限らず、デコーダはこの値で初期化する。
+    /// </summary>
+    int SampleRate { get; }
+
+    /// <summary>
     /// オーディオサンプルが利用可能になったときに発火
     /// </summary>
     event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;

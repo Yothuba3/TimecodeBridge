@@ -1,0 +1,12 @@
+import type { AppState, ClockState, HostMessage, WaveState } from "./protocol";
+export interface RootStore { host:{sessionId:string|null;revision:number|null;state:AppState|null;clock:ClockState|null;wave:WaveState|null;clockSeq:number;waveSeq:number;connected:boolean;resyncing:boolean};ui:{selectedCueIds:Set<string>;anchorCueId:string|null;focusedCueId:string|null;cueScrollTop:number;cueColumnWidths:number[];drawerOpen:boolean;drawerHeight:number;modalOpen:boolean} }
+export const createInitialStore=():RootStore=>({host:{sessionId:null,revision:null,state:null,clock:null,wave:null,clockSeq:-1,waveSeq:-1,connected:false,resyncing:false},ui:{selectedCueIds:new Set(),anchorCueId:null,focusedCueId:null,cueScrollTop:0,cueColumnWidths:[38,105,280,220,50],drawerOpen:false,drawerHeight:330,modalOpen:false}});
+export type ApplyResult="applied"|"ignored"|"resync";
+export function applyHostMessage(store:RootStore,message:HostMessage):ApplyResult {
+ if(message.type==="snapshot"){store.host.sessionId=message.state.sessionId;store.host.revision=message.revision;store.host.state=message.state;store.host.clock=message.state.currentClock;store.host.connected=true;store.host.resyncing=false;return "applied"}
+ if(message.type==="patch"){if(!store.host.state||message.baseRevision!==store.host.revision){store.host.resyncing=true;return "resync"}const{logsAppend,logsReset,nextCueCleared,...replace}=message.changes;Object.assign(store.host.state,replace);if(nextCueCleared)store.host.state.nextCue=null;if(logsReset)store.host.state.logs=logsReset;else if(logsAppend)store.host.state.logs=[...store.host.state.logs,...logsAppend].slice(-500);store.host.revision=message.revision;return "applied"}
+ if(message.type==="clock"){if(message.seq<=store.host.clockSeq)return "ignored";store.host.clockSeq=message.seq;store.host.clock=message.clock;return "applied"}
+ if(message.type==="wave"){if(message.seq<=store.host.waveSeq)return "ignored";store.host.waveSeq=message.seq;store.host.wave=message.wave;return "applied"}return "ignored";
+}
+export class StoreController {readonly value=createInitialStore();private listeners=new Set<()=>void>();subscribe(listener:()=>void):()=>void{this.listeners.add(listener);return()=>this.listeners.delete(listener)}notify():void{for(const listener of this.listeners)listener()}updateUi(change:Partial<RootStore["ui"]>):void{Object.assign(this.value.ui,change);this.notify()}}
+export const appStore=new StoreController();

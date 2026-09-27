@@ -44,7 +44,7 @@ public interface IOscTriggerPanelManager
 }
 
 /// <summary>ボタン送出の結果。</summary>
-public readonly record struct TriggerResult(bool Sent, TriggerSkipReason Reason);
+public readonly record struct TriggerResult(bool Sent, TriggerSkipReason Reason, int SentCount = 0, IReadOnlyList<string>? SkippedHostIds = null);
 
 /// <summary>送出がスキップされた理由。</summary>
 public enum TriggerSkipReason

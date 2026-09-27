@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Audio;
 using System;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,7 +9,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.App.Services;
-using TimecodeBridge.App.Services.CoreAudio;
+using TimecodeBridge.Mac;
 using TimecodeBridge.App.Views;
 using TimecodeBridge.Windows.Services;
 using TimecodeBridge.App.ViewModels;

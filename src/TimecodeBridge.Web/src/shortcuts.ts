@@ -1,0 +1,6 @@
+/** Global shortcut policy: suppresses actions during IME, editable focus, modal use, and unsafe repeats. */
+import {isEditable} from "./interactions/focus";
+export type ShortcutAction="cueSync"|"toggleMute"|"toggleDrawer"|"closeDrawer"|"selectPrevious"|"selectNext"|"editCue"|"deleteCue"|"projectNew"|"projectOpen"|"projectSave"|"projectSaveAs"|"undo"|"redo";
+type KeyEvent=Pick<KeyboardEvent,"key"|"repeat"|"isComposing"|"target">&Partial<Pick<KeyboardEvent,"metaKey"|"ctrlKey"|"shiftKey">>;
+export function shortcutFor(event:KeyEvent,modalOpen:boolean):ShortcutAction|null {if(event.repeat||event.isComposing||modalOpen||isEditable(event.target))return null;const mod=event.metaKey||event.ctrlKey,k=event.key.toLowerCase();if(mod&&k==="n")return "projectNew";if(mod&&k==="o")return "projectOpen";if(mod&&k==="s")return event.shiftKey?"projectSaveAs":"projectSave";if(mod&&k==="z")return event.shiftKey?"redo":"undo";
+if(event.ctrlKey&&!event.metaKey&&k==="y")return "redo";if(event.key===" ")return "cueSync";if(k==="l")return "toggleMute";if(k==="p")return "toggleDrawer";if(event.key==="Escape")return "closeDrawer";if(event.key==="ArrowUp")return "selectPrevious";if(event.key==="ArrowDown")return "selectNext";if(event.key==="Enter")return "editCue";if(event.key==="Delete"||event.key==="Backspace")return "deleteCue";return null}

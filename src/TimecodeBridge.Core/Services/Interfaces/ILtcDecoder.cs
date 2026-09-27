@@ -4,6 +4,9 @@ namespace TimecodeBridge.Core.Services.Interfaces;
 
 public interface ILtcDecoder : IDisposable
 {
+    /// <summary>キャプチャが実際に開いたサンプルレートで初期化する。Start 前はレートが確定しないため、必ず開始後に呼ぶ。</summary>
+    void Initialize(int sampleRate);
+
     /// <summary>
     /// Processes raw audio samples from a capture device and decodes LTC frames.
     /// </summary>

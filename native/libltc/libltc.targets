@@ -1,0 +1,17 @@
+<Project>
+  <!-- build-macos.sh / build-windows.cmd の成果物(native/libltc/out)を、参照する全プロジェクトの出力へコピーする -->
+  <PropertyGroup>
+    <LibltcOutDir>$(MSBuildThisFileDirectory)out/</LibltcOutDir>
+    <LibltcNativeFile Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(LibltcOutDir)libltc.dylib</LibltcNativeFile>
+    <LibltcNativeFile Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(LibltcOutDir)libltc.dll</LibltcNativeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(LibltcNativeFile)' != '' and Exists('$(LibltcNativeFile)')">
+    <None Include="$(LibltcNativeFile)" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(LibltcOutDir)libltc-COPYING.txt" Link="libltc-COPYING.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="WarnMissingLibltc" BeforeTargets="Build" Condition="'$(LibltcNativeFile)' != '' and !Exists('$(LibltcNativeFile)')">
+    <Warning Text="libltc の同梱バイナリがありません: $(LibltcNativeFile) — native/libltc/build-macos.sh(または build-windows.cmd)を先に実行してください" />
+  </Target>
+</Project>

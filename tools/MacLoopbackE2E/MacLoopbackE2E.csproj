@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TimecodeBridge.App\TimecodeBridge.App.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.Core\TimecodeBridge.Core.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.Mac\TimecodeBridge.Mac.csproj" />
+    <ProjectReference Include="..\..\src\TimecodeBridge.Ltc\TimecodeBridge.Ltc.csproj" />
+  </ItemGroup>
+</Project>

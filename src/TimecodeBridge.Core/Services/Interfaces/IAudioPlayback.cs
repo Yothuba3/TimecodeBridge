@@ -20,6 +20,11 @@ public interface IAudioPlayback : IDisposable
     void Stop();
 
     /// <summary>
+    /// 出力の実サンプルレート(Hz)。Start 後に有効。WriteSamples に渡すPCMはこのレートで用意する。
+    /// </summary>
+    int SampleRate { get; }
+
+    /// <summary>
     /// オーディオサンプルをデバイスに書き込み
     /// </summary>
     /// <param name="samples">オーディオサンプルバッファ</param>

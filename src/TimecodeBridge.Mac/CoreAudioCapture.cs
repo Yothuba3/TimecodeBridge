@@ -3,7 +3,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudioを使用したオーディオキャプチャ実装
@@ -17,6 +17,15 @@ public class CoreAudioCapture : IAudioCapture
     private bool _isRunning = false;
     private bool _disposed = false;
     private readonly object _lock = new object();
+
+    // AudioUnitRender 用の AudioBufferList と受け皿。コールバック毎に確保せず Start 時に用意して使い回す
+    private IntPtr _bufferListPtr = IntPtr.Zero;
+    private IntPtr _sampleBufferPtr = IntPtr.Zero;
+    private int _sampleBufferBytes;
+    private short[] _int16Scratch = Array.Empty<short>();
+
+    /// <summary>キャプチャの実サンプルレート(Hz)。Start 後に有効。</summary>
+    public int SampleRate { get; private set; }
 
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
     public event EventHandler<AudioErrorEventArgs>? ErrorOccurred;
@@ -130,7 +139,8 @@ public class CoreAudioCapture : IAudioCapture
         }
 
         // デバイスIDの設定（文字列をUInt32に変換）
-        if (uint.TryParse(device.Id, out uint deviceId))
+        uint.TryParse(device.Id, out uint deviceId);
+        if (deviceId != 0)
         {
             IntPtr deviceIdPtr = Marshal.AllocHGlobal(sizeof(uint));
             try
@@ -155,8 +165,12 @@ public class CoreAudioCapture : IAudioCapture
             }
         }
 
-        // ストリームフォーマットの設定（48kHz Mono 16bit PCM）
-        var format = CoreAudioInterop.CreateLtcFormat();
+        // ストリームフォーマット（Mono 16bit PCM）はデバイスの動作レートに合わせる。
+        // AUHALの入力側はサンプルレート変換をしないため、48kHz固定だと44.1k/96kのデバイスを開けない。
+        double nominalRate = deviceId != 0 ? CoreAudioInterop.GetDeviceNominalSampleRate(deviceId) : 0;
+        if (nominalRate <= 0) nominalRate = 48000;
+        SampleRate = (int)Math.Round(nominalRate);
+        var format = CoreAudioInterop.CreateLtcFormat(nominalRate);
         int formatSize = Marshal.SizeOf<CoreAudioInterop.AudioStreamBasicDescription>();
         IntPtr formatPtr = Marshal.AllocHGlobal(formatSize);
         try
@@ -176,9 +190,12 @@ public class CoreAudioCapture : IAudioCapture
             Marshal.FreeHGlobal(formatPtr);
         }
 
-        // Render Callbackの設定
+        // Input Callbackの設定。入力側は SetRenderCallback ではなく SetInputCallback を使う。
+        // Render callback は出力バス（無効化済み）へデータを供給するためのもので、入力では一度も呼ばれない。
         _selfHandle = GCHandle.Alloc(this);
         _renderCallback = RenderCallback;
+        _bufferListPtr = Marshal.AllocHGlobal(Marshal.SizeOf<CoreAudioInterop.AudioBufferList>());
+        EnsureSampleBuffer(4096 * sizeof(short));
 
         var callbackStruct = new AURenderCallbackStruct
         {
@@ -193,12 +210,12 @@ public class CoreAudioCapture : IAudioCapture
             Marshal.StructureToPtr(callbackStruct, callbackPtr, false);
             status = CoreAudioInterop.AudioUnitSetProperty(
                 _audioUnit,
-                CoreAudioInterop.kAudioUnitProperty_SetRenderCallback,
-                CoreAudioInterop.kAudioUnitScope_Input,
+                CoreAudioInterop.kAudioOutputUnitProperty_SetInputCallback,
+                CoreAudioInterop.kAudioUnitScope_Global,
                 0,
                 callbackPtr,
                 (uint)callbackStructSize);
-            CheckStatus(status, "Set Render Callback");
+            CheckStatus(status, "Set Input Callback");
         }
         finally
         {
@@ -247,8 +264,28 @@ public class CoreAudioCapture : IAudioCapture
             _selfHandle.Free();
         }
 
+        if (_bufferListPtr != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(_bufferListPtr);
+            _bufferListPtr = IntPtr.Zero;
+        }
+        if (_sampleBufferPtr != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(_sampleBufferPtr);
+            _sampleBufferPtr = IntPtr.Zero;
+            _sampleBufferBytes = 0;
+        }
+
         _renderCallback = null;
         _audioComponent = IntPtr.Zero;
+    }
+
+    private void EnsureSampleBuffer(int bytes)
+    {
+        if (_sampleBufferBytes >= bytes) return;
+        if (_sampleBufferPtr != IntPtr.Zero) Marshal.FreeHGlobal(_sampleBufferPtr);
+        _sampleBufferPtr = Marshal.AllocHGlobal(bytes);
+        _sampleBufferBytes = bytes;
     }
 
     /// <summary>
@@ -264,56 +301,54 @@ public class CoreAudioCapture : IAudioCapture
     {
         try
         {
-            // Audio Unit からサンプルを取得
+            int byteCount = (int)inNumberFrames * sizeof(short);
+            EnsureSampleBuffer(byteCount);
+
             var bufferList = new CoreAudioInterop.AudioBufferList
             {
-                NumberBuffers = 1
+                NumberBuffers = 1,
+                Buffer0 = new CoreAudioInterop.AudioBuffer
+                {
+                    NumberChannels = 1,
+                    DataByteSize = (uint)byteCount,
+                    Data = _sampleBufferPtr,
+                },
             };
+            Marshal.StructureToPtr(bufferList, _bufferListPtr, false);
 
-            int bufferListSize = Marshal.SizeOf<CoreAudioInterop.AudioBufferList>();
-            IntPtr bufferListPtr = Marshal.AllocHGlobal(bufferListSize);
-            try
+            int status = CoreAudioInterop.AudioUnitRender(
+                _audioUnit,
+                ref ioActionFlags,
+                ref inTimeStamp,
+                inBusNumber,
+                inNumberFrames,
+                _bufferListPtr);
+            if (status != CoreAudioInterop.noErr)
             {
-                Marshal.StructureToPtr(bufferList, bufferListPtr, false);
-
-                uint actionFlags = 0;
-                int status = CoreAudioInterop.AudioUnitRender(
-                    _audioUnit,
-                    ref actionFlags,
-                    ref inTimeStamp,
-                    inBusNumber,
-                    inNumberFrames,
-                    bufferListPtr);
-
-                if (status != CoreAudioInterop.noErr)
-                {
-                    return status;
-                }
-
-                // バッファからサンプルを読み取り
-                bufferList = Marshal.PtrToStructure<CoreAudioInterop.AudioBufferList>(bufferListPtr);
-                if (bufferList.Buffer0.Data != IntPtr.Zero && bufferList.Buffer0.DataByteSize > 0)
-                {
-                    int sampleCount = (int)(bufferList.Buffer0.DataByteSize / 2); // 16bit = 2 bytes
-                    short[] int16Samples = new short[sampleCount];
-                    Marshal.Copy(bufferList.Buffer0.Data, int16Samples, 0, sampleCount);
-
-                    // Int16 -> Float変換
-                    float[] floatSamples = new float[sampleCount];
-                    for (int i = 0; i < sampleCount; i++)
-                    {
-                        floatSamples[i] = int16Samples[i] / 32768.0f;
-                    }
-
-                    // イベント発火
-                    OnAudioSamplesAvailable(new AudioSamplesEventArgs(floatSamples));
-                }
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(bufferListPtr);
+                return status;
             }
 
+            bufferList = Marshal.PtrToStructure<CoreAudioInterop.AudioBufferList>(_bufferListPtr);
+            int sampleCount = (int)Math.Min(bufferList.Buffer0.DataByteSize, (uint)byteCount) / sizeof(short);
+            if (sampleCount == 0 || bufferList.Buffer0.Data == IntPtr.Zero)
+            {
+                return CoreAudioInterop.noErr;
+            }
+
+            if (_int16Scratch.Length < sampleCount)
+            {
+                _int16Scratch = new short[sampleCount];
+            }
+            Marshal.Copy(bufferList.Buffer0.Data, _int16Scratch, 0, sampleCount);
+
+            // Int16 -> Float変換
+            float[] floatSamples = new float[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                floatSamples[i] = _int16Scratch[i] / 32768.0f;
+            }
+
+            OnAudioSamplesAvailable(new AudioSamplesEventArgs(floatSamples));
             return CoreAudioInterop.noErr;
         }
         catch (Exception ex)
@@ -330,13 +365,7 @@ public class CoreAudioCapture : IAudioCapture
     {
         if (status != CoreAudioInterop.noErr)
         {
-            // エラーコード -50 は TCC権限エラーの可能性
-            if (status == -50)
-            {
-                throw new UnauthorizedAccessException(
-                    $"Audio permission denied (TCC). Please grant microphone access in System Settings. Operation: {operation}, Status: {status}");
-            }
-
+            // マイク権限(TCC)の拒否はエラーにならず無音が届くだけなので、ここでは判定できない（-50 は paramErr）
             throw new InvalidOperationException($"CoreAudio operation failed: {operation}, Status: {status}");
         }
     }

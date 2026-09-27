@@ -10,9 +10,10 @@ publish*/
 *.user
 *.suo
 
-## Claude Code (keep commands, ignore local settings)
+## Claude Code (keep commands and skills, ignore local settings)
 .claude/*
 !.claude/commands/
+!.claude/skills/
 
 ## OS
 Thumbs.db

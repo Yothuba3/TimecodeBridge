@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Audio;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
@@ -72,6 +73,34 @@ public class TimecodeEngineTests : IDisposable
         Assert.Equal(frame.Seconds, decoded.Value.Seconds);
         Assert.True(_engine.IsReceiving);
         Assert.Contains(TimecodeReceiveStatus.Receiving, statuses);
+    }
+
+    [Fact]
+    public void StartLtc_キャプチャが96kHzで動いていればそのレートでデコードする()
+    {
+        // 48kHz固定のままだと96kHzのLTCはビット区間が判定窓を超えて1フレームも復号できない
+        _capture.SampleRate = 96000;
+        var received = new ManualResetEventSlim();
+        TimecodeValue? decoded = null;
+        _engine.TimecodeUpdated += (_, e) =>
+        {
+            decoded = e.RawTimecode;
+            received.Set();
+        };
+
+        _engine.StartLtc(InputDevice.Id);
+
+        var encoder = new LtcEncoder();
+        encoder.Initialize(96000, FrameRate.Fps30);
+        for (int i = 0; i < 6; i++)
+        {
+            encoder.EnqueueFrame(new TimecodeValue(1, 2, 3, 4 + i, FrameRate.Fps30));
+        }
+        _capture.Feed(ReadAllAsFloat(encoder, frameCount: 6, sampleRate: 96000));
+
+        Assert.True(received.Wait(TimeSpan.FromSeconds(2)), "96kHzのLTCがデコードされなかった");
+        Assert.NotNull(decoded);
+        Assert.Equal((1, 2, 3), (decoded.Value.Hours, decoded.Value.Minutes, decoded.Value.Seconds));
     }
 
     [Fact]
@@ -284,9 +313,9 @@ public class TimecodeEngineTests : IDisposable
         Assert.True(received.Wait(TimeSpan.FromSeconds(2)));
     }
 
-    private static float[] ReadAllAsFloat(LtcEncoder encoder, int frameCount)
+    private static float[] ReadAllAsFloat(LtcEncoder encoder, int frameCount, int sampleRate = 48000)
     {
-        int samplesPerFrame = (int)Math.Round(48000.0 / 30);
+        int samplesPerFrame = (int)Math.Round(sampleRate / 30.0);
         var bytes = new byte[samplesPerFrame * 2 * frameCount];
         encoder.Read(bytes, 0, bytes.Length);
 
@@ -309,6 +338,7 @@ public class TimecodeEngineTests : IDisposable
         public AudioDeviceInfo? StartedDevice { get; private set; }
         public bool IsStopped { get; private set; }
         public bool IsDisposed { get; private set; }
+        public int SampleRate { get; set; } = 48000;
 
         public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
         public event EventHandler<AudioErrorEventArgs>? ErrorOccurred;
@@ -329,6 +359,7 @@ public class TimecodeEngineTests : IDisposable
         public bool IsStopped { get; private set; }
         public bool IsDisposed { get; private set; }
         public bool ThrowOnStart { get; set; }
+        public int SampleRate { get; set; } = 48000;
         public long BytesWritten => Interlocked.Read(ref _bytesWritten);
 
         public void Start(AudioDeviceInfo device)

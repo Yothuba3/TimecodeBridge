@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v1.*"
+      - "v2.*"
 
 permissions:
   contents: write
@@ -72,6 +73,9 @@ jobs:
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp -R "publish-$rid/." "$APP/Contents/MacOS/"
             cp src/TimecodeBridge.App/Info.plist "$APP/Contents/Info.plist"
+            VERSION="${{ github.ref_name }}"; VERSION="${VERSION#v}"
+            plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
+            plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
             chmod +x "$APP/Contents/MacOS/TimecodeBridge.App"
             ditto -c -k --sequesterRsrc --keepParent "$APP" "TimecodeBridge2-${{ github.ref_name }}-$rid.zip"
           done

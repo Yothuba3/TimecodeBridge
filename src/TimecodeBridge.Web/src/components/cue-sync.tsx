@@ -1,0 +1,7 @@
+import type {JSX} from "preact";
+import {useState} from "preact/hooks";
+import {command} from "../commands";
+import {appStore} from "../store";
+import {HostPanel} from "./host-panel";
+import {LogPanel} from "./log-panel";
+export function CueSync({notice}:{notice:(text:string)=>void}):JSX.Element {const s=appStore.value.host.state!,[tab,setTab]=useState<"logs"|"hosts">("logs");return <><div class="sec"><div class="head"><b>Cue-Sync 送信設定</b><span class="tiny mono">{s.cueSync.oscAddress}</span></div><div class="set"><span class="tiny">OSCアドレス</span><input class="field mono" aria-label="Cue-Sync OSCアドレス" value={s.cueSync.oscAddress} onChange={e=>void command("cueSync.configure",{oscAddress:e.currentTarget.value,targetHostIds:s.cueSync.targetHostIds})}/><button class="btn" onClick={()=>void command("cueSync.send",{})}>単発送信</button></div><div class="hosts">{s.hosts.map(h=><label><input type="checkbox" checked={s.cueSync.targetHostIds.includes(h.id)} onChange={e=>void command("cueSync.configure",{oscAddress:s.cueSync.oscAddress,targetHostIds:e.currentTarget.checked?[...s.cueSync.targetHostIds,h.id]:s.cueSync.targetHostIds.filter(x=>x!==h.id)})}/>{h.name}</label>)}<span class="tiny">{s.cueSync.targetHostIds.length} / {s.hosts.length} 有効</span></div></div><div class="tab-panel"><div class="tabs"><button class={`tab ${tab==="logs"?"on":""}`} onClick={()=>setTab("logs")}>送信ログ</button><button class={`tab ${tab==="hosts"?"on":""}`} onClick={()=>setTab("hosts")}>ホスト管理</button></div>{tab==="logs"?<LogPanel/>:<HostPanel notice={notice}/>}</div></>}

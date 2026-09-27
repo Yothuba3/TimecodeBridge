@@ -1,3 +1,4 @@
+using TimecodeBridge.Core.Audio;
 using Microsoft.Extensions.DependencyInjection;
 using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.App.Services;

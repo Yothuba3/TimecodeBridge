@@ -1,0 +1,4 @@
+/* Top-level fixed-window layout; full mock CSS migration is intentionally deferred to implementation. */
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; }
+body { margin: 0; background: #080a0b; color: var(--t); font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif; overflow: hidden; }

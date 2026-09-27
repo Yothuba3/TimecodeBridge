@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {CueDialog,DuplicateDialog} from "../src/components/dialogs";import {fakeState} from "../src/testing/fake-host";
+
+const noop=()=>{};
+const cueWith=(extra:Partial<ReturnType<typeof fakeState>["cues"][number]>)=>({...fakeState().cues[0]!,...extra});
+const timecodeInputs=(html:string,label:string)=>html.split(`aria-label="${label}"`)[1]?.split("</span>")[0]??"";
+
+test("cue dialog lays the rows out in the order of the previous UI",()=>{const html=render(h(CueDialog,{frameRate:"24",hosts:fakeState().hosts,close:noop,done:noop}));const labels=["名前","トリガー時間","トリガーオフセット","OSCアドレス","追加アドレス","TC秒数送信","送信タイムコード","発火時ミュート","ミュート解除","OSC引数","送信先ホスト","全選択","全解除","メモ","有効"];const positions=labels.map(x=>html.indexOf(x));positions.forEach((pos,i)=>assert.ok(pos>=0,`missing rendered text: ${labels[i]}`));assert.deepEqual(positions,[...positions].sort((a,b)=>a-b));assert.match(html,/class="dialog  cue"/)});
+
+test("send timecode and unmute time stay disabled until their switches are on",()=>{const off=render(h(CueDialog,{cue:cueWith({sendTriggerTimeAsSeconds:false,sendTimecode:null,autoMuteOnFire:false,autoUnmuteAfter:null}),frameRate:"24",hosts:[],close:noop,done:noop}));for(const label of ["送信タイムコード","ミュート解除時間"]){assert.match(timecodeInputs(off,label),/disabled/);assert.match(off,new RegExp(`aria-label="${label}を指定" disabled`))}const on=render(h(CueDialog,{cue:cueWith({sendTriggerTimeAsSeconds:true,sendTimecode:"01:00:00:00",autoMuteOnFire:true,autoUnmuteAfter:"00:00:02:00"}),frameRate:"24",hosts:[],close:noop,done:noop}));for(const label of ["送信タイムコード","ミュート解除時間"]){assert.doesNotMatch(timecodeInputs(on,label),/disabled/);assert.match(on,new RegExp(`aria-label="${label}を指定" checked`))}});
+
+test("host picker explains what to do when no host is registered",()=>{const html=render(h(CueDialog,{frameRate:"24",hosts:[],close:noop,done:noop}));assert.match(html,/ホストが未登録です/);assert.match(html,/全選択<\/button>/);assert.match(html,/<button type="button" class="btn mini" disabled>全選択/)});
+
+test("a new cue targets every registered host, an existing cue keeps its own",()=>{const hosts=fakeState().hosts;const fresh=render(h(CueDialog,{frameRate:"24",hosts,close:noop,done:noop}));const picks=fresh.split('class="host-pick-list"')[1]!.split("</div>")[0]!;assert.equal((picks.match(/type="checkbox"/g)??[]).length,hosts.length);assert.equal((picks.match(/checked/g)??[]).length,hosts.length);const existing=render(h(CueDialog,{cue:cueWith({targetHostIds:[hosts[0]!.id]}),frameRate:"24",hosts,close:noop,done:noop}));assert.equal((existing.split('class="host-pick-list"')[1]!.split("</div>")[0]!.match(/checked/g)??[]).length,1)});
+
+test("duplicate dialog takes the interval as a timecode at the cue's frame rate",()=>{const cue=cueWith({frameRate:"25"});const html=render(h(DuplicateDialog,{cue,close:noop,done:noop}));assert.match(html,/複製数/);assert.match(html,/aria-label="複製の間隔"/);assert.match(html,/FF 00–24/);assert.doesNotMatch(html,/間隔（フレーム）/)});

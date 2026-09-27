@@ -3,7 +3,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services;
+namespace TimecodeBridge.Core.Audio;
 
 /// <summary>
 /// macOS版タイムコードエンジン。
@@ -11,7 +11,9 @@ namespace TimecodeBridge.App.Services;
 /// </summary>
 public class TimecodeEngine : ITimecodeEngine, IDisposable
 {
-    private const int SampleRate = 48000;
+    // 出力デバイス無しでジェネレータを回すときのエンコーダのレート。実デバイスを開いたときは
+    // IAudioCapture/IAudioPlayback が返す動作レートに従う（CoreAudioはレート変換をしない）
+    private const int DefaultSampleRate = 48000;
     private const int SignalLossTimeoutMs = 500;
 
     // CoreAudioPlayback は内部バッファ(最大5秒)から再生するため、
@@ -35,7 +37,9 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     // LTC capture
     private IAudioCapture? _capture;
-    private LtcDecoder? _ltcDecoder;
+    private readonly Func<ILtcDecoder> _decoderFactory;
+    private ILtcDecoder? _ltcDecoder;
+    private int _captureSampleRate = DefaultSampleRate;
 
     // Generator
     private TimecodeGenerator? _generator;
@@ -100,6 +104,9 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
     public LtcSignalCounts LtcSignalCounts => new(_ltcGate.TotalWritten, _ltcGate.TotalAccepted);
 
+    /// <summary>LTC 受信中のキャプチャサンプルレート。未開始時は既定値。</summary>
+    public int CaptureSampleRate => _captureSampleRate > 0 ? _captureSampleRate : DefaultSampleRate;
+
     public event EventHandler<TimecodeUpdatedEventArgs>? TimecodeUpdated;
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
@@ -113,8 +120,10 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         FrameRate frameRate,
         IAudioDeviceService audioDeviceService,
         Func<IAudioCapture> captureFactory,
-        Func<IAudioPlayback> playbackFactory)
+        Func<IAudioPlayback> playbackFactory,
+        Func<ILtcDecoder>? decoderFactory = null)
     {
+        _decoderFactory = decoderFactory ?? (() => new LtcDecoder());
         _audioDeviceService = audioDeviceService;
         _captureFactory = captureFactory;
         _playbackFactory = playbackFactory;
@@ -164,10 +173,8 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _ltcGate.Reset();
         ActiveSource = TimecodeSourceType.Ltc;
 
-        var decoder = new LtcDecoder();
-        decoder.Initialize(SampleRate);
+        var decoder = _decoderFactory();
         decoder.FrameDecoded += (_, timecodeValue) => WriteLtcFrame(timecodeValue);
-        _ltcDecoder = decoder;
 
         var capture = _captureFactory();
         capture.AudioSamplesAvailable += OnCaptureSamplesAvailable;
@@ -183,6 +190,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             StopLtcCapture();
             throw;
         }
+
+        // デコーダはキャプチャが実際に開いたレートで初期化する（Start 前は確定しない）
+        _captureSampleRate = capture.SampleRate > 0 ? capture.SampleRate : DefaultSampleRate;
+        decoder.Initialize(_captureSampleRate);
+        _ltcDecoder = decoder;
     }
 
     public void StartGenerator(GeneratorSettings settings)
@@ -198,8 +210,29 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _ltcAutoDetectActive = false;
         ActiveSource = TimecodeSourceType.Generator;
 
+        // 出力デバイスを先に開き、エンコーダはその実レートで初期化する
+        IAudioPlayback? playback = null;
+        int sampleRate = DefaultSampleRate;
+        var outputDevice = FindDevice(settings.OutputDeviceId);
+        if (outputDevice is not null)
+        {
+            try
+            {
+                playback = _playbackFactory();
+                playback.Start(outputDevice);
+                if (playback.SampleRate > 0) sampleRate = playback.SampleRate;
+            }
+            catch (Exception ex)
+            {
+                // Graceful degradation: generator continues without LTC output
+                OnAudioError(this, new AudioErrorEventArgs($"LTC出力デバイスを開けませんでした: {ex.Message}", ex));
+                playback?.Dispose();
+                playback = null;
+            }
+        }
+
         var encoder = new LtcEncoder();
-        encoder.Initialize(SampleRate, settings.FrameRate);
+        encoder.Initialize(sampleRate, settings.FrameRate);
         encoder.VolumeLevel = settings.VolumeLevel;
         _ltcEncoder = encoder;
 
@@ -211,23 +244,10 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         };
         _generator = generator;
 
-        var outputDevice = FindDevice(settings.OutputDeviceId);
-        if (outputDevice is not null)
+        if (playback is not null)
         {
-            try
-            {
-                var playback = _playbackFactory();
-                playback.Start(outputDevice);
-                _playback = playback;
-                StartPlaybackFeed(encoder, playback);
-            }
-            catch (Exception ex)
-            {
-                // Graceful degradation: generator continues without LTC output
-                OnAudioError(this, new AudioErrorEventArgs($"LTC出力デバイスを開けませんでした: {ex.Message}", ex));
-                _playback?.Dispose();
-                _playback = null;
-            }
+            _playback = playback;
+            StartPlaybackFeed(encoder, playback, sampleRate);
         }
 
         generator.Start(settings.StartTime, settings.FrameRate);
@@ -236,6 +256,48 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
     public void ResumeGenerator()
     {
         _generator?.Resume();
+    }
+
+    // 生成を止めずに出力先だけ差し替える。デバイスの実レートが変わり得るのでエンコーダも作り直す
+    // (生成器は _ltcEncoder フィールド経由でフレームを積むので、差し替え後のフレームは新しいエンコーダに入る)
+    public void ApplyGeneratorOutput(GeneratorSettings settings)
+    {
+        if (_generator is null) return;
+        ClosePlayback();
+
+        IAudioPlayback? playback = null;
+        int sampleRate = DefaultSampleRate;
+        var outputDevice = FindDevice(settings.OutputDeviceId);
+        if (outputDevice is not null)
+        {
+            try
+            {
+                playback = _playbackFactory();
+                playback.Start(outputDevice);
+                if (playback.SampleRate > 0) sampleRate = playback.SampleRate;
+            }
+            catch (Exception ex)
+            {
+                OnAudioError(this, new AudioErrorEventArgs($"LTC出力デバイスを開けませんでした: {ex.Message}", ex));
+                playback?.Dispose();
+                playback = null;
+            }
+        }
+
+        var encoder = new LtcEncoder();
+        encoder.Initialize(sampleRate, FrameRate);
+        encoder.VolumeLevel = settings.VolumeLevel;
+        _ltcEncoder = encoder;
+        if (playback is not null)
+        {
+            _playback = playback;
+            StartPlaybackFeed(encoder, playback, sampleRate);
+        }
+    }
+
+    public void SetGeneratorVolume(float level)
+    {
+        if (_ltcEncoder is { } encoder) encoder.VolumeLevel = level;
     }
 
     public void StopGenerator()
@@ -307,7 +369,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             var samples = e.Samples;
             var buffer = new byte[samples.Length * sizeof(float)];
             Buffer.BlockCopy(samples, 0, buffer, 0, buffer.Length);
-            decoder.ProcessSamples(buffer, buffer.Length, SampleRate, bitsPerSample: 32, channels: 1);
+            decoder.ProcessSamples(buffer, buffer.Length, _captureSampleRate, bitsPerSample: 32, channels: 1);
 
             AudioSamplesAvailable?.Invoke(this, e);
         }
@@ -322,13 +384,13 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         AudioErrorOccurred?.Invoke(this, e);
     }
 
-    private void StartPlaybackFeed(LtcEncoder encoder, IAudioPlayback playback)
+    private void StartPlaybackFeed(LtcEncoder encoder, IAudioPlayback playback, int sampleRate)
     {
         var cts = new CancellationTokenSource();
         var token = cts.Token;
         _playbackFeedCts = cts;
 
-        const int bytesPerSecond = SampleRate * 2;
+        int bytesPerSecond = sampleRate * 2;
 
         var thread = new Thread(() =>
         {
@@ -367,6 +429,17 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         thread.Start();
     }
 
+    private void ClosePlayback()
+    {
+        StopPlaybackFeed();
+        if (_playback != null)
+        {
+            try { _playback.Stop(); } catch { /* ignore */ }
+            _playback.Dispose();
+            _playback = null;
+        }
+    }
+
     private void StopPlaybackFeed()
     {
         _playbackFeedCts?.Cancel();
@@ -385,14 +458,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             _generator = null;
         }
 
-        StopPlaybackFeed();
-
-        if (_playback != null)
-        {
-            try { _playback.Stop(); } catch { /* ignore */ }
-            _playback.Dispose();
-            _playback = null;
-        }
+        ClosePlayback();
 
         if (_ltcEncoder != null)
         {

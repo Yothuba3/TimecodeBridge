@@ -304,12 +304,14 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
   - _注: テストコード実装完了、実機実行は環境準備後に実施_
 
-- [ ] 10. LTC キャプチャ → デコード → OSC 送信の E2E 統合
-  - TimecodeEngine の CoreAudioCapture 統合
-  - LTC 信号キャプチャ → LtcDecoder → TimecodeUpdated イベント発火の確認
-  - CueManager によるキュートリガー → OscSender 送信の確認
-  - 外部 OSC ホスト（QLab など）での受信確認
-  - 1 フレーム以内レイテンシの計測（<33ms @ 30fps）
+- [x] 10. LTC キャプチャ → デコード → OSC 送信の E2E 統合
+  - ✅ TimecodeEngine の CoreAudioCapture 統合（2026-09-09: 入力コールバックが SetRenderCallback で登録されており
+    一度も呼ばれない不具合を修正。あわせてデバイスの動作サンプルレートに追従するよう変更）
+  - ✅ LTC 信号キャプチャ → LtcDecoder → TimecodeUpdated イベント発火の確認
+    （tools/MacLoopbackE2E で Pro Tools Audio Bridge ループバック実機検証: 48k/44.1k/96kHz とも復号・ゲート採用100%）
+  - CueManager によるキュートリガー → OscSender 送信の確認（Windows版と共通コード。macOS実機での外部ホスト受信は未確認）
+  - 外部 OSC ホスト（QLab など）での受信確認（未実施）
+  - レイテンシ: ジェネレータ→ループバック→復号で 5〜6 フレーム（出力先行100ms とデバイスバッファ込み。復号単体の遅延は別途計測が必要）
   - _Requirements: 4.3, 4.5, 5.2, 6.3, 13.1_
 
 - [x] 11. タイムコード受信ステータスの視覚表示

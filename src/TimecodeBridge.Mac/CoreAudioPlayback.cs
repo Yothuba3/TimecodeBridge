@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services.Interfaces;
 
-namespace TimecodeBridge.App.Services.CoreAudio;
+namespace TimecodeBridge.Mac;
 
 /// <summary>
 /// CoreAudioを使用したオーディオプレイバック実装
@@ -17,7 +17,10 @@ public class CoreAudioPlayback : IAudioPlayback
     private bool _disposed = false;
     private readonly object _lock = new object();
     private readonly Queue<byte> _audioBuffer = new Queue<byte>();
-    private const int MaxBufferSize = 48000 * 2 * 5; // 5秒分のバッファ (48kHz, 16bit)
+    private int _maxBufferBytes = 48000 * 2 * 5; // 5秒分のバッファ（Start 時に実レートで更新）
+
+    /// <summary>出力の実サンプルレート(Hz)。Start 後に有効。</summary>
+    public int SampleRate { get; private set; }
 
     /// <summary>
     /// オーディオプレイバックを開始
@@ -91,10 +94,10 @@ public class CoreAudioPlayback : IAudioPlayback
         lock (_lock)
         {
             // バッファオーバーフロー防止
-            if (_audioBuffer.Count + count > MaxBufferSize)
+            if (_audioBuffer.Count + count > _maxBufferBytes)
             {
                 // 古いデータを削除して空きを作る
-                int excess = _audioBuffer.Count + count - MaxBufferSize;
+                int excess = _audioBuffer.Count + count - _maxBufferBytes;
                 for (int i = 0; i < excess; i++)
                 {
                     _audioBuffer.Dequeue();
@@ -166,7 +169,8 @@ public class CoreAudioPlayback : IAudioPlayback
         }
 
         // デバイスIDの設定（文字列をUInt32に変換）
-        if (uint.TryParse(device.Id, out uint deviceId))
+        uint.TryParse(device.Id, out uint deviceId);
+        if (deviceId != 0)
         {
             IntPtr deviceIdPtr = Marshal.AllocHGlobal(sizeof(uint));
             try
@@ -187,8 +191,12 @@ public class CoreAudioPlayback : IAudioPlayback
             }
         }
 
-        // ストリームフォーマットの設定（48kHz Mono 16bit PCM）
-        var format = CoreAudioInterop.CreateLtcFormat();
+        // ストリームフォーマット（Mono 16bit PCM）はデバイスの動作レートに合わせる
+        double nominalRate = deviceId != 0 ? CoreAudioInterop.GetDeviceNominalSampleRate(deviceId) : 0;
+        if (nominalRate <= 0) nominalRate = 48000;
+        SampleRate = (int)Math.Round(nominalRate);
+        _maxBufferBytes = SampleRate * 2 * 5;
+        var format = CoreAudioInterop.CreateLtcFormat(nominalRate);
         int formatSize = Marshal.SizeOf<CoreAudioInterop.AudioStreamBasicDescription>();
         IntPtr formatPtr = Marshal.AllocHGlobal(formatSize);
         try

@@ -47,13 +47,40 @@ public class OscSender : IOscSender
     }
 
     public void Send(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds)
-    {
-        var enabledHosts = _hostRegistry.GetEnabledHosts(targetHostIds);
+        => SendWithResult(oscAddress, arguments, targetHostIds);
 
+    public OscDispatchResult SendWithResult(string oscAddress, IReadOnlyList<OscArgument> arguments, IReadOnlyList<string> targetHostIds)
+    {
+        var hostsById = _hostRegistry.Hosts.ToDictionary(h => h.Id);
+        var enabledHosts = new List<OscHost>();
+        var skipped = new List<string>();
+        var disabledNames = new List<string>();
+        var missingIds = new List<string>();
+        foreach (var id in targetHostIds.Distinct())
+        {
+            if (!hostsById.TryGetValue(id, out var host)) { skipped.Add(id); missingIds.Add(id); }
+            else if (!host.IsEnabled) { skipped.Add(id); disabledNames.Add(host.Name); }
+            else enabledHosts.Add(host);
+        }
+
+        var sentCount = 0;
         foreach (var host in enabledHosts)
         {
-            SendToHost(host, oscAddress, arguments);
+            if (SendToHost(host, oscAddress, arguments)) sentCount++;
         }
+
+        if (enabledHosts.Count == 0)
+        {
+            var details = new List<string>();
+            if (disabledNames.Count > 0) details.Add($"無効: {string.Join(", ", disabledNames)}");
+            if (missingIds.Count > 0) details.Add($"見つからない: {string.Join(", ", missingIds)}");
+            SendCompleted?.Invoke(this, new OscSendResultEventArgs
+            {
+                OscAddress = oscAddress, HostId = string.Empty, HostName = string.Empty, Success = false,
+                ErrorMessage = details.Count == 0 ? "送信先がありません" : $"送信先がありません({string.Join(", ", details)})",
+            });
+        }
+        return new OscDispatchResult(sentCount, skipped);
     }
 
     public void SendPing(string hostId)
@@ -81,16 +108,18 @@ public class OscSender : IOscSender
         return false;
     }
 
-    private void SendToHost(OscHost host, string oscAddress, IReadOnlyList<OscArgument> arguments)
+    private bool SendToHost(OscHost host, string oscAddress, IReadOnlyList<OscArgument> arguments)
     {
         try
         {
             _transport.Send(host.IpAddress, host.Port, oscAddress, arguments);
             NotifyResult(host, oscAddress, true);
+            return true;
         }
         catch (Exception ex)
         {
             NotifyResult(host, oscAddress, false, ex.Message);
+            return false;
         }
     }
 

@@ -1,0 +1,98 @@
+name: CI v3
+
+# v3(TimecodeBridge3)の Windows 検証。v3.0.0 の Windows 版は起動直後に落ちていた(app.manifest が無く WebView を埋め込めない)が、
+# タグを打つまで Windows で一度も起動しない流れだったため気づけなかった。PR と feature/v3 への push で、
+# ビルド・テスト・発行物の起動 smoke・インストーラーで入れたものの起動 smoke まで通す。
+# (GitHub の Windows ランナーには音声デバイスが無いので LTC の受信は確かめない。LTC は手元で smoke-windows.ps1 -LoopbackDevice)
+on:
+  push:
+    branches: [feature/v3]
+  pull_request:
+    branches: [feature/v3]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/TimecodeBridge.Web/package-lock.json
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      # dist の差分検査は release-v3 の macOS ジョブで行う(Windows は改行コードの自動変換で偽の差分が出る)
+      - name: Build Web UI
+        working-directory: src/TimecodeBridge.Web
+        shell: bash
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Build libltc.dll
+        shell: cmd
+        run: native\libltc\build-windows.cmd native\libltc\out
+
+      - name: Test (Ltc / Host)
+        shell: bash
+        run: |
+          dotnet test tests/TimecodeBridge.Ltc.Tests
+          dotnet test tests/TimecodeBridge.Host.Tests
+
+      - name: Publish (win-x64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish src/TimecodeBridge.Host/TimecodeBridge.Host.csproj \
+            -c Release --self-contained -r win-x64 -o publish
+          test -f publish/libltc.dll
+          test -f publish/web/index.html
+          cp THIRD_PARTY_NOTICES.md publish/
+
+      - name: Ensure WebView2 runtime
+        shell: pwsh
+        run: |
+          $id = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $pv = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$id", "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$id" |
+            ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($pv) { "WebView2 runtime $pv"; exit 0 }
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe"
+          Start-Process "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList '/silent', '/install' -Wait
+
+      - name: Smoke (publish)
+        shell: pwsh
+        run: pwsh tools/tcb3/smoke-windows.ps1 -Exe publish\TimecodeBridge3.exe -RunDir "$env:RUNNER_TEMP\smoke-publish"
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile installer/MicrosoftEdgeWebview2Setup.exe
+          iscc /DAppVersion=0.0.0 installer\TimecodeBridge3.iss
+
+      # 利用者と同じくインストーラーで入れ(ユーザー単位・サイレント)、入ったものを起動して確かめる
+      - name: Install and smoke (installer)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'tcb3-installed'
+          $log = Join-Path $env:RUNNER_TEMP 'install.log'
+          $setup = (Get-Item installer-output\TimecodeBridge3-Setup-*.exe).FullName
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", "/LOG=$log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "installer exit $($p.ExitCode)" }
+          pwsh tools/tcb3/smoke-windows.ps1 -Exe (Join-Path $dir 'TimecodeBridge3.exe') -RunDir "$env:RUNNER_TEMP\smoke-installed"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke
+          path: |
+            ${{ runner.temp }}/smoke-publish/
+            ${{ runner.temp }}/smoke-installed/
+            ${{ runner.temp }}/install.log
+          if-no-files-found: ignore
