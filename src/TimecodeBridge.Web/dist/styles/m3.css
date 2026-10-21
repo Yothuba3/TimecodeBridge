@@ -5,3 +5,31 @@
 .offset-editor{display:inline-flex;align-items:center;gap:6px}.offset-pending{color:#c5a66d}
 .host-pick-list{grid-auto-rows:min-content}.host-pick-list label{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}.host-pick-list label>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.host-pick-list label>input{flex:none}
 .dialog .dialog-actions{position:sticky;bottom:-12px;background:var(--p);padding:8px 0 4px;margin-top:4px}
+/* OSC ポン出しを右の側パネルにし、本体と左右に並べる。閉じているときは本体が全幅を使う */
+.split{height:100vh;overflow:hidden;display:grid;grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr) 0;transition:grid-template-columns .18s}
+/* 本体は 1100px を下回らせない。OSC パネルは残りの幅までしか広がらない
+   (下回ると本体の中身がパネルの下に潜り込む) */
+.split.osc-open{grid-template-columns:minmax(1100px,1fr) minmax(0,var(--osc-width,420px))}
+/* 本体 1100 + パネル 280 に満たない幅では左右に並べられない。
+   そのときは本体の下側に重ねて出す(右に重ねると本体の設定パネルが触れなくなる) */
+@media(max-width:1380px){
+  .split.osc-open{grid-template-columns:minmax(0,1fr) 0}
+  .split.osc-open>.osc-panel{position:fixed;z-index:9;left:0;right:0;bottom:0;height:min(340px,56vh);border-left:0;border-top:2px solid #697b7a;box-shadow:0 -12px 36px #000a}
+  .split.osc-open>.osc-panel .osc-resize{display:none}
+}
+.split>.app{height:auto;min-width:0;min-height:0;overflow:hidden}
+.osc-panel{position:relative;min-width:0;overflow:hidden;display:grid;grid-template-rows:max-content minmax(0,1fr);background:#111417;border-left:2px solid #697b7a;visibility:hidden}
+.split.osc-open>.osc-panel{visibility:visible}
+.osc-resize{position:absolute;z-index:2;left:-3px;top:0;width:7px;height:100%;cursor:col-resize;touch-action:none}
+.osc-resize:hover{background:var(--a)}
+.osc-panel .dh{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:6px;padding:7px 10px}
+.osc-panel .dh h2{grid-column:1;margin:0}
+.osc-panel .dh .close{grid-column:2;grid-row:1;min-width:30px;padding:0 7px}
+/* モード切替と行列指定は見出しの下へ回す(横に並べるとパネル幅に収まらない) */
+.osc-panel .dh>:not(h2):not(.close){grid-column:1/-1}
+.osc-panel .dh-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* 縦長の側パネルでは行を内容なりの高さにし、ボタンが間延びしないようにする */
+.osc-panel .grid{align-content:start;grid-auto-rows:minmax(54px,max-content)}
+.osc-panel .grid{grid-template-rows:none!important}
+/* 実行モードでは空セルを見せない(押せないものが並ぶと本番で紛らわしい) */
+.osc-panel .grid:not(.editing) .empty-cell{visibility:hidden}
