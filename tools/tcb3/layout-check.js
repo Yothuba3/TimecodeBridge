@@ -56,6 +56,9 @@ for(let i=0;i<ctl.length;i++)for(let j=i+1;j<ctl.length;j++){
 // 4.5) 行が潰れて中身がはみ出している(チェックボックスが隣の行に重なる等)
 for(const e of all){
   if(e.children.length===0)continue;
+  // スクロールできる器は、中身が枠より高くても潰れではない
+  const eo=getComputedStyle(e).overflowY;
+  if(eo==='auto'||eo==='scroll')continue;
   const r=e.getBoundingClientRect();
   for(const c of e.children){
     // 列幅のつまみのように、わざと親より大きくして掴みやすくしている部品は除く

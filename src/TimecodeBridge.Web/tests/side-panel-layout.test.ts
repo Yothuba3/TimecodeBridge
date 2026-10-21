@@ -25,3 +25,15 @@ test("host picker rows keep their own height instead of being squeezed",()=>{
   // 高さ 80px の器に 10 行入ると均等配分で 5px まで潰れ、チェックボックスが隣の行に重なる
   assert.match(css,/\.host-pick-list\{grid-auto-rows:min-content\}/);
 });
+
+test("side panel scrolls when the window is too short to fit its sections",()=>{
+  // 最小サイズ(1100x640)では残り高さが 32px しかないのに、タブ枠に min-height:150px が効いて
+  // 送信ログが画面の下へ 118px はみ出していた。収まらないときはパネルをスクロールさせる。
+  assert.match(css,/\.side\{min-height:0;overflow:auto\}/);
+});
+
+test("dialog action buttons stay visible while the form scrolls",()=>{
+  // 最小サイズではダイアログの中身が画面より高くなり、「追加」が初期表示で見えなかった。
+  // 下端に貼り付けて、スクロールせずに押せるようにする。
+  assert.match(css,/\.dialog \.dialog-actions\{position:sticky/);
+});

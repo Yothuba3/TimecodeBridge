@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using TimecodeBridge.Core.Services.Interfaces;
@@ -22,8 +23,8 @@ public sealed class MainWindow : Window
         BuildNativeMenu(router, recent);
         recent.Changed += () => UpdateRecentMenu(router, recent);
         Title = "TimecodeBridge";
-        Width = 1600;
-        Height = 900;
+        // 既定は 1600x900。TIMECODEBRIDGE_WINDOW_SIZE=<幅>x<高さ> で変えられる(実機確認用)
+        (Width, Height) = ParseWindowSize() ?? (1600, 900);
         MinWidth = 1100;
         MinHeight = 640;
 
@@ -61,6 +62,19 @@ public sealed class MainWindow : Window
             _bridge?.Dispose();
             _engine.Stop();
         };
+    }
+
+    /// <summary>TIMECODEBRIDGE_WINDOW_SIZE=1920x1080 のような指定を読む。形式が違えば null(既定値を使う)。</summary>
+    private static (double Width, double Height)? ParseWindowSize()
+    {
+        var text = Environment.GetEnvironmentVariable("TIMECODEBRIDGE_WINDOW_SIZE");
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var parts = text.Split('x', 'X');
+        if (parts.Length != 2
+            || !double.TryParse(parts[0], out var width)
+            || !double.TryParse(parts[1], out var height)
+            || width < 320 || height < 240) return null;
+        return (width, height);
     }
 
     // WebView 内で拾えない標準ショートカットをネイティブメニューで受け、同じ command に流す。
