@@ -59,10 +59,30 @@ jobs:
           codesign --force --deep -s - "$APP"
           ditto -c -k --sequesterRsrc --keepParent "$APP" "TimecodeBridge3-${{ github.ref_name }}-osx-arm64.zip"
 
+      # dmg: 開いて Applications へドラッグする、macOS で一般的な配り方
+      - name: Package .dmg (Apple Silicon)
+        run: |
+          set -euo pipefail
+          APP="TimecodeBridge3.app"
+          DMG="TimecodeBridge3-${{ github.ref_name }}-osx-arm64.dmg"
+          STAGE="$(mktemp -d)/TimecodeBridge3"
+          mkdir -p "$STAGE"
+          # cp では ad-hoc 署名のメタデータが落ちる。ditto なら保たれる
+          ditto "$APP" "$STAGE/$APP"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "TimecodeBridge3" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          hdiutil verify "$DMG"
+          # 取り出した .app の署名が壊れていないことを確かめる(壊れていると初回起動で弾かれる)
+          hdiutil attach "$DMG" -nobrowse -quiet -mountpoint /tmp/dmgcheck
+          codesign -v "/tmp/dmgcheck/$APP"
+          hdiutil detach /tmp/dmgcheck -quiet
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: TimecodeBridge3-*.zip
+          path: |
+            TimecodeBridge3-*.zip
+            TimecodeBridge3-*.dmg
 
   build-windows:
     runs-on: windows-latest

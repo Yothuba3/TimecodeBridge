@@ -14,7 +14,8 @@ v1(Windows / WPF)と v2(macOS / Avalonia)の後継です。プロジェクトフ
 
 | OS | ファイル | 手順 |
 |---|---|---|
-| macOS 13 以降(Apple Silicon) | `TimecodeBridge3-v3.x.y-osx-arm64.zip` | 展開して `TimecodeBridge3.app` をアプリケーションフォルダへ。署名は ad-hoc なので初回は右クリック →「開く」で起動する(ターミナルなら `xattr -d com.apple.quarantine TimecodeBridge3.app`)。マイク(音声入力)の許可を求められたら許可する |
+| macOS 13 以降(Apple Silicon) | `TimecodeBridge3-v3.x.y-osx-arm64.dmg` | 開いて `TimecodeBridge3.app` を Applications へドラッグする。署名は ad-hoc なので初回は右クリック →「開く」で起動する(ターミナルなら `xattr -d com.apple.quarantine /Applications/TimecodeBridge3.app`)。マイク(音声入力)の許可を求められたら許可する |
+| macOS(zip 版) | `TimecodeBridge3-v3.x.y-osx-arm64.zip` | dmg と中身は同じ。展開して `TimecodeBridge3.app` を自分で配置する。Finder で展開すること(`unzip` コマンドは ad-hoc 署名を壊す。ターミナルなら `ditto -x -k <zip> <dir>`) |
 | Windows 10 / 11(x64) | `TimecodeBridge3-Setup-3.x.y.exe` | インストーラーを実行する。Microsoft Edge WebView2 ランタイムが無い PC には自動で入れる |
 | Windows(zip 版) | `TimecodeBridge3-v3.x.y-win-x64.zip` | 展開して `TimecodeBridge3.exe` を実行する。WebView2 ランタイムは別途必要(Windows 11 と最近の Windows 10 には入っている) |
 
