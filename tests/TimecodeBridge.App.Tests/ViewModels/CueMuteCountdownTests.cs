@@ -74,7 +74,8 @@ public class CueMuteCountdownTests
 
     private static (CueManager Manager, CueListViewModel Vm) Create(TimecodeValue? unmuteAfter)
     {
-        var manager = new CueManager(new StubEngine(), new StubSender());
+        // 発火手段に ManualTrigger を使うので、手動でもミュートが掛かる設定にしておく
+        var manager = new CueManager(new StubEngine(), new StubSender()) { AutoMuteOnManualTrigger = true };
         manager.AddCue(new Cue
         {
             Id = "c1",

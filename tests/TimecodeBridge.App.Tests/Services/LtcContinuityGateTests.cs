@@ -170,6 +170,33 @@ public class LtcContinuityGateTests
         Assert.Equal(3, accepted.Count); // 10,11,12
     }
 
+    /// <summary>
+    /// 未ロック時の再ロック条件は「ordinal 差が 1〜7」で、24fps の秒境界
+    /// (フレーム 23 → 0 で差が 7)を通すためにこの幅を持たせている。
+    /// その結果、連続していないフレームが 2 枚たまたまこの幅に収まると通ってしまう。
+    /// 無信号中の雑音は 00 時台の小さい値に偏るので、実際に起きる
+    /// (docs/v3/ltc-resilience-2026-10-22.md で観測)。現状の既知の挙動として固定する。
+    /// </summary>
+    [Fact]
+    public void 連続していない2フレームも再ロック幅に収まれば通ってしまう()
+    {
+        var gate = GateCollecting(out var accepted);
+        gate.Write(Frame(0, 0, 0, 0));
+        gate.Write(Frame(0, 0, 0, 3));
+
+        Assert.Equal([0, 3], accepted);
+    }
+
+    [Fact]
+    public void 再ロック幅を超えて離れた2フレームは通さない()
+    {
+        var gate = GateCollecting(out var accepted);
+        gate.Write(Frame(0, 0, 0, 0));
+        gate.Write(Frame(0, 0, 0, 8));
+
+        Assert.Empty(accepted);
+    }
+
     [Fact]
     public void 大きな前方ジャンプは頭出し扱いで2フレーム再ロックする()
     {

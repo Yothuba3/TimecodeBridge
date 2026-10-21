@@ -51,7 +51,9 @@ public class CueAutoMuteTests
 
     private static CueManager MakeManager(Cue cue)
     {
-        var manager = new CueManager(new StubEngine(), new StubSender());
+        // ここで見たいのは発火時ミュートそのものなので、発火手段として使う
+        // ManualTrigger でもミュートが掛かる設定にしておく。
+        var manager = new CueManager(new StubEngine(), new StubSender()) { AutoMuteOnManualTrigger = true };
         manager.AddCue(cue);
         return manager;
     }

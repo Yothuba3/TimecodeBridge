@@ -66,6 +66,7 @@ public class TimecodeViewModelTests
         public int TriggerWindowFrames { get; set; }
         public bool IsMuted { get; set; }
         public bool IsAutoMuteEnabled { get; set; } = true;
+        public bool AutoMuteOnManualTrigger { get; set; }
         public string? AutoMutedCueId => null;
         public DateTime? AutoUnmuteAt => null;
         public event EventHandler? MuteStateChanged;
