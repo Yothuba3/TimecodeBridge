@@ -11,7 +11,7 @@ using TimecodeBridge.App.Views;
 namespace TimecodeBridge.App.Tests.Views;
 
 /// <summary>
-/// ポン出しの行/列入力の確定動作（空文字・不正値の補正、Enter即時反映）
+/// ポン出しの行/列入力の確定動作（読めない入力では直前の値を保つ、Enter即時反映、上限の丸め）
 /// </summary>
 public class SizeInputCommitTests
 {
@@ -76,30 +76,33 @@ public class SizeInputCommitTests
         => box.RaiseEvent(new RoutedEventArgs(InputElement.LostFocusEvent, box));
 
     [AvaloniaFact]
-    public void 空文字でEnterすると1に補正される()
+    public void 空文字でEnterしても直前の行数のままになる()
     {
         var (_, vm, rowsBox) = CreateView();
+        var before = vm.Rows;
 
         rowsBox.Text = "";
         RaiseEnter(rowsBox);
 
-        Assert.Equal(1, vm.Rows);
-        Assert.Equal("1", rowsBox.Text);
+        // 1 へ落とすとグリッドが潰れ、範囲外になったボタンの削除確認まで出てしまう
+        Assert.Equal(before, vm.Rows);
+        Assert.Equal(before.ToString(), rowsBox.Text);
     }
 
     [AvaloniaFact]
-    public void 数値以外や0以下はフォーカス喪失時に1へ補正される()
+    public void 数値以外や0以下はフォーカス喪失時に直前の行数へ戻る()
     {
         var (_, vm, rowsBox) = CreateView();
+        var before = vm.Rows;
 
         rowsBox.Text = "abc";
         RaiseLostFocus(rowsBox);
-        Assert.Equal(1, vm.Rows);
+        Assert.Equal(before, vm.Rows);
 
         rowsBox.Text = "0";
         RaiseLostFocus(rowsBox);
-        Assert.Equal(1, vm.Rows);
-        Assert.Equal("1", rowsBox.Text);
+        Assert.Equal(before, vm.Rows);
+        Assert.Equal(before.ToString(), rowsBox.Text);
     }
 
     [AvaloniaFact]

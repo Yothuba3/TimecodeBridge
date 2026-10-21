@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -12,8 +13,16 @@ public partial class CueListView : UserControl
         InitializeComponent();
     }
 
-    // 判定幅の確定。intバインディング直結だと空文字で変換エラーになるため、
-    // ここで検証して確定する（数値以外・負数は0へ補正、Enterで即時反映）
+    /// <summary>
+    /// 判定幅の入力を確定する。数値として読めない入力は <paramref name="current"/> を返す。
+    /// 0 へ落とすとジャンプ判定が無効になり、頭出ししても途中のキューが発火してしまうため、
+    /// 打ち間違いで設定が変わらないようにする。負数だけは 0 へ補正する。
+    /// </summary>
+    internal static int CommitTriggerWindowFrames(string? text, int current)
+        => int.TryParse(text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            ? Math.Max(0, value)
+            : current;
+
     private void OnTriggerWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key is Key.Enter or Key.Return)
@@ -32,8 +41,7 @@ public partial class CueListView : UserControl
     {
         if (DataContext is not CueListViewModel vm) return;
 
-        if (!int.TryParse(TriggerWindowBox.Text, out var value) || value < 0) value = 0;
-        vm.TriggerWindowFrames = value;
+        vm.TriggerWindowFrames = CommitTriggerWindowFrames(TriggerWindowBox.Text, vm.TriggerWindowFrames);
         TriggerWindowBox.Text = vm.TriggerWindowFrames.ToString();
     }
 

@@ -93,6 +93,7 @@ public partial class TimecodeViewModel : DispatcherViewModel
             if (SetProperty(ref _offset, value))
             {
                 _timecodeEngine.Offset = value;
+                _offsetText = value.ToString();
                 OnPropertyChanged(nameof(OffsetText));
                 MarkDirty();
             }
@@ -106,23 +107,33 @@ public partial class TimecodeViewModel : DispatcherViewModel
     public void SyncOffsetFromEngine()
     {
         _offset = _timecodeEngine.Offset;
+        _offsetText = _offset.ToString();
         OnPropertyChanged(nameof(Offset));
         OnPropertyChanged(nameof(OffsetText));
     }
 
     public string OffsetText
     {
-        get => _offset.ToString();
+        get => _offsetText;
         set
         {
+            // 不正入力をそのまま残すと、適用されていない値が入っているように読めてしまう。
+            // いったん入力文字列を保持して変更を通知し、そのうえで実値の表記へ戻す
+            // (同じ値のままでは通知が届かず、TextBox に不正な文字列が残る)
+            _offsetText = value;
             if (TimecodeOffset.TryParse(value, _timecodeEngine.FrameRate, out var parsed))
             {
                 Offset = parsed;
             }
-            // 不正入力がTextBoxに残らないよう、常に実値の表記へ戻す
-            Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(OffsetText)));
+            Dispatcher.UIThread.Post(() =>
+            {
+                _offsetText = _offset.ToString();
+                OnPropertyChanged(nameof(OffsetText));
+            });
         }
     }
+
+    private string _offsetText = TimecodeOffset.Zero(FrameRate.Fps30).ToString();
 
     /// <summary>Cue-Syncワンショット（TimecodeDisplayView内のボタン領域が参照する）。</summary>
     public CueSyncViewModel CueSync { get; }

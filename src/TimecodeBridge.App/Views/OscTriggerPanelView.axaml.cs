@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -33,8 +34,16 @@ public partial class OscTriggerPanelView : UserControl
         }
     }
 
-    // 行/列入力の確定。intバインディング直結だと空文字で変換エラーになるため、
-    // ここで検証して確定する（数値以外・1未満は1へ補正、Enterで即時反映）
+    /// <summary>
+    /// 行/列の入力を確定する。数値として読めない入力と 1 未満は <paramref name="current"/> を返す。
+    /// 1 へ落とすとグリッドが潰れ、範囲外になったボタンの削除確認まで出てしまうため、
+    /// 打ち間違いで形が変わらないようにする。
+    /// </summary>
+    internal static int CommitGridSize(string? text, int current)
+        => int.TryParse(text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value >= 1
+            ? value
+            : current;
+
     private void OnSizeBoxKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key is Key.Enter or Key.Return && sender is TextBox box)
@@ -53,13 +62,14 @@ public partial class OscTriggerPanelView : UserControl
     {
         if (_vm is null) return;
 
-        if (!int.TryParse(box.Text, out var value) || value < 1) value = 1;
+        var isRows = ReferenceEquals(box, RowsBox);
+        var value = CommitGridSize(box.Text, isRows ? _vm.Rows : _vm.Columns);
 
-        if (ReferenceEquals(box, RowsBox)) _vm.Rows = value;
+        if (isRows) _vm.Rows = value;
         else _vm.Columns = value;
 
         // ViewModel側クランプ（上限32）や縮小キャンセル後の実値を表示へ戻す
-        box.Text = (ReferenceEquals(box, RowsBox) ? _vm.Rows : _vm.Columns).ToString();
+        box.Text = (isRows ? _vm.Rows : _vm.Columns).ToString();
     }
 
     // ItemsPanel内のUniformGridはDataContext連鎖に乗らないため、コードで行列数を反映する
