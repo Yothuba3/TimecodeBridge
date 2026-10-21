@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {CueDialog,DuplicateDialog} from "../src/components/dialogs";import {fakeState} from "../src/testing/fake-host";
+import assert from "node:assert/strict";import {readFileSync} from "node:fs";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {CueDialog,DuplicateDialog} from "../src/components/dialogs";import {fakeState} from "../src/testing/fake-host";
 
 const noop=()=>{};
 const cueWith=(extra:Partial<ReturnType<typeof fakeState>["cues"][number]>)=>({...fakeState().cues[0]!,...extra});
@@ -13,3 +13,15 @@ test("host picker explains what to do when no host is registered",()=>{const htm
 test("a new cue targets every registered host, an existing cue keeps its own",()=>{const hosts=fakeState().hosts;const fresh=render(h(CueDialog,{frameRate:"24",hosts,close:noop,done:noop}));const picks=fresh.split('class="host-pick-list"')[1]!.split("</div>")[0]!;assert.equal((picks.match(/type="checkbox"/g)??[]).length,hosts.length);assert.equal((picks.match(/checked/g)??[]).length,hosts.length);const existing=render(h(CueDialog,{cue:cueWith({targetHostIds:[hosts[0]!.id]}),frameRate:"24",hosts,close:noop,done:noop}));assert.equal((existing.split('class="host-pick-list"')[1]!.split("</div>")[0]!.match(/checked/g)??[]).length,1)});
 
 test("duplicate dialog takes the interval as a timecode at the cue's frame rate",()=>{const cue=cueWith({frameRate:"25"});const html=render(h(DuplicateDialog,{cue,close:noop,done:noop}));assert.match(html,/複製数/);assert.match(html,/aria-label="複製の間隔"/);assert.match(html,/FF 00–24/);assert.doesNotMatch(html,/間隔（フレーム）/)});
+
+test("dialogs do not close when the backdrop is clicked",()=>{
+  // 入力の途中で背景を触って消えると、書いた内容がそのまま失われる。
+  // 閉じるのはキャンセル・閉じるボタンと Escape だけにする。
+  // サーバー描画では属性が出ないので、元のコードに閉じる操作が書かれていないことを見る
+  const source=readFileSync(new URL("../src/components/dialogs.tsx",import.meta.url),"utf8");
+  const shell=source.slice(source.indexOf("export function ModalShell"));
+  const shade=shell.slice(shell.indexOf('class="modal-shade"'),shell.indexOf('class={`dialog'));
+  assert.doesNotMatch(shade,/onMouseDown|onClick|onPointerDown/,"背景に閉じる操作を付けない");
+  // Escape では閉じる(キーボードだけで操作する人の逃げ道を残す)
+  assert.match(shell,/e\.key==="Escape"[\s\S]{0,60}p\.close\(\)/);
+});
