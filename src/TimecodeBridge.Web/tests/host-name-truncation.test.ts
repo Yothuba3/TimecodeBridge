@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {CueDialog} from "../src/components/dialogs";import {CueSync} from "../src/components/cue-sync";import {appStore} from "../src/store";import {fakeState} from "../src/testing/fake-host";
+import assert from "node:assert/strict";import test from "node:test";import {h} from "preact";import render from "preact-render-to-string";import {BatchDialog,CueDialog} from "../src/components/dialogs";import {CueSync} from "../src/components/cue-sync";import {appStore} from "../src/store";import {fakeState} from "../src/testing/fake-host";
 
 // ホスト名は本番で「現場名 + 機材名」のように長くなる。チェックボックスの label は flex なので、
 // 名前を直接置くと text-overflow が効かず、枠を越えて隣の表示に重なる。span で包むことで省略が効く。
@@ -15,11 +15,20 @@ test("cue dialog wraps each host name so a long name can be truncated",()=>{
 
 test("cue-sync host list wraps each host name so a long name can be truncated",()=>{
   const state=fakeState();
-  appStore.value={...appStore.value,host:{...appStore.value.host,state:{...state,hosts:[...state.hosts,longHost]}}};
+  appStore.value.host.state={...state,hosts:[...state.hosts,longHost]};
   const html=render(h(CueSync,{notice:()=>{}}));
   const found=hostLabels(html);
   assert.equal(found.length,1);
   assert.match(found[0]!,new RegExp(`<span>${longHost.name}</span>`));
   // 件数表示は一覧の隣に置かれるので、名前がはみ出すとここに重なる
   assert.match(html,/有効/);
+});
+
+test("batch dialog stacks the host picker so long names do not wrap mid-row",()=>{
+  const html=render(h(BatchDialog,{ids:["a","b"],hosts:[...fakeState().hosts,longHost],frameRate:"24",close:()=>{},done:()=>{},notice:()=>{}}));
+  const found=hostLabels(html);
+  assert.equal(found.length,1);
+  assert.match(found[0]!,new RegExp(`<span>${longHost.name}</span>`));
+  // キュー編集と同じ縦並びの一覧に載せる(横に流すと名前が折り返して対応が読めない)
+  assert.match(html,/class="host-pick-list"/);
 });

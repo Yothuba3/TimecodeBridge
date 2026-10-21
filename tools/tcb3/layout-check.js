@@ -25,6 +25,8 @@ for(const e of all){
   const s=getComputedStyle(e);
   if(s.overflow!=='visible'&&s.overflow!=='')continue;
   if(e.children.length>0)continue;
+  // 入力欄は中身をスクロールして読むものなので、枠より長い値が入っていても破綻ではない
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName))continue;
   if(e.scrollWidth>e.clientWidth+2&&e.clientWidth>0) R.push({k:'文字が切れる',d:`${label(e)} 必要${e.scrollWidth}px / 枠${e.clientWidth}px`});
 }
 // 3) クリップされた要素(ellipsis なしで隠れている)
