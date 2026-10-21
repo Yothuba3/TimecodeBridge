@@ -14,10 +14,28 @@ v1(Windows / WPF)と v2(macOS / Avalonia)の後継です。プロジェクトフ
 
 | OS | ファイル | 手順 |
 |---|---|---|
-| macOS 13 以降(Apple Silicon) | `TimecodeBridge3-v3.x.y-osx-arm64.dmg` | 開いて `TimecodeBridge3.app` を Applications へドラッグする。署名は ad-hoc なので初回は右クリック →「開く」で起動する(ターミナルなら `xattr -d com.apple.quarantine /Applications/TimecodeBridge3.app`)。マイク(音声入力)の許可を求められたら許可する |
-| macOS(zip 版) | `TimecodeBridge3-v3.x.y-osx-arm64.zip` | dmg と中身は同じ。展開して `TimecodeBridge3.app` を自分で配置する。Finder で展開すること(`unzip` コマンドは ad-hoc 署名を壊す。ターミナルなら `ditto -x -k <zip> <dir>`) |
+| macOS 13 以降(Apple Silicon) | `TimecodeBridge3-v3.x.y-osx-arm64.dmg` | 開いて `TimecodeBridge3.app` を Applications へドラッグする。初回起動は下の手順が必要。マイク(音声入力)の許可を求められたら許可する |
+| macOS(zip 版) | `TimecodeBridge3-v3.x.y-osx-arm64.zip` | dmg と中身は同じ。展開して `TimecodeBridge3.app` を自分で配置する。Finder で展開すること(`unzip` コマンドは署名を壊す。ターミナルなら `ditto -x -k <zip> <dir>`) |
 | Windows 10 / 11(x64) | `TimecodeBridge3-Setup-3.x.y.exe` | インストーラーを実行する。Microsoft Edge WebView2 ランタイムが無い PC には自動で入れる |
 | Windows(zip 版) | `TimecodeBridge3-v3.x.y-win-x64.zip` | 展開して `TimecodeBridge3.exe` を実行する。WebView2 ランタイムは別途必要(Windows 11 と最近の Windows 10 には入っている) |
+
+### macOS の初回起動
+
+Apple の開発者署名が無いため、そのままでは「検証できないため開けません」と出て起動しません。
+次のどちらかで一度許可すると、以降は普通に起動できます。
+
+**ターミナルから外す(確実)**
+
+```
+xattr -dr com.apple.quarantine /Applications/TimecodeBridge3.app
+```
+
+**設定画面から許可する**
+
+一度起動を試みたあと、「システム設定」→「プライバシーとセキュリティ」を開く。
+下の方に「TimecodeBridge3 は開発元を確認できないため…」と出ているので「このまま開く」を押す。
+
+macOS 15 以降では、ファイルを右クリックして「開く」を選ぶ方法は使えなくなっている。
 
 ## 使い方の要点
 
