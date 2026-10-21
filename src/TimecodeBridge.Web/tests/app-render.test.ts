@@ -10,7 +10,25 @@ test("LTC panel asks for a device when none is selected",()=>{const state=fakeSt
 
 test("signal loss shows seconds since the last real LTC frame",()=>{const now=Date.parse("2026-09-14T01:00:10.900Z");assert.equal(lastLtcText("signalLost","2026-09-14T01:00:03.100Z",now),"最終受信 7 秒前");assert.equal(lastLtcText("freerun",null,now),"最終受信なし");assert.equal(lastLtcText("receiving","2026-09-14T01:00:03.100Z",now),null)});
 
-test("auto-muted cue shows MUTE and the unmute countdown in its row and on the MUTE button",()=>{const state=fakeState();state.transport.triggerMuted=true;state.transport.autoMutedCueId="cue-1";state.cues[0]!.runtime.muteCountdownText="0:02";appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));assert.match(html,/<b class="mute-tag">MUTE 0:02<\/b>/);assert.match(html,/自動解除まで 0:02/);state.transport.autoMutedCueId=null;assert.doesNotMatch(render(h(App,{})),/mute-tag/)});
+test("auto-muted cue shows MUTE and the unmute countdown in its row and on the MUTE button",()=>{
+  // 残り秒は解除時刻から毎回計算する(Host が作る固定文字列だと秒が進まない)
+  const state=fakeState();state.transport.triggerMuted=true;state.transport.autoMutedCueId="cue-1";
+  state.transport.autoUnmuteAtUtc=new Date(Date.now()+2000).toISOString();
+  appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;
+  const html=render(h(App,{}));
+  assert.match(html,/<b class="mute-countdown">2<\/b>/,"MUTE ボタン本体に残り秒を出す");
+  assert.match(html,/後に自動解除/);
+  assert.match(html,/<b class="mute-tag">MUTE 2<\/b>/,"キューの行にも同じ残り秒を出す");
+  state.transport.autoMutedCueId=null;assert.doesNotMatch(render(h(App,{})),/mute-tag/);
+});
+
+test("the mute button shows no countdown when nothing will auto-unmute",()=>{
+  const state=fakeState();state.transport.triggerMuted=true;state.transport.autoUnmuteAtUtc=null;
+  appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;
+  const html=render(h(App,{}));
+  assert.doesNotMatch(html,/mute-countdown/);
+  assert.match(html,/キュー送出 停止/,"手動ミュート中はこれまでどおりの説明を出す");
+});
 
 test("footer omits the detail separator when there is no detail text",()=>{const state=fakeState();state.transport.detailText="";state.transport.locked=false;appStore.value.host.state=state;appStore.value.host.clock=state.currentClock;const html=render(h(App,{}));assert.match(html,/LTC INPUT UNLOCK<\/span>/);state.transport.detailText="CH 1";assert.match(render(h(App,{})),/LTC INPUT UNLOCK · CH 1<\/span>/)});
 

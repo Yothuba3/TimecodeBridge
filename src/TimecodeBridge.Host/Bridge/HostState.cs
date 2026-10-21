@@ -295,18 +295,12 @@ public sealed class HostState : IDisposable
         foreach (var c in _cues.Cues)
         {
             _cueRuntime.TryGetValue(c.Id, out var rt);
-            string countdown = "";
-            if (_cues.AutoMutedCueId == c.Id && _cues.AutoUnmuteAt is { } until)
-            {
-                var remaining = until.ToUniversalTime() - now;
-                if (remaining > TimeSpan.Zero) countdown = remaining.ToString(@"m\:ss", CultureInfo.InvariantCulture);
-            }
             result.Add(new CueDto(
                 c.Id, c.Name, c.Memo, c.TriggerTime.ToString(), c.GetEffectiveTriggerTime().ToString(), ToCode(c.TriggerTime.FrameRate),
                 c.OscAddress, c.AdditionalOscAddresses.ToArray(), c.Arguments.Select(ToDto).ToArray(), c.TargetHostIds.ToArray(),
                 c.IsEnabled, c.SendTriggerTimeAsSeconds, c.SendTimecode?.ToString(), c.TriggerOffset?.ToString(),
                 c.AutoMuteOnFire, c.AutoUnmuteAfter?.ToString(),
-                new CueRuntime(rt.LastTriggeredUtc?.ToString("O"), rt.FlashToken, countdown)));
+                new CueRuntime(rt.LastTriggeredUtc?.ToString("O"), rt.FlashToken)));
         }
         return result;
     }

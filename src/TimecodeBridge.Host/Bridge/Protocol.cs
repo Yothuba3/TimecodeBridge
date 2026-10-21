@@ -177,7 +177,7 @@ public sealed record CueDto(
     string? AutoUnmuteAfter,
     CueRuntime Runtime);
 
-public sealed record CueRuntime(string? LastTriggeredAtUtc, long FlashToken, string MuteCountdownText);
+public sealed record CueRuntime(string? LastTriggeredAtUtc, long FlashToken);
 
 public sealed record OscArgumentDto(string Type, object Value)
 {

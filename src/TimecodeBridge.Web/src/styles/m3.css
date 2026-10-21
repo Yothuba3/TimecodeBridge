@@ -42,3 +42,5 @@
 .options-row small{display:block;margin-top:2px;color:var(--m);line-height:1.5;white-space:normal;overflow-wrap:anywhere}
 /* キューリストのオートミュート切替 */
 .auto-mute-toggle.on{border-color:#6a7c7b;background:#2a3334}
+/* MUTE ボタンの残り秒。本番で離れた位置からでも読めるよう、ボタン本体と同じ大きさで出す */
+.major .mute-countdown{margin-left:8px;font-variant-numeric:tabular-nums}
