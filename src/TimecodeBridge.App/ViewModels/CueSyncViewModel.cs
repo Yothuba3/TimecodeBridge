@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -94,20 +95,31 @@ public partial class CueSyncViewModel : ObservableObject, IDisposable
     private void RefreshHostSelections()
     {
         var selectedIds = TargetHostIds;
+        foreach (var old in HostSelections) old.PropertyChanged -= OnHostSelectionChanged;
         HostSelections.Clear();
         foreach (var host in _hostRegistry.Hosts)
         {
-            HostSelections.Add(new HostSelection
+            var selection = new HostSelection
             {
                 Id = host.Id,
                 Name = host.Name,
                 IsSelected = selectedIds.Contains(host.Id),
-            });
+            };
+            // チェックボックスの TwoWay バインディングが IsSelected を書いた後に反映する
+            // (View の IsCheckedChanged はバインディングより先に走り、古い選択を読んでいた)
+            selection.PropertyChanged += OnHostSelectionChanged;
+            HostSelections.Add(selection);
         }
+    }
+
+    private void OnHostSelectionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(HostSelection.IsSelected)) UpdateHostSelections();
     }
 
     public void Dispose()
     {
         _hostRegistry.HostChanged -= OnHostChanged;
+        foreach (var selection in HostSelections) selection.PropertyChanged -= OnHostSelectionChanged;
     }
 }

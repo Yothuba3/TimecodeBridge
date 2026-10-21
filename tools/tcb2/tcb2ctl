@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+# tcb2ctl — TimecodeBridge v2(Avalonia 版)を外部から起動・操作・撮影する。実機確認を人手なしで回すための道具。
+# アプリ側の受け口は src/TimecodeBridge.App/Services/Automation/DevAutomation.cs(環境変数 TIMECODEBRIDGE_AUTOMATION_PORT)。
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PORT="${TCB2_PORT:-47200}"
+RUN_DIR="${TCB2_RUN_DIR:-/tmp/tcb2ctl}"
+# 既定は Debug ビルドの DLL を dotnet で起動する(dotnet build -o で別ディレクトリに出した apphost は macOS で署名不一致により即終了するため)
+EXE="${TCB2_EXE:-$ROOT/src/TimecodeBridge.App/bin/Debug/net8.0/TimecodeBridge.App.dll}"
+BASE="http://127.0.0.1:$PORT"
+LOG="$RUN_DIR/app.log"
+PIDFILE="$RUN_DIR/app.pid"
+
+usage() {
+  cat <<USAGE
+usage: tcb2ctl <subcommand> [args]
+
+  start [--build] [--selftest <ループバックデバイス名の一部>] [--start HH:MM:SS:FF] [--keep-data-dir] [--env K=V ...]
+                      アプリを起動し、ウィンドウが出るまで待つ。--selftest は同一プロセスで LTC を生成して
+                      同じ名前の入力から受信も始める(Pro Tools Audio Bridge 等のループバック向け)
+                      --keep-data-dir は設定保存先を通常(~/Library/Application Support)のままにする(既定は run dir に分離)
+  stop                アプリを終了する(SIGTERM → 5 秒で SIGKILL)
+  activate [window]   ウィンドウを前面に出す
+  health              /health
+  state [jq-filter]   状態スナップショット(既定は全体)。例: tcb2ctl state '.cues'
+  windows             開いているウィンドウ一覧(index / title / isDialog)
+  tree [window] [jq-filter]
+                      ウィンドウのビジュアルツリー(可視要素のみ。id/type/name/text/位置)。
+                      例: tcb2ctl tree '' '.nodes[]|select(.type=="Button")|.text'
+  find <sel> [window] セレクタに一致する要素を全部列挙する
+  click <sel> [window] [--wait] [--additive]
+                      一致した要素(またはその祖先のボタン/メニュー/リスト項目)をクリック。
+                      ダイアログを開く操作は既定で投げっぱなし(--wait で完了まで待つ)。
+                      --additive はリスト項目を既存の選択に追加する(Cmd+クリック相当)
+  type <sel> <text> [window] [--no-commit]
+                      入力欄に文字列を入れてフォーカスを外す(LostFocus で確定する欄にも効く)
+  set <sel> <json> [window]
+                      {"checked":true} / {"selectedIndex":1} / {"selectedText":"Bridge 2-A"} / {"value":0.5}
+  key <Key> [modifiers] [window]
+                      キーを送る。例: tcb2ctl key Escape / tcb2ctl key S Cmd+Shift
+  invoke <path> [paramJson]
+                      MainViewModel からのプロパティ経路の ICommand を実行、または値を代入。
+                      例: tcb2ctl invoke CueListViewModel.AddCueCommand / tcb2ctl invoke OpenProjectCommand '"/tmp/a.json"'
+  get <path> [jq-filter]
+                      MainViewModel からのプロパティ経路の値を JSON で出す
+  shot [out.png] [window]
+                      ウィンドウをアプリ内でレンダリングして PNG に保存(既定: \$TCB2_RUN_DIR/shot-<時刻>.png)
+  close [window]      ダイアログを閉じる(メインウィンドウは不可)
+  wait <jq-filter> [timeoutSec=15]
+                      /state に jq-filter を当てて true になるまで待つ
+  log [n=50]          アプリの標準出力の末尾
+
+セレクタ <sel>: JSON({"name":"NameBox"} / {"text":"＋ 追加"} / {"textContains":"Bridge","type":"ComboBox","index":1} / {"id":"0/0/3/…"})
+               または省略形 "#Name"(Name 一致)/ "文字列"(表示文字列の完全一致)。
+               リストの行は仮想化で視覚ツリー上の並びが表示順と一致しないので、同名の要素は find で y を見て id か index で指す
+window: 省略で最後に開いた可視ウィンドウ(モーダルが出ていればそれ)、"main"、番号、タイトルの一部
+
+環境変数: TCB2_PORT(既定 47200) TCB2_RUN_DIR(既定 /tmp/tcb2ctl) TCB2_EXE(既定 Debug ビルドの TimecodeBridge.App.dll。.dll なら dotnet で起動)
+USAGE
+}
+
+die() { echo "tcb2ctl: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "$1 が必要です"; }
+need curl; need jq
+
+api() { curl -sS --max-time 30 "$@"; }
+post() { # post <path> <json>
+  local out code
+  out="$(curl -sS --max-time 30 -w '\n%{http_code}' -X POST "$BASE$1" -H 'Content-Type: application/json' --data-binary "$2")"
+  code="${out##*$'\n'}"; out="${out%$'\n'*}"
+  if [ "$code" != 200 ]; then echo "$out" | jq -r '.error // .' >&2; return 1; fi
+  echo "$out"
+}
+is_up() { curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.ok' >/dev/null 2>&1; }
+
+selector() { # selector <sel> [window] → JSON
+  local sel="$1" win="${2:-}" json
+  case "$sel" in
+    \{*) json="$sel" ;;
+    \#*) json="$(jq -cn --arg n "${sel#\#}" '{name:$n}')" ;;
+    *) json="$(jq -cn --arg t "$sel" '{text:$t}')" ;;
+  esac
+  if [ -n "$win" ]; then json="$(echo "$json" | jq -c --arg w "$win" '. + {window:$w}')"; fi
+  echo "$json"
+}
+
+cmd_start() {
+  local build=0 selftest="" start="" keepdata=0 envs=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --build) build=1 ;;
+      --selftest) selftest="$2"; shift ;;
+      --start) start="$2"; shift ;;
+      --keep-data-dir) keepdata=1 ;;
+      --env) envs+=("$2"); shift ;;
+      *) die "start: 不明な引数 $1" ;;
+    esac
+    shift
+  done
+  mkdir -p "$RUN_DIR"
+  if is_up; then echo "already running: $(api "$BASE/health")"; return 0; fi
+  if [ "$build" = 1 ]; then dotnet build "$ROOT/src/TimecodeBridge.App/TimecodeBridge.App.csproj" -v q; fi
+  [ -e "$EXE" ] || die "実行ファイルがありません: $EXE(tcb2ctl start --build を試してください)"
+  for other in $(pgrep -f "TimecodeBridge.App(\.dll)?$" || true); do
+    if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then die "port $PORT は pid $other が使用中です(TCB2_PORT を変えてください)"; fi
+  done
+
+  local vars=("TIMECODEBRIDGE_AUTOMATION_PORT=$PORT" "DOTNET_ROLL_FORWARD=Major")
+  if [ "$keepdata" = 0 ]; then mkdir -p "$RUN_DIR/data"; vars+=("TIMECODEBRIDGE_DATA_DIR=$RUN_DIR/data"); fi
+  if [ -n "$selftest" ]; then vars+=("TIMECODEBRIDGE_SELFTEST_OUTPUT=$selftest" "TIMECODEBRIDGE_AUTOSTART_INPUT=$selftest"); fi
+  if [ -n "$start" ]; then vars+=("TIMECODEBRIDGE_SELFTEST_START=$start"); fi
+  vars+=(${envs[@]+"${envs[@]}"})
+  local launch=("$EXE")
+  case "$EXE" in *.dll) launch=(dotnet "$EXE") ;; esac
+  # 呼び出し元(エディタや CI)から継承した余分な fd をアプリに持ち込ませない。持ち込むとパイプが閉じず呼び出し元が待ち続ける
+  env "${vars[@]}" nohup "${launch[@]}" >"$LOG" 2>&1 </dev/null 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
+  echo $! >"$PIDFILE"
+
+  local i
+  for i in $(seq 1 60); do
+    if curl -s --max-time 1 "$BASE/health" 2>/dev/null | jq -e '.ready' >/dev/null 2>&1; then
+      cmd_activate main
+      echo "started pid=$(cat "$PIDFILE") port=$PORT log=$LOG"
+      return 0
+    fi
+    if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "--- $LOG" >&2; tail -n 30 "$LOG" >&2; die "アプリが起動直後に終了しました"; fi
+    sleep 0.5
+  done
+  echo "--- $LOG" >&2; tail -n 30 "$LOG" >&2
+  die "30 秒待ってもウィンドウが出ません"
+}
+
+cmd_stop() {
+  local pid=""
+  [ -f "$PIDFILE" ] && pid="$(cat "$PIDFILE")"
+  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+    pid=""
+    for other in $(pgrep -f "TimecodeBridge.App(\.dll)?$" || true); do
+      if ps eww -p "$other" -o args= 2>/dev/null | grep -q "TIMECODEBRIDGE_AUTOMATION_PORT=$PORT\b"; then pid="$other"; break; fi
+    done
+  fi
+  if [ -z "$pid" ]; then echo "not running"; rm -f "$PIDFILE"; return 0; fi
+  kill "$pid" 2>/dev/null || true
+  local i
+  for i in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || { echo "stopped pid=$pid"; rm -f "$PIDFILE"; return 0; }; sleep 0.5; done
+  kill -9 "$pid" 2>/dev/null || true
+  echo "killed pid=$pid"; rm -f "$PIDFILE"
+}
+
+cmd_activate() { post /activate "$(jq -cn --arg w "${1:-}" 'if $w == "" then {} else {window:$w} end')" >/dev/null; }
+cmd_health() { api "$BASE/health" | jq .; }
+cmd_state() { api "$BASE/state" | jq "${1:-.}"; }
+cmd_windows() { api "$BASE/windows" | jq -c '.[]'; }
+cmd_tree() { api "$BASE/tree?window=$(jq -rn --arg w "${1:-}" '$w|@uri')" | jq "${2:-.}"; }
+cmd_find() { [ $# -ge 1 ] || die "find: セレクタが必要です"; post /find "$(selector "$1" "${2:-}" | jq -c '{selector:.}')" | jq -c '.matches[]'; }
+
+cmd_click() {
+  [ $# -ge 1 ] || die "click: セレクタが必要です"
+  local sel="$1" win="" wait=false additive=false; shift
+  while [ $# -gt 0 ]; do case "$1" in --wait) wait=true ;; --additive) additive=true; wait=true ;; *) win="$1" ;; esac; shift; done
+  post /click "$(selector "$sel" "$win" | jq -c --argjson w "$wait" --argjson a "$additive" '{selector:., wait:$w, additive:$a}')" | jq -c '{result, target:(.target|{type,name,text})}'
+}
+
+cmd_type() {
+  [ $# -ge 2 ] || die "type: セレクタと文字列が必要です"
+  local sel="$1" text="$2" win="" commit=true; shift 2
+  while [ $# -gt 0 ]; do case "$1" in --no-commit) commit=false ;; *) win="$1" ;; esac; shift; done
+  post /type "$(selector "$sel" "$win" | jq -c --arg t "$text" --argjson c "$commit" '{selector:., text:$t, commit:$c}')" | jq -r '.result.result // .result'
+}
+
+cmd_set() {
+  [ $# -ge 2 ] || die "set: セレクタと JSON が必要です"
+  post /set "$(selector "$1" "${3:-}" | jq -c --argjson v "$2" '{selector:.} + $v')" | jq -r '.result.result // .result'
+}
+
+cmd_key() {
+  [ $# -ge 1 ] || die "key: キー名が必要です"
+  post /key "$(jq -cn --arg k "$1" --arg m "${2:-}" --arg w "${3:-}" '{key:$k, wait:true} + (if $m != "" then {modifiers:$m} else {} end) + (if $w != "" then {window:$w} else {} end)')" | jq -r '.result'
+}
+
+cmd_invoke() {
+  [ $# -ge 1 ] || die "invoke: 経路が必要です"
+  post /invoke "$(jq -cn --arg p "$1" --argjson v "${2:-null}" '{path:$p, parameter:$v}')" | jq -c .
+}
+
+cmd_get() { [ $# -ge 1 ] || die "get: 経路が必要です"; post /get "$(jq -cn --arg p "$1" '{path:$p}')" | jq "${2:-.value}"; }
+
+cmd_shot() {
+  mkdir -p "$RUN_DIR"
+  local out="${1:-$RUN_DIR/shot-$(date +%H%M%S).png}" code
+  code="$(curl -sS --max-time 30 -o "$out" -w '%{http_code}' "$BASE/screenshot?window=$(jq -rn --arg w "${2:-}" '$w|@uri')")"
+  [ "$code" = 200 ] || { cat "$out" >&2; echo >&2; rm -f "$out"; die "screenshot が $code を返しました"; }
+  echo "$out"
+}
+
+cmd_close() { post /close "$(jq -cn --arg w "${1:-}" 'if $w == "" then {} else {window:$w} end')" | jq -c .; }
+
+cmd_wait() {
+  [ $# -ge 1 ] || die "wait: jq フィルタが必要です"
+  local deadline=$(( $(date +%s) + ${2:-15} ))
+  while :; do
+    if api "$BASE/state" | jq -e "$1" >/dev/null 2>&1; then return 0; fi
+    [ "$(date +%s)" -lt "$deadline" ] || { echo "wait: タイムアウト: $1" >&2; api "$BASE/state" | jq -c '{timecode:.timecode|{status,raw,source},windows:[.windows[].title]}' >&2; return 1; }
+    sleep 0.5
+  done
+}
+
+cmd_log() { tail -n "${1:-50}" "$LOG"; }
+
+sub="${1:-}"; [ $# -gt 0 ] && shift
+case "$sub" in
+  start) cmd_start "$@" ;;
+  stop) cmd_stop ;;
+  activate) cmd_activate "$@" ;;
+  health) cmd_health ;;
+  state) cmd_state "$@" ;;
+  windows) cmd_windows ;;
+  tree) cmd_tree "$@" ;;
+  find) cmd_find "$@" ;;
+  click) cmd_click "$@" ;;
+  type) cmd_type "$@" ;;
+  set) cmd_set "$@" ;;
+  key) cmd_key "$@" ;;
+  invoke) cmd_invoke "$@" ;;
+  get) cmd_get "$@" ;;
+  shot) cmd_shot "$@" ;;
+  close) cmd_close "$@" ;;
+  wait) cmd_wait "$@" ;;
+  log) cmd_log "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; die "不明なサブコマンド: $sub" ;;
+esac

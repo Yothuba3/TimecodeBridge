@@ -8,6 +8,7 @@ using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.App.Services;
+using TimecodeBridge.App.Services.Automation;
 using TimecodeBridge.App.Services.CoreAudio;
 using TimecodeBridge.App.Views;
 using TimecodeBridge.Windows.Services;
@@ -19,6 +20,9 @@ namespace TimecodeBridge.App;
 public partial class App : Application
 {
     public IServiceProvider? Services { get; private set; }
+
+    private DevAutomation? _automation;
+    private DevSelfTest? _selfTest;
 
     public override void Initialize()
     {
@@ -46,12 +50,19 @@ public partial class App : Application
             var services = new ServiceCollection();
             ConfigureServices(services);
             Services = services.BuildServiceProvider();
-            desktop.Exit += (_, _) => (Services as IDisposable)?.Dispose();
-
-            return new MainWindow
+            desktop.Exit += (_, _) =>
             {
-                DataContext = Services.GetRequiredService<MainViewModel>()
+                _selfTest?.Dispose();
+                _automation?.Dispose();
+                (Services as IDisposable)?.Dispose();
             };
+
+            var viewModel = Services.GetRequiredService<MainViewModel>();
+            var window = new MainWindow { DataContext = viewModel };
+            // 実機確認用の外部操作口と自己テスト(どちらも環境変数が無ければ何もしない)
+            _automation = DevAutomation.StartIfRequested(desktop, () => viewModel);
+            _selfTest = DevSelfTest.StartIfRequested(Services, viewModel);
+            return window;
         }
         catch (Exception ex)
         {

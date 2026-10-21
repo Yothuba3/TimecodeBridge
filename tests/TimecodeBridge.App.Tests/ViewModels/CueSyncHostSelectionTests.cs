@@ -68,4 +68,33 @@ public class CueSyncHostSelectionTests
         Assert.Empty(vm.TargetHostIds);
         Assert.All(vm.HostSelections, h => Assert.False(h.IsSelected));
     }
+
+    [Fact]
+    public void チェックボックスで個別に選ぶとその場で送信先に反映される()
+    {
+        // 画面のチェックボックスは IsSelected に TwoWay でバインドされているだけなので、
+        // IsSelected の変更そのものが TargetHostIds を更新しなければならない
+        var vm = new CueSyncViewModel(new StubCueManager(), new StubHostRegistry(), new StubProjectService());
+
+        vm.HostSelections[1].IsSelected = true;
+        Assert.Equal(["h2"], vm.TargetHostIds);
+
+        vm.HostSelections[0].IsSelected = true;
+        Assert.Equal(["h1", "h2"], vm.TargetHostIds.Order());
+
+        vm.HostSelections[1].IsSelected = false;
+        Assert.Equal(["h1"], vm.TargetHostIds);
+    }
+
+    [Fact]
+    public void ホスト一覧の作り直し後もチェックが反映される()
+    {
+        var registry = new StubHostRegistry();
+        var vm = new CueSyncViewModel(new StubCueManager(), registry, new StubProjectService());
+        vm.LoadSettings(new CueSyncSettings { OscAddress = "/cuesync", TargetHostIds = ["h1"] });
+
+        Assert.True(vm.HostSelections[0].IsSelected);
+        vm.HostSelections[0].IsSelected = false;
+        Assert.Empty(vm.TargetHostIds);
+    }
 }

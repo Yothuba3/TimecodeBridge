@@ -49,12 +49,12 @@
             </Grid.Styles>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="複製数" />
-            <TextBox Grid.Row="0" Grid.Column="1" Name="CountBox" Text="23" FontFamily="{StaticResource MonoFont}" />
+            <TextBox Grid.Row="0" Grid.Column="1" Name="CountBox" Text="1" FontFamily="{StaticResource MonoFont}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="間隔"
                        ToolTip.Tip="複製ごとにトリガー時間へ加算する間隔（時:分:秒）" />
             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto,*,Auto,*">
-                <TextBox Grid.Column="0" Name="IntervalHoursBox" Text="1" Classes="TimeField" ToolTip.Tip="時間" />
+                <TextBox Grid.Column="0" Name="IntervalHoursBox" Text="00" Classes="TimeField" ToolTip.Tip="時間" />
                 <TextBlock Grid.Column="1" Text=":" Margin="4,0" />
                 <TextBox Grid.Column="2" Name="IntervalMinutesBox" Text="00" Classes="TimeField" ToolTip.Tip="分" />
                 <TextBlock Grid.Column="3" Text=":" Margin="4,0" />

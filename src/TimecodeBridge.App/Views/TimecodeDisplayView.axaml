@@ -274,8 +274,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:HostSelection">
                                                 <CheckBox Content="{CompiledBinding Name}" FontSize="11" Margin="0,1"
-                                                          IsChecked="{CompiledBinding IsSelected}"
-                                                          IsCheckedChanged="OnCueSyncHostCheckChanged" />
+                                                          IsChecked="{CompiledBinding IsSelected}" />
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
