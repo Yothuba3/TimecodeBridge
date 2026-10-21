@@ -25,6 +25,13 @@ public interface ICueManager
     bool IsAutoMuteEnabled { get; set; }
 
     /// <summary>
+    /// 手動発火(行の ▶ や外部からの単発送信)でも自動ミュートを掛けるか。
+    /// 既定は false。手動は進行の確認や差し込みで叩くことが多く、そこでミュートされると
+    /// 後続の自動発火が止まってしまうため。プロジェクト単位で永続化される。
+    /// </summary>
+    bool AutoMuteOnManualTrigger { get; set; }
+
+    /// <summary>
     /// <see cref="IsMuted"/> が変化したとき（オートミュート・自動解除・手動を問わず）発火する。
     /// 呼び出し元スレッドはワーカー/タイマーの場合があるためUIへの反映側でマーシャリングすること。
     /// </summary>

@@ -66,12 +66,15 @@ public class CueManager : ICueManager
 
     public bool IsAutoMuteEnabled { get; set; } = true;
 
+    public bool AutoMuteOnManualTrigger { get; set; }
+
     public event EventHandler? MuteStateChanged;
 
     /// <summary>キュー設定に応じて発火時オートミュートを適用する。</summary>
-    private void ApplyAutoMute(Cue cue)
+    private void ApplyAutoMute(Cue cue, bool isManual)
     {
         if (!IsAutoMuteEnabled || !cue.AutoMuteOnFire) return;
+        if (isManual && !AutoMuteOnManualTrigger) return;
 
         lock (_muteGate)
         {
@@ -215,7 +218,7 @@ public class CueManager : ICueManager
             ?? throw new KeyNotFoundException($"Cue with ID '{cueId}' not found.");
 
         var result = SendCueOsc(cue);
-        ApplyAutoMute(cue);
+        ApplyAutoMute(cue, isManual: true);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,
@@ -413,7 +416,7 @@ public class CueManager : ICueManager
     private void TriggerCue(Cue cue, TimecodeValue triggerTimecode)
     {
         SendCueOsc(cue);
-        ApplyAutoMute(cue);
+        ApplyAutoMute(cue, isManual: false);
         CueTriggered?.Invoke(this, new CueTriggeredEventArgs
         {
             Cue = cue,

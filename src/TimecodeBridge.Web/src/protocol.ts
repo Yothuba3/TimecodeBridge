@@ -21,7 +21,7 @@ export interface AppState {
   sessionId: string;
   project: { displayName: string; filePath: string | null; dirty: boolean; canUndo: boolean; canRedo: boolean; recentFiles: string[] };
   mode: "ltc" | "generate";
-  transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMutedCueId: string | null; autoUnmuteAtUtc: string | null; lastLtcReceivedAtUtc: string | null };
+  transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMuteOnManualTrigger: boolean; autoMutedCueId: string | null; autoUnmuteAtUtc: string | null; lastLtcReceivedAtUtc: string | null };
   receive: { selectedDeviceId: string | null; devices: AudioDevice[]; offset: string; triggerWindowFrames: number; freerunDurationSeconds: number };
   generator: { running: boolean; startTime: string; frameRate: FrameRate; selectedOutputDeviceId: string | null; outputDevices: AudioDevice[]; volume: number; ltcOutputActive: boolean; settingsPendingReset: boolean };
   currentClock: ClockState;
@@ -45,7 +45,7 @@ export interface HostDto { id: string; name: string; ipAddress: string; port: nu
 export interface TriggerButtonDto { id: string; row: number; column: number; label: string; oscAddress: string; arguments: OscArgumentDto[]; targetHostIds: string[] }
 export interface LogDto { id: string; timestampUtc: string; message: string; success: boolean }
 
-export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState; nextCueCleared?: boolean; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
+export interface StateChanges { project?: AppState["project"]; mode?: AppState["mode"]; transport?: AppState["transport"]; receive?: AppState["receive"]; generator?: AppState["generator"]; nextCue?: NextCueState; nextCueCleared?: boolean; openOptions?: boolean; cues?: CueDto[]; hosts?: HostDto[]; cueSync?: AppState["cueSync"]; triggerPanel?: AppState["triggerPanel"]; logsAppend?: LogDto[]; logsReset?: LogDto[] }
 
 export interface ProtocolError { code: "badMessage" | "unsupportedVersion" | "unknownCommand" | "validation" | "notFound" | "conflict" | "invalidState" | "deviceNotFound" | "audioError" | "nativeError" | "networkError" | "oscError" | "ioError" | "internal"; message: string; fieldErrors?: Record<string, string>; retryable: boolean; details?: Record<string, unknown> }
 
@@ -58,7 +58,7 @@ export type CommandName =
   | "audio.refreshDevices"
   | "receive.selectDevice" | "receive.setOffset" | "receive.setTriggerWindow" | "receive.setFreerunDuration"
   | "generator.configure" | "generator.start" | "generator.stop" | "generator.reset"
-  | "mute.set" | "autoMute.setEnabled"
+  | "mute.set" | "autoMute.setEnabled" | "autoMute.setOnManualTrigger" | "app.openOptions"
   | "cue.add" | "cue.update" | "cue.remove" | "cue.duplicate" | "cue.batchUpdate"
   | "cue.sortByTime" | "cue.setEnabled" | "cue.fire"
   | "cueSync.configure" | "cueSync.send"

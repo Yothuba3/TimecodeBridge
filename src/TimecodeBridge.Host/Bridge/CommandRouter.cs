@@ -289,6 +289,15 @@ public sealed class CommandRouter
                     _state.MarkDirty(Domain.Transport);
                     return Ok(id);
                 }
+                case "autoMute.setOnManualTrigger":
+                {
+                    var enabled = Bool(a, "enabled");
+                    if (enabled is null) return Validation(id, "enabled", "true/false");
+                    _cues.AutoMuteOnManualTrigger = enabled.Value;
+                    _projects.Commit();
+                    _state.MarkDirty(Domain.Transport);
+                    return Ok(id);
+                }
 
                 // ---- キュー(M2a: 一覧操作・発火) ----
                 case "cue.setEnabled":
@@ -406,6 +415,9 @@ public sealed class CommandRouter
                     return Ok(id);
                 case "app.redo":
                     if (!_projects.Redo()) return Fail(id, ErrorCode.InvalidState, "やり直せる変更がありません");
+                    return Ok(id);
+                case "app.openOptions":
+                    _state.RequestOpenOptions();
                     return Ok(id);
 
                 // ---- CUE SYNC ----

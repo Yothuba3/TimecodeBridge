@@ -133,6 +133,7 @@ public sealed class ProjectCoordinator : IProjectHistory
         _state.CueSync.OscAddress = new CueSyncSettings().OscAddress;
         _state.CueSync.TargetHostIds.Clear();
         _cues.IsAutoMuteEnabled = true;
+        _cues.AutoMuteOnManualTrigger = false;
         _project.Reset();
         RecordBaseline();
         _state.MarkDirty(Domain.All);
@@ -225,6 +226,7 @@ public sealed class ProjectCoordinator : IProjectHistory
             OscTriggerPanel = _panel.GetSettings(),
             CueSync = new CueSyncSettings { OscAddress = _state.CueSync.OscAddress, TargetHostIds = _state.CueSync.TargetHostIds.ToList() },
             CueAutoMuteEnabled = _cues.IsAutoMuteEnabled,
+            CueAutoMuteOnManualTrigger = _cues.AutoMuteOnManualTrigger,
         };
         if (includeSource)
         {
@@ -268,6 +270,7 @@ public sealed class ProjectCoordinator : IProjectHistory
         _state.CueSync.TargetHostIds.Clear();
         _state.CueSync.TargetHostIds.AddRange(data.CueSync.TargetHostIds);
         _cues.IsAutoMuteEnabled = data.CueAutoMuteEnabled;
+        _cues.AutoMuteOnManualTrigger = data.CueAutoMuteOnManualTrigger;
 
         if (restoreSource) RestoreSource(data.SourceSettings);
     }

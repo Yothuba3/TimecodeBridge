@@ -49,6 +49,8 @@ public sealed class HostState : IDisposable
     private readonly List<LogDto> _pendingLogAppend = new();
     private bool _logsReset;
     private Domain _dirty;
+    // メニューの「オプション」は状態ではなく一度きりの合図。次の patch に乗せたら下ろす
+    private bool _openOptionsRequested;
     private bool _flushScheduled;
     private TimecodeUpdatedEventArgs? _lastUpdate;
     private TimecodeUpdatedEventArgs? _lastLtcUpdate;
@@ -99,6 +101,13 @@ public sealed class HostState : IDisposable
 
     // ---- dirty / flush ---------------------------------------------------------
 
+    /// <summary>メニューの「オプション」。次の patch で Web に伝え、画面を開かせる。</summary>
+    public void RequestOpenOptions()
+    {
+        _openOptionsRequested = true;
+        MarkDirty(Domain.Transport);
+    }
+
     public void MarkDirty(Domain domains)
     {
         if (Dispatcher.UIThread.CheckAccess()) MarkDirtyCore(domains);
@@ -135,6 +144,7 @@ public sealed class HostState : IDisposable
             Generator: d.HasFlag(Domain.Generator) ? BuildGenerator() : null,
             NextCue: nextCue,
             NextCueCleared: nextCueChanged && nextCue is null ? true : null,
+            OpenOptions: _openOptionsRequested ? true : null,
             Cues: d.HasFlag(Domain.Cues) ? BuildCues() : null,
             Hosts: d.HasFlag(Domain.Hosts) ? BuildHosts() : null,
             CueSync: d.HasFlag(Domain.CueSync) ? BuildCueSync() : null,
@@ -143,6 +153,7 @@ public sealed class HostState : IDisposable
             LogsReset: _logsReset ? _logs.ToArray() : null);
         _pendingLogAppend.Clear();
         _logsReset = false;
+        _openOptionsRequested = false;
 
         long baseRevision = Revision;
         Revision++;
@@ -207,6 +218,7 @@ public sealed class HostState : IDisposable
             Locked: _engine.IsReceiving,
             TriggerMuted: _cues.IsMuted,
             AutoMuteEnabled: _cues.IsAutoMuteEnabled,
+            AutoMuteOnManualTrigger: _cues.AutoMuteOnManualTrigger,
             AutoMutedCueId: _cues.AutoMutedCueId,
             AutoUnmuteAtUtc: _cues.AutoUnmuteAt?.ToUniversalTime().ToString("O"),
             LastLtcReceivedAtUtc: _lastLtcReceivedAtUtc?.ToString("O"));

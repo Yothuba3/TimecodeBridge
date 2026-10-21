@@ -33,3 +33,12 @@
 .osc-panel .grid{grid-template-rows:none!important}
 /* 実行モードでは空セルを見せない(押せないものが並ぶと本番で紛らわしい) */
 .osc-panel .grid:not(.editing) .empty-cell{visibility:hidden}
+/* オプション画面: 設定ごとに名前と説明を縦に並べる */
+.options{display:grid;gap:10px}
+.options h3{margin:0;font-size:12px;color:var(--m)}
+.options-row{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:start;gap:8px;cursor:pointer;white-space:normal}
+.options-row>input{margin-top:2px}
+.options-row b{display:block;font-weight:600}
+.options-row small{display:block;margin-top:2px;color:var(--m);line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+/* キューリストのオートミュート切替 */
+.auto-mute-toggle.on{border-color:#6a7c7b;background:#2a3334}

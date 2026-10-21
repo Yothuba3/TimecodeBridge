@@ -16,6 +16,9 @@ public class ProjectData
     /// <summary>発火時オートミュート機能のマスタースイッチ（既定は有効）。</summary>
     public bool CueAutoMuteEnabled { get; set; } = true;
 
+    /// <summary>手動発火でも自動ミュートを掛けるか(既定は false)。</summary>
+    public bool CueAutoMuteOnManualTrigger { get; set; }
+
     public static JsonSerializerOptions CreateJsonOptions()
     {
         var options = new JsonSerializerOptions

@@ -106,9 +106,15 @@ public sealed class MainWindow : Window
         edit.Items.Add(Item("取り消す", "app.undo", Key.Z));
         edit.Items.Add(Item("やり直す", "app.redo", Key.Z, shift: true));
 
+        var options = new NativeMenuItem("オプション…") { Gesture = new KeyGesture(Key.OemComma, primaryModifier) };
+        options.Click += async (_, _) => await router.ExecuteAsync(CommandRouter.Synthetic("menu", "app.openOptions"));
+
         var menu = new NativeMenu();
         menu.Items.Add(new NativeMenuItem("ファイル") { Menu = file });
         menu.Items.Add(new NativeMenuItem("編集") { Menu = edit });
+        var settings = new NativeMenu();
+        settings.Items.Add(options);
+        menu.Items.Add(new NativeMenuItem("設定") { Menu = settings });
         NativeMenu.SetMenu(this, menu);
     }
 

@@ -116,6 +116,7 @@ public sealed record TransportState(
     bool Locked,
     bool TriggerMuted,
     bool AutoMuteEnabled,
+    bool AutoMuteOnManualTrigger,
     string? AutoMutedCueId,
     string? AutoUnmuteAtUtc,
     string? LastLtcReceivedAtUtc);
@@ -206,6 +207,8 @@ public sealed record StateChanges(
     GeneratorState? Generator = null,
     NextCueState? NextCue = null,
     bool? NextCueCleared = null,
+    /// <summary>メニューから「オプション」が選ばれたときだけ true。Web はこれを見て設定画面を開く。</summary>
+    bool? OpenOptions = null,
     IReadOnlyList<CueDto>? Cues = null,
     IReadOnlyList<HostDto>? Hosts = null,
     CueSyncState? CueSync = null,
