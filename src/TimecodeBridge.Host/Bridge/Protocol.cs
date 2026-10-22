@@ -131,6 +131,7 @@ public sealed record ReceiveState(
 public sealed record GeneratorState(
     bool Running,
     string StartTime,
+    string? LoopEndTime,
     string FrameRate,
     string? SelectedOutputDeviceId,
     IReadOnlyList<AudioDevice> OutputDevices,

@@ -1,0 +1,138 @@
+using TimecodeBridge.Core.Models;
+using TimecodeBridge.Host.Bridge;
+using Xunit;
+
+namespace TimecodeBridge.Host.Tests;
+
+/// <summary>
+/// 内部生成の範囲ループを generator.configure で設定する。
+/// 開始 TC より後でなければ範囲にならないので受け付けない。
+/// </summary>
+public class GeneratorLoopCommandTests
+{
+    private static HostHarness Started()
+    {
+        var h = new HostHarness();
+        h.Run("generator.configure", """{"startTime":"08:00:00:00","frameRate":"30"}""");
+        return h;
+    }
+
+    [Fact]
+    public void 開始より後の終了TCを受け付ける()
+    {
+        var h = Started();
+
+        Assert.True(h.Run("generator.configure", """{"loopEndTime":"08:00:30:00"}""").Ok);
+
+        Assert.Equal("08:00:30:00", h.State.Generator.LoopEndTime!.Value.ToString());
+    }
+
+    [Fact]
+    public void 空文字でループを解除する()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"loopEndTime":"08:00:30:00"}""");
+
+        Assert.True(h.Run("generator.configure", """{"loopEndTime":""}""").Ok);
+
+        Assert.Null(h.State.Generator.LoopEndTime);
+    }
+
+    [Theory]
+    [InlineData("08:00:00:00")]
+    [InlineData("07:59:59:29")]
+    public void 開始以前の終了TCは受け付けない(string loopEnd)
+    {
+        var h = Started();
+
+        var result = h.Run("generator.configure", $$"""{"loopEndTime":"{{loopEnd}}"}""");
+
+        Assert.Equal(ErrorCode.Validation, result.Error!.Code);
+        Assert.Null(h.State.Generator.LoopEndTime);
+    }
+
+    [Fact]
+    public void 形式が違う終了TCは受け付けない()
+    {
+        var h = Started();
+
+        var result = h.Run("generator.configure", """{"loopEndTime":"25:00:00:00"}""");
+
+        Assert.Equal(ErrorCode.Validation, result.Error!.Code);
+    }
+
+    [Fact]
+    public void 開始TCを終了より後へ動かすとループは外れる()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"loopEndTime":"08:00:30:00"}""");
+
+        h.Run("generator.configure", """{"startTime":"08:01:00:00"}""");
+
+        Assert.Null(h.State.Generator.LoopEndTime);
+    }
+
+    [Fact]
+    public void フレームレートを下げると終了TCのフレーム番号を丸める()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"loopEndTime":"08:00:30:29"}""");
+
+        h.Run("generator.configure", """{"frameRate":"24"}""");
+
+        Assert.Equal("08:00:30:23", h.State.Generator.LoopEndTime!.Value.ToString());
+    }
+
+    [Fact]
+    public void ループは画面の状態に乗る()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"loopEndTime":"08:00:30:00"}""");
+
+        var generator = h.State.BuildSnapshot().Generator;
+
+        Assert.Equal("08:00:30:00", generator.LoopEndTime);
+    }
+
+    [Fact]
+    public void 一時停止中にループを変えたら続きからではなく掛け直す()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"loopEndTime":"08:00:05:00"}""");
+        h.Run("generator.start");
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        h.Engine.CurrentRawTimecode = new TimecodeValue(8, 0, 0, 3, FrameRate.Fps30);
+        h.Run("generator.stop");
+        h.Engine.Calls.Clear();
+
+        h.Run("generator.configure", """{"loopEndTime":"08:00:30:00"}""");
+        h.Run("generator.start");
+
+        // 続きから再開すると、変えた範囲が効かないまま進んでしまう
+        Assert.DoesNotContain("ResumeGenerator", h.Engine.Calls);
+        Assert.Contains("StartGenerator:08:00:00:00", h.Engine.Calls);
+    }
+
+    [Fact]
+    public void 設定を変えていなければ一時停止から続きを再開する()
+    {
+        var h = Started();
+        h.Run("generator.start");
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        h.Engine.CurrentRawTimecode = new TimecodeValue(8, 0, 0, 3, FrameRate.Fps30);
+        h.Run("generator.stop");
+        h.Engine.Calls.Clear();
+
+        h.Run("generator.start");
+
+        Assert.Contains("ResumeGenerator", h.Engine.Calls);
+    }
+
+    [Fact]
+    public void ループなしのときは状態に乗らない()
+    {
+        var h = Started();
+
+        Assert.Null(h.State.BuildSnapshot().Generator.LoopEndTime);
+    }
+}

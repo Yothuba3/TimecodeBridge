@@ -212,7 +212,7 @@ public sealed class CommandRouter
                 case "generator.configure":
                 {
                     var g = _state.Generator;
-                    var previousOutput = g.OutputDeviceId; var previousVolume = g.VolumeLevel; var previousRate = g.FrameRate; var previousStart = g.StartTime;
+                    var previousOutput = g.OutputDeviceId; var previousVolume = g.VolumeLevel; var previousRate = g.FrameRate; var previousStart = g.StartTime; var previousLoopEnd = g.LoopEndTime;
                     if (Str(a, "frameRate") is { } rateCode)
                     {
                         if (!HostState.TryParseFrameRate(rateCode, out var rate)) return Validation(id, "frameRate", "24 / 25 / 29.97df / 30");
@@ -227,18 +227,40 @@ public sealed class CommandRouter
                     {
                         g.StartTime = new TimecodeValue(g.StartTime.Hours, g.StartTime.Minutes, g.StartTime.Seconds, Math.Min(g.StartTime.Frames, g.FrameRate.FramesPerSecond() - 1), g.FrameRate);
                     }
+                    // loopEndTime は空文字と null でループ解除。範囲として成立しない値は弾く
+                    if (Has(a, "loopEndTime"))
+                    {
+                        if (Str(a, "loopEndTime") is { Length: > 0 } loopEnd)
+                        {
+                            if (!HostState.TryParseTimecode(loopEnd, g.FrameRate, out var endTc)) return Validation(id, "loopEndTime", "HH:MM:SS:FF の形式で入力してください");
+                            if (endTc.TotalFrames() <= g.StartTime.TotalFrames()) return Validation(id, "loopEndTime", "開始 TC より後の時刻を指定してください");
+                            g.LoopEndTime = endTc;
+                        }
+                        else
+                        {
+                            g.LoopEndTime = null;
+                        }
+                    }
+                    else if (g.LoopEndTime is { } keptEnd)
+                    {
+                        // レート変更で末尾のフレーム番号が範囲外になり、
+                        // 開始 TC の変更で範囲として成立しなくなることがある
+                        var clamped = new TimecodeValue(keptEnd.Hours, keptEnd.Minutes, keptEnd.Seconds, Math.Min(keptEnd.Frames, g.FrameRate.FramesPerSecond() - 1), g.FrameRate);
+                        g.LoopEndTime = clamped.TotalFrames() > g.StartTime.TotalFrames() ? clamped : null;
+                    }
                     if (Has(a, "outputDeviceId")) g.OutputDeviceId = Str(a, "outputDeviceId") ?? string.Empty;
                     if (Num(a, "volume") is { } vol)
                     {
                         if (vol < 0 || vol > 1) return Validation(id, "volume", "0〜1");
                         g.VolumeLevel = (float)vol;
                     }
-                    // 生成中は出力先と音量をその場で反映する。開始 TC とフレームレートは再生し直すまで保留
+                    // 生成中は出力先と音量をその場で反映する。開始 TC・フレームレート・ループ範囲は再生し直すまで保留。
+                    // 一時停止中に変えた場合も同じで、再開ではなく最初から掛け直さないと反映されない
                     if (_engine.ActiveSource == TimecodeSourceType.Generator)
                     {
                         if (g.OutputDeviceId != previousOutput) _engine.ApplyGeneratorOutput(g);
                         else if (g.VolumeLevel != previousVolume) _engine.SetGeneratorVolume(g.VolumeLevel);
-                        if (g.FrameRate != previousRate || g.StartTime != previousStart) _state.GeneratorSettingsPending = true;
+                        if (g.FrameRate != previousRate || g.StartTime != previousStart || g.LoopEndTime != previousLoopEnd) _state.GeneratorSettingsPending = true;
                     }
                     _state.MarkDirty(Domain.Generator);
                     return Ok(id);
@@ -246,7 +268,9 @@ public sealed class CommandRouter
                 case "generator.start":
                     try
                     {
-                        if (_engine.ActiveSource == TimecodeSourceType.Generator && !_state.GeneratorRunning && _engine.CurrentRawTimecode.ToOrdinal() > 0)
+                        // 設定を変えたあとの再開は続きからにできない(変更が反映されないまま進んでしまう)
+                        if (_engine.ActiveSource == TimecodeSourceType.Generator && !_state.GeneratorRunning
+                            && !_state.GeneratorSettingsPending && _engine.CurrentRawTimecode.ToOrdinal() > 0)
                             _engine.ResumeGenerator();
                         else
                             _engine.StartGenerator(_state.Generator);

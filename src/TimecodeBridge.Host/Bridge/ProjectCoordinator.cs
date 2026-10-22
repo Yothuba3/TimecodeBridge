@@ -238,6 +238,7 @@ public sealed class ProjectCoordinator : IProjectHistory
                 {
                     FrameRate = _state.Generator.FrameRate,
                     StartTime = _state.Generator.StartTime,
+                    LoopEndTime = _state.Generator.LoopEndTime,
                     OutputDeviceId = _state.Generator.OutputDeviceId,
                     VolumeLevel = _state.Generator.VolumeLevel,
                 },
@@ -283,6 +284,7 @@ public sealed class ProjectCoordinator : IProjectHistory
         _state.Mode = source.SourceType == TimecodeSourceType.Generator ? "generate" : "ltc";
         _state.Generator.FrameRate = source.GeneratorSettings.FrameRate;
         _state.Generator.StartTime = source.GeneratorSettings.StartTime;
+        _state.Generator.LoopEndTime = source.GeneratorSettings.LoopEndTime;
         _state.Generator.OutputDeviceId = source.GeneratorSettings.OutputDeviceId;
         _state.Generator.VolumeLevel = source.GeneratorSettings.VolumeLevel;
         _engine.FreerunDurationSeconds = source.FreerunDurationSeconds;

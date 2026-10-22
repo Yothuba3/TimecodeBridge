@@ -11,6 +11,11 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
     private TimecodeValue _startTime;
     private FrameRate _frameRate;
     private long _totalFramesGenerated;
+
+    // ループ 1 周のフレーム数。0 ならループしない。
+    // 経過フレーム数をこれで割った余りを開始位置に足すので、
+    // 何周しても境界がずれない（周回ごとの端数が積み上がらない）。
+    private long _loopFrames;
     private CancellationTokenSource? _timerCts;
     private Stopwatch? _stopwatch;
     private readonly object _lock = new();
@@ -25,16 +30,33 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
     public event EventHandler<TimecodeValue>? FrameGenerated;
 
     public void Start(TimecodeValue startTime, FrameRate frameRate)
+        => Start(startTime, frameRate, null);
+
+    /// <summary>
+    /// <paramref name="loopEndTime"/> を与えると、開始時刻からそこまでを繰り返す。
+    /// 終端フレームは鳴らしてから開始時刻へ戻るので、指定した範囲が丸ごと出る。
+    /// 開始時刻以下の終端は範囲にならないため、ループなしとして扱う。
+    /// </summary>
+    public void Start(TimecodeValue startTime, FrameRate frameRate, TimecodeValue? loopEndTime)
     {
         if (_isRunning)
             return;
 
         _startTime = startTime;
         _frameRate = frameRate;
+        _loopFrames = LoopFramesFor(startTime, frameRate, loopEndTime);
         _totalFramesGenerated = 0;
         lock (_lock) { _currentTimecode = startTime; }
 
         StartTimerLoop();
+    }
+
+    private static long LoopFramesFor(TimecodeValue startTime, FrameRate frameRate, TimecodeValue? loopEndTime)
+    {
+        if (loopEndTime is not { } end) return 0;
+        long length = new TimecodeValue(end.Hours, end.Minutes, end.Seconds, end.Frames, frameRate).TotalFrames()
+                    - new TimecodeValue(startTime.Hours, startTime.Minutes, startTime.Seconds, startTime.Frames, frameRate).TotalFrames();
+        return length > 0 ? length + 1 : 0;
     }
 
     public void Resume()
@@ -67,6 +89,10 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
         {
             _timerCts?.Cancel();
         }
+
+        // 別の位置へ飛ばすならループ範囲は無効になる。
+        // 元の範囲のまま回すと、頼まれていない区間を繰り返すことになる。
+        if (startTime.TotalFrames() != _startTime.TotalFrames()) _loopFrames = 0;
 
         _startTime = startTime;
         _totalFramesGenerated = 0;
@@ -108,7 +134,8 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
                     while (_totalFramesGenerated < expectedFrames)
                     {
                         _totalFramesGenerated++;
-                        long totalFrames = _startTime.TotalFrames() + _totalFramesGenerated;
+                        long advanced = _loopFrames > 0 ? _totalFramesGenerated % _loopFrames : _totalFramesGenerated;
+                        long totalFrames = _startTime.TotalFrames() + advanced;
                         var tc = TimecodeValue.FromTotalFrames(totalFrames, _frameRate);
                         lock (_lock) { _currentTimecode = tc; }
                         FrameGenerated?.Invoke(this, tc);

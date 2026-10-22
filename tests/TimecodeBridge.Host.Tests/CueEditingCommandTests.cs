@@ -169,6 +169,7 @@ public class CueEditingCommandTests
             h.Run("cueSync.configure", """{"oscAddress":"/sync","targetHostIds":["x"]}""");
             h.State.SelectedInputDeviceId = "in-1";
             h.Run("generator.configure", """{"startTime":"05:00:00:00","frameRate":"25"}""");
+            h.Run("generator.configure", """{"loopEndTime":"05:00:30:00"}""");
             h.Project.SaveProject(path, h.Projects.Capture(includeSource: true));
             Assert.False(h.Project.HasUnsavedChanges);
 
@@ -182,6 +183,7 @@ public class CueEditingCommandTests
             Assert.Equal("/sync", h2.State.CueSync.OscAddress);
             Assert.Equal("in-1", h2.State.SelectedInputDeviceId);
             Assert.Equal(FrameRate.Fps25, h2.State.Generator.FrameRate);
+            Assert.Equal("05:00:30:00", h2.State.Generator.LoopEndTime!.Value.ToString());
             Assert.Contains("StartLtc:in-1:False", h2.Engine.Calls); // 読込後に受信を再開する
             Assert.False(h2.Project.HasUnsavedChanges);
             Assert.False(h2.Projects.CanUndo);

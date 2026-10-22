@@ -234,6 +234,7 @@ public sealed class HostState : IDisposable
     private GeneratorState BuildGenerator() => new(
         GeneratorRunning,
         Generator.StartTime.ToString(),
+        Generator.LoopEndTime?.ToString(),
         ToCode(Generator.FrameRate),
         string.IsNullOrEmpty(Generator.OutputDeviceId) ? null : Generator.OutputDeviceId,
         _devices.GetRenderDevices().Where(d => !d.IsLoopback).Select(ToDto).ToArray(),

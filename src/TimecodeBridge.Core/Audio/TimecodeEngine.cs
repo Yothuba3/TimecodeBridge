@@ -250,7 +250,7 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
             StartPlaybackFeed(encoder, playback, sampleRate);
         }
 
-        generator.Start(settings.StartTime, settings.FrameRate);
+        generator.Start(settings.StartTime, settings.FrameRate, settings.LoopEndTime);
     }
 
     public void ResumeGenerator()
