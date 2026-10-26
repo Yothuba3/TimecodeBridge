@@ -14,6 +14,8 @@
     <Version>3.0.0</Version>
     <!-- 開発機に .NET 10 SDK しか無くても net8.0 ビルドをそのまま起動できるようにする -->
     <RollForward>Major</RollForward>
+    <!-- Windows で WebView を埋め込むのに対応 OS の宣言が要る(app.manifest のコメント参照) -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

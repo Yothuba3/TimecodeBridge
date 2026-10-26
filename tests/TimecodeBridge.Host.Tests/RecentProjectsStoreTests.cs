@@ -16,7 +16,7 @@ public class RecentProjectsStoreTests
             for (int i = 0; i < 12; i++) store.Add($"/p/show{i}.json");
             store.Add("/p/show3.json");
             Assert.Equal(RecentProjectsStore.Max, store.Items.Count);
-            Assert.Equal("/p/show3.json", store.Items[0]);
+            Assert.Equal(Path.GetFullPath("/p/show3.json"), store.Items[0]); // Windows では C:\p\show3.json
             Assert.Equal(1, store.Items.Count(p => p.EndsWith("show3.json")));
 
             var reloaded = new RecentProjectsStore(path, Path.Combine(Path.GetTempPath(), "none.json"));

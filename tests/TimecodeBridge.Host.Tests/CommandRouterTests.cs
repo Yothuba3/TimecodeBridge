@@ -283,11 +283,11 @@ public class CommandRouterTests
     }
 
     [AvaloniaFact]
-    public void HostPingReportsReachabilityAndLatency()
+    public async Task HostPingReportsReachabilityAndLatency()
     {
         var h = new HostHarness();
         h.Hosts.AddHost(new OscHost { Id = "lo", Name = "Local", IpAddress = "127.0.0.1", Port = 9000 });
-        var r = h.Run("host.ping", """{"id":"lo"}""");
+        var r = await h.RunAsync("host.ping", """{"id":"lo"}""");
         Assert.True(r.Ok, r.Error?.Message);
         var data = System.Text.Json.JsonSerializer.SerializeToElement(r.Data, Protocol.Json);
         Assert.True(data.GetProperty("reachable").GetBoolean());
@@ -327,5 +327,100 @@ public class CommandRouterTests
         Assert.True(h.State.GeneratorRunning);
         Assert.True(h.Run("generator.stop").Ok);
         Assert.False(h.State.GeneratorRunning);
+    }
+
+    [AvaloniaFact]
+    public async Task DeviceListsAreEnumeratedOnceUntilRescan()
+    {
+        var h = new HostHarness();
+        h.State.BuildSnapshot();
+        var afterFirst = h.Devices.Enumerations;
+        h.State.BuildSnapshot();
+        h.Run("mode.set", """{"mode":"generate"}""");
+        h.State.SelectedInputDeviceId = "in-1";
+        h.Run("mode.set", """{"mode":"ltc"}""");
+        h.State.BuildSnapshot();
+        Assert.Equal(afterFirst, h.Devices.Enumerations); // 状態を組み立てても、切り替えても列挙し直さない
+
+        h.Devices.Capture.Add(new("in-2", "UR22C", false));
+        Assert.DoesNotContain(h.State.BuildSnapshot().Receive.Devices, d => d.Id == "in-2");
+        Assert.True((await h.RunAsync("audio.refreshDevices", """{"direction":"capture"}""")).Ok); // 再スキャンで反映
+        Assert.Contains(h.State.BuildSnapshot().Receive.Devices, d => d.Id == "in-2");
+    }
+
+    [AvaloniaFact(Timeout = 10_000)]
+    public async Task RescanRunsInBackgroundAndKeepsOldListUntilDone()
+    {
+        var h = new HostHarness();
+        h.State.BuildSnapshot();
+        using var gate = new ManualResetEventSlim(false);
+        h.Devices.Gate = gate; // 以後の列挙は gate が開くまで終わらない
+        h.Devices.Capture.Add(new("in-2", "UR22C", false));
+
+        var rescan = h.RunAsync("audio.refreshDevices", """{"direction":"capture"}""");
+        Assert.False(rescan.IsCompleted); // 列挙が終わるまで result を返さない(Web はその間スキャン中を表示する)
+        Assert.DoesNotContain(h.State.BuildSnapshot().Receive.Devices, d => d.Id == "in-2"); // 列挙中も止まらず古い一覧を返す
+        Assert.True(h.Run("mode.set", """{"mode":"generate"}""").Ok); // ほかの command も止まらない
+
+        gate.Set();
+        Assert.True((await rescan).Ok);
+        Assert.Contains(h.State.BuildSnapshot().Receive.Devices, d => d.Id == "in-2");
+    }
+
+    [AvaloniaFact]
+    public void SelectingDeviceMissingFromCachedListRescansOnce()
+    {
+        var h = new HostHarness();
+        h.State.BuildSnapshot();
+        h.Devices.Capture.Add(new("in-2", "UR22C", false)); // 起動後に挿したデバイス(再スキャン前)
+        Assert.True(h.Run("receive.selectDevice", """{"deviceId":"in-2"}""").Ok);
+        Assert.Contains("StartLtc:in-2:False", h.Engine.Calls);
+        Assert.Equal(ErrorCode.DeviceNotFound, h.Run("receive.selectDevice", """{"deviceId":"none"}""").Error!.Code);
+    }
+
+    [AvaloniaFact]
+    public void GeneratorStartAfterPauseAppliesPendingSettingsInsteadOfResuming()
+    {
+        var h = new HostHarness();
+        h.Run("generator.configure", """{"startTime":"01:00:00:00","frameRate":"30"}""");
+        h.Run("generator.start");
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        h.Engine.CurrentRawTimecode = new TimecodeValue(1, 0, 5, 0, FrameRate.Fps30);
+        h.Run("generator.stop");
+
+        Assert.True(h.Run("generator.start").Ok); // 設定を変えていなければ止めた位置から再開
+        Assert.Equal("ResumeGenerator", h.Engine.Calls[^1]);
+
+        h.Run("generator.stop");
+        h.Run("generator.configure", """{"startTime":"02:00:00:00","frameRate":"25"}""");
+        Assert.True(h.State.GeneratorSettingsPending);
+        Assert.True(h.Run("generator.start").Ok); // 保留中の変更があれば新しい設定で最初から
+        Assert.Equal("StartGenerator:02:00:00:00", h.Engine.Calls[^1]);
+        Assert.False(h.State.GeneratorSettingsPending);
+    }
+
+    [AvaloniaFact]
+    public void GeneratorResetRebuildsWhenFrameRateChanged()
+    {
+        var h = new HostHarness();
+        h.Run("generator.configure", """{"startTime":"01:00:00:00","frameRate":"30"}""");
+        h.Run("generator.start");
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        h.Engine.FrameRate = FrameRate.Fps30;
+
+        h.Run("generator.configure", """{"startTime":"03:00:00:00"}""");
+        Assert.True(h.Run("generator.reset").Ok); // レートが同じなら開始 TC だけ差し替える
+        Assert.Equal("ResetGenerator:03:00:00:00", h.Engine.Calls[^1]);
+
+        h.Run("generator.configure", """{"frameRate":"24"}""");
+        Assert.True(h.Run("generator.reset").Ok); // レートが変われば生成器ごと作り直す
+        Assert.Equal("StartGenerator:03:00:00:00", h.Engine.Calls[^1]);
+        Assert.False(h.State.GeneratorSettingsPending);
+
+        h.Run("generator.stop");
+        h.Engine.FrameRate = FrameRate.Fps24;
+        h.Run("generator.configure", """{"frameRate":"25"}""");
+        Assert.True(h.Run("generator.reset").Ok); // 一時停止中なら作り直したあと開始位置で止める
+        Assert.Equal(new[] { "StartGenerator:03:00:00:00", "StopGenerator" }, h.Engine.Calls.TakeLast(2));
     }
 }

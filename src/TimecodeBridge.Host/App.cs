@@ -45,9 +45,17 @@ public sealed class App : Application
 
     public static void ConfigureServices(IServiceCollection services)
     {
+        // 一覧は「再スキャン」まで使い回す(Windows は列挙が遅い。CachedAudioDeviceService のコメント参照)。
+        // 最初の列挙は裏で先に始め、WebView の準備と重ねて起動時の待ちを隠す
+        services.AddSingleton<IAudioDeviceService>(sp =>
+        {
+            var devices = new CachedAudioDeviceService(OperatingSystem.IsWindows() ? new WindowsAudioDeviceService() : new CoreAudioDeviceService());
+            _ = devices.RefreshAsync();
+            return devices;
+        });
+
         if (OperatingSystem.IsWindows())
         {
-            services.AddSingleton<IAudioDeviceService, WindowsAudioDeviceService>();
             services.AddSingleton<ITimecodeEngine>(sp => new TimecodeEngine(
                 FrameRate.Fps30,
                 sp.GetRequiredService<IAudioDeviceService>(),
@@ -57,7 +65,6 @@ public sealed class App : Application
         }
         else
         {
-            services.AddSingleton<IAudioDeviceService, CoreAudioDeviceService>();
             services.AddSingleton<ITimecodeEngine>(sp => new TimecodeEngine(
                 FrameRate.Fps30,
                 sp.GetRequiredService<IAudioDeviceService>(),
