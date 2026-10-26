@@ -23,7 +23,8 @@ export interface AppState {
   mode: "ltc" | "generate";
   transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMuteOnManualTrigger: boolean; autoMutedCueId: string | null; autoUnmuteAtUtc: string | null; lastLtcReceivedAtUtc: string | null };
   receive: { selectedDeviceId: string | null; devices: AudioDevice[]; offset: string; triggerWindowFrames: number; freerunDurationSeconds: number };
-  generator: { running: boolean; startTime: string; loopEndTime: string | null; frameRate: FrameRate; selectedOutputDeviceId: string | null; outputDevices: AudioDevice[]; volume: number; ltcOutputActive: boolean; settingsPendingReset: boolean };
+  // loopEndTime: ループ無しのとき Host は null の項目を省くので、キーごと届かない
+  generator: { running: boolean; startTime: string; loopEndTime?: string | null; frameRate: FrameRate; selectedOutputDeviceId: string | null; outputDevices: AudioDevice[]; volume: number; ltcOutputActive: boolean; settingsPendingReset: boolean };
   currentClock: ClockState;
   nextCue: NextCueState | null;
   cues: CueDto[];

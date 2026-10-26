@@ -36,7 +36,7 @@ interface AppState {
  mode:"ltc"|"generate";
  transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent:number|null;locked:boolean;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId:string|null;autoUnmuteAtUtc:string|null;lastLtcReceivedAtUtc:string|null};
  receive:{selectedDeviceId:string|null;devices:AudioDevice[];offset:string;triggerWindowFrames:number;freerunDurationSeconds:number};
- generator:{running:boolean;startTime:string;frameRate:FrameRate;selectedOutputDeviceId:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
+ generator:{running:boolean;startTime:string;loopEndTime?:string|null;frameRate:FrameRate;selectedOutputDeviceId:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
  currentClock:ClockState; nextCue:NextCueState|null; cues:CueDto[]; hosts:HostDto[];
  cueSync:{oscAddress:string;targetHostIds:string[]};
  triggerPanel:{rows:number;columns:number;buttons:TriggerButtonDto[]};
