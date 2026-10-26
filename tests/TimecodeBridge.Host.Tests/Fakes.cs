@@ -72,8 +72,14 @@ public sealed class FakeOscSender : IOscSender
 
 public sealed class FakeDeviceService : IAudioDeviceService
 {
-    public List<AudioDeviceInfo> Capture { get; } = new() { new("in-1", "Audio Bridge 2-A", false) };
-    public List<AudioDeviceInfo> Render { get; } = new() { new("out-1", "Speakers", false), new("loop-1", "Loopback", true) };
-    public IReadOnlyList<AudioDeviceInfo> GetCaptureDevices() => Capture;
-    public IReadOnlyList<AudioDeviceInfo> GetRenderDevices() => Render;
+    // IAudioDeviceService の契約どおり、ループバック取り込みはキャプチャ側に並ぶ(WindowsAudioDeviceService と同じ)
+    public List<AudioDeviceInfo> Capture { get; } = new() { new("in-1", "Audio Bridge 2-A", false), new("loop-1", "Loopback", true) };
+    public List<AudioDeviceInfo> Render { get; } = new() { new("out-1", "Speakers", false) };
+    /// <summary>列挙した回数(実機では 1 回が重い)</summary>
+    public int Enumerations { get; private set; }
+    /// <summary>設定すると、列挙はこれが開くまで終わらない(実機の遅い列挙の代わり)</summary>
+    public ManualResetEventSlim? Gate { get; set; }
+    // 実機の列挙と同じく、その時点の写しを返す
+    public IReadOnlyList<AudioDeviceInfo> GetCaptureDevices() { Gate?.Wait(); Enumerations++; return Capture.ToArray(); }
+    public IReadOnlyList<AudioDeviceInfo> GetRenderDevices() { Gate?.Wait(); Enumerations++; return Render.ToArray(); }
 }

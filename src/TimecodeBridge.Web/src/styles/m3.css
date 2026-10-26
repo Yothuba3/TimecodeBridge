@@ -48,3 +48,4 @@
 .auto-mute-toggle.on{border-color:#6a7c7b;background:#2a3334}
 /* MUTE ボタンの残り秒。本番で離れた位置からでも読めるよう、ボタン本体と同じ大きさで出す */
 .major .mute-countdown{margin-left:8px;font-variant-numeric:tabular-nums}
+.device-set{position:relative}.device-set .rescan{min-width:calc(6em + 20px)}.scan-progress{position:absolute;left:78px;right:0;bottom:-4px;height:2px;overflow:hidden;background:var(--l);border-radius:1px}.scan-progress>i{display:block;width:30%;height:100%;background:var(--a);animation:scan-slide 1s ease-in-out infinite}@keyframes scan-slide{from{transform:translateX(-100%)}to{transform:translateX(340%)}}@media (prefers-reduced-motion:reduce){.scan-progress>i{width:100%;animation:none;opacity:.6}}

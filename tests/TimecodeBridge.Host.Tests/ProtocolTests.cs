@@ -62,8 +62,9 @@ public class ProtocolTests
         using var doc = JsonDocument.Parse(json);
         var state = doc.RootElement.GetProperty("state");
         Assert.Equal("ltc", state.GetProperty("mode").GetString());
-        Assert.Equal(3, state.GetProperty("receive").GetProperty("devices").GetArrayLength());
-        Assert.Equal("macos", state.GetProperty("uiCapabilities").GetProperty("platform").GetString());
+        var inputs = state.GetProperty("receive").GetProperty("devices").EnumerateArray().Select(d => d.GetProperty("id").GetString()).ToArray();
+        Assert.Equal(new[] { "in-1", "loop-1" }, inputs); // 出力専用デバイス(out-1)は入力候補に出さない
+        Assert.Equal(OperatingSystem.IsWindows() ? "windows" : "macos", state.GetProperty("uiCapabilities").GetProperty("platform").GetString());
         Assert.Equal("停止中", state.GetProperty("transport").GetProperty("statusText").GetString());
     }
 }

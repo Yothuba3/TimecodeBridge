@@ -5,6 +5,8 @@ import {command} from "../commands";
 
 const run=(name:Parameters<typeof command>[0],args:unknown={})=>void command(name,args);
 export const selectReceiveDevice=(value:string):void=>run("receive.selectDevice",{deviceId:value||null});
+/** 再スキャン。Host は裏のスレッドで列挙し終えてから result を返すので、それまでスキャン中を表示する(失敗は Host のエラー表示に出る) */
+export async function rescanDevices(setScanning:(scanning:boolean)=>void):Promise<void>{setScanning(true);try{await command("audio.refreshDevices",{direction:"capture"})}catch{/* 表示は Host 側 */}finally{setScanning(false)}}
 
 export function lastLtcText(status:string,lastReceived:string|null,now=Date.now()):string|null {
   if(status!=="signalLost"&&status!=="freerun") return null;
@@ -17,6 +19,7 @@ export function lastLtcText(status:string,lastReceived:string|null,now=Date.now(
 export function ReceivePanel():JSX.Element {
   const s=appStore.value.host.state!,deviceId=s.receive.selectedDeviceId;
   const[now,setNow]=useState(Date.now());
+  const[scanning,setScanning]=useState(false);
   const showLast=s.transport.status==="signalLost"||s.transport.status==="freerun";
   useEffect(()=>{
     if(!showLast) return;
@@ -25,7 +28,10 @@ export function ReceivePanel():JSX.Element {
     return()=>window.clearInterval(timer);
   },[showLast,s.transport.lastLtcReceivedAtUtc]);
   const lastText=lastLtcText(s.transport.status,s.transport.lastLtcReceivedAtUtc,now);
-  return <div class="sec"><div class="head"><b>TC 入出力</b><span class="tiny">LTC 受信設定</span></div><div class="status"><span><i class="led"/>入力 <b>{s.transport.locked?"接続":"未接続"}</b></span><span><i class="led"/>LTC <b>{s.transport.statusText}</b>{lastText&&<span class="tiny muted"> {lastText}</span>}{s.transport.signalErrorRatePercent!=null&&<span class="tiny muted"> 誤り率 {s.transport.signalErrorRatePercent.toFixed(1)}%</span>}</span><span>○ 出力 <b>停止</b></span><span><i class="led"/>送出 <b>{s.transport.triggerMuted?"MUTE":"LIVE"}</b></span></div><div class="settings"><div class="set"><span class="tiny">入力デバイス</span><select class="field" aria-label="入力デバイス" value={deviceId??""} onChange={e=>selectReceiveDevice(e.currentTarget.value)}><option value="">選択してください</option>{s.receive.devices.map(d=><option value={d.id}>{d.name}</option>)}</select><button class="btn" onClick={()=>run("audio.refreshDevices",{direction:"capture"})}>再スキャン</button></div><div class="set"><span class="tiny">接続</span><span class={`field status-field ${deviceId?"":"device-required"}`}>{deviceId?s.transport.detailText:"入力デバイスを選んでください"}</span><button class="btn" disabled={!deviceId} onClick={()=>run("ltc.reconnect",{deviceId})}>再接続</button></div><div class="set"><span class="tiny">フリーラン</span><input class="field" aria-label="フリーラン（秒）" type="number" min="0" step="0.1" value={s.receive.freerunDurationSeconds} onChange={e=>run("receive.setFreerunDuration",{seconds:Number(e.currentTarget.value)})}/><span class="tiny unit">秒</span></div></div><Wave/></div>;
+  return <div class="sec"><div class="head"><b>TC 入出力</b><span class="tiny">LTC 受信設定</span></div><div class="status"><span><i class="led"/>入力 <b>{s.transport.locked?"接続":"未接続"}</b></span><span><i class="led"/>LTC <b>{s.transport.statusText}</b>{lastText&&<span class="tiny muted"> {lastText}</span>}{s.transport.signalErrorRatePercent!=null&&<span class="tiny muted"> 誤り率 {s.transport.signalErrorRatePercent.toFixed(1)}%</span>}</span><span>○ 出力 <b>停止</b></span><span><i class="led"/>送出 <b>{s.transport.triggerMuted?"MUTE":"LIVE"}</b></span></div><div class="settings"><div class="set device-set"><span class="tiny">入力デバイス</span><select class="field" aria-label="入力デバイス" value={deviceId??""} onChange={e=>selectReceiveDevice(e.currentTarget.value)}><option value="">選択してください</option>{s.receive.devices.map(d=><option value={d.id}>{d.name}</option>)}</select><RescanButton scanning={scanning} onClick={()=>void rescanDevices(setScanning)}/></div><div class="set"><span class="tiny">接続</span><span class={`field status-field ${deviceId?"":"device-required"}`}>{deviceId?s.transport.detailText:"入力デバイスを選んでください"}</span><button class="btn" disabled={!deviceId} onClick={()=>run("ltc.reconnect",{deviceId})}>再接続</button></div><div class="set"><span class="tiny">フリーラン</span><input class="field" aria-label="フリーラン（秒）" type="number" min="0" step="0.1" value={s.receive.freerunDurationSeconds} onChange={e=>run("receive.setFreerunDuration",{seconds:Number(e.currentTarget.value)})}/><span class="tiny unit">秒</span></div></div><Wave/></div>;
 }
+
+/** 再スキャンのボタンと、スキャン中に入力デバイス欄の下へ流す帯(進み具合は測れないので不定の帯) */
+export function RescanButton({scanning,onClick}:{scanning:boolean;onClick:()=>void}):JSX.Element {return <><button class="btn rescan" disabled={scanning} aria-busy={scanning} onClick={onClick}>{scanning?"スキャン中…":"再スキャン"}</button>{scanning&&<div class="scan-progress" role="progressbar" aria-label="デバイスをスキャン中"><i/></div>}</>}
 
 export function Wave():JSX.Element {const wave=appStore.value.host.wave;if(!wave)return <div class="wave"><span class="tiny">波形待機中</span></div>;const n=Math.min(wave.min.length,wave.max.length),p:string[]=[];for(let i=0;i<n;i++)p.push(`${i/Math.max(1,n-1)*360},${15-(wave.max[i]??0)*14}`);for(let i=n-1;i>=0;i--)p.push(`${i/Math.max(1,n-1)*360},${15-(wave.min[i]??0)*14}`);return <div class="wave"><svg viewBox="0 0 360 30" preserveAspectRatio="none"><polygon points={p.join(" ")}/></svg></div>}
