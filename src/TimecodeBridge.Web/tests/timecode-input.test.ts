@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {clampTimecode,clampTimecodePart,enterTimecodeDigits,joinTimecode,normalizeTimecodeDigits,splitTimecode,timecodeFocusForKey} from "../src/components/timecode-input";
+import {clampTimecode,clampTimecodePart,enterTimecodeDigits,joinTimecode,normalizeTimecodeDigits,selectTimecodePartOnMouseDown,splitTimecode,timecodeFocusForKey} from "../src/components/timecode-input";
 
 test("normalizes full-width digits and discards every other character",()=>{
   assert.equal(normalizeTimecodeDigits("１２a３：四4"),"1234");
@@ -37,4 +37,18 @@ test("clampTimecode limits every field to the frame rate and keeps the sign",()=
   assert.equal(clampTimecode("-00:00:01:29","25",true),"-00:00:01:24");
   assert.equal(clampTimecode("","24"),"");
   assert.equal(clampTimecode("00:00:00:29","29.97df"),"00:00:00:29");
+});
+
+
+// 埋まった欄を 1 回クリックして打っても変わらなかった(2026-10-26 Windows 実機)。クリックで 2 桁を選べば打った数字で置き換わる
+test("a left click on a TC field selects both digits instead of placing the caret",()=>{
+  const calls:string[]=[],input={focus:()=>calls.push("focus"),select:()=>calls.push("select")};
+  let prevented=false;
+  selectTimecodePartOnMouseDown({button:0,preventDefault:()=>{prevented=true}},input);
+  assert.equal(prevented,true);
+  assert.deepEqual(calls,["focus","select"]);
+  calls.length=0;prevented=false;
+  selectTimecodePartOnMouseDown({button:2,preventDefault:()=>{prevented=true}},input);
+  assert.equal(prevented,false);
+  assert.deepEqual(calls,[]);
 });

@@ -34,6 +34,15 @@ export function timecodeFocusForKey(key:string,index:number,isEmpty:boolean):num
   return null;
 }
 
+// 欄に入ったら 2 桁を選び、打った数字で置き換える。選ばないと埋まった欄(maxlength=2)にカーソルが立つだけで、数字を打っても何も変わらない。
+// クリックは mousedown の既定動作(カーソルを置く)を止めて自分で選ぶ。focus で選んでも WebKit は続く mouseup で選択を解く
+export function selectTimecodePartOnMouseDown(event:{button:number;preventDefault:()=>void},input:{focus:()=>void;select:()=>void}):void {
+  if(event.button!==0)return;
+  event.preventDefault();
+  input.focus();
+  input.select();
+}
+
 export const frameMaximum=(frameRate:FrameRate):number=>frameRate==="24"?23:frameRate==="25"?24:29;
 
 export function clampTimecode(value:string,frameRate:FrameRate,signed=false):string {
@@ -57,7 +66,7 @@ export function TimecodeInput({value,onChange,onCommit,frameRate,signed=false,re
   const blur=(index:number)=>{const next=[...latest.current] as TimecodeParts;next[index]=clampTimecodePart(next[index]??"",index,frameRate);publish(next);onCommit?.(joinTimecode(next,sign,signed))};
   return <span class={`timecode-input ${className}`} role="group" aria-label={ariaLabel}>
     {signed&&<select class="timecode-sign" aria-label={`${ariaLabel}の符号`} disabled={disabled} value={sign} onChange={e=>{const next=e.currentTarget.value as "+"|"-";setSign(next);const joined=joinTimecode(latest.current,next,true);published.current=joined;onChange?.(joined);onCommit?.(joined)}}><option value="+">+</option><option value="-">−</option></select>}
-    {parts.map((part,index)=><span class="timecode-segment"><input ref={el=>{refs.current[index]=el}} class="timecode-part" inputMode="numeric" pattern="[0-9]*" maxlength={2} required={required} disabled={disabled} value={part} aria-label={`${ariaLabel} ${["時","分","秒","フレーム"][index]??""}`} onBeforeInput={e=>{const data=(e as unknown as InputEvent).data;if(data&&/[^0-9]/.test(data))e.preventDefault()}} onCompositionStart={e=>{const el=e.currentTarget;el.blur();window.setTimeout(()=>el.focus(),0)}} onInput={e=>{const result=enterTimecodeDigits(latest.current,index,e.currentTarget.value);publish(result.parts);focus(result.focus)}} onPaste={e=>{e.preventDefault();const result=enterTimecodeDigits(latest.current,index,e.clipboardData?.getData("text")??"");publish(result.parts);focus(result.focus)}} onBlur={()=>blur(index)} onKeyDown={e=>{if(e.key==="ArrowUp"||e.key==="ArrowDown"){e.preventDefault();const maximum=index===0?23:index===1||index===2?59:frameMaximum(frameRate),next=[...latest.current] as TimecodeParts,current=Number(next[index]||0);next[index]=String(Math.max(0,Math.min(maximum,current+(e.key==="ArrowUp"?1:-1)))).padStart(2,"0");publish(next);return}const target=timecodeFocusForKey(e.key,index,part==="");if(target!==null){e.preventDefault();focus(target)}}}/>{index<3&&<span class="timecode-colon" aria-hidden="true">:</span>}</span>)}
+    {parts.map((part,index)=><span class="timecode-segment"><input ref={el=>{refs.current[index]=el}} class="timecode-part" inputMode="numeric" pattern="[0-9]*" maxlength={2} required={required} disabled={disabled} value={part} aria-label={`${ariaLabel} ${["時","分","秒","フレーム"][index]??""}`} onBeforeInput={e=>{const data=(e as unknown as InputEvent).data;if(data&&/[^0-9]/.test(data))e.preventDefault()}} onCompositionStart={e=>{const el=e.currentTarget;el.blur();window.setTimeout(()=>el.focus(),0)}} onInput={e=>{const result=enterTimecodeDigits(latest.current,index,e.currentTarget.value);publish(result.parts);focus(result.focus)}} onPaste={e=>{e.preventDefault();const result=enterTimecodeDigits(latest.current,index,e.clipboardData?.getData("text")??"");publish(result.parts);focus(result.focus)}} onFocus={e=>e.currentTarget.select()} onMouseDown={e=>selectTimecodePartOnMouseDown(e,e.currentTarget)} onBlur={()=>blur(index)} onKeyDown={e=>{if(e.key==="ArrowUp"||e.key==="ArrowDown"){e.preventDefault();const maximum=index===0?23:index===1||index===2?59:frameMaximum(frameRate),next=[...latest.current] as TimecodeParts,current=Number(next[index]||0);next[index]=String(Math.max(0,Math.min(maximum,current+(e.key==="ArrowUp"?1:-1)))).padStart(2,"0");publish(next);return}const target=timecodeFocusForKey(e.key,index,part==="");if(target!==null){e.preventDefault();focus(target)}}}/>{index<3&&<span class="timecode-colon" aria-hidden="true">:</span>}</span>)}
     <small class="timecode-limit">FF 00–{String(frameMaximum(frameRate)).padStart(2,"0")}</small>
   </span>;
 }
