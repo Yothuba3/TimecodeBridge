@@ -8,7 +8,7 @@ export const selectReceiveDevice=(value:string):void=>run("receive.selectDevice"
 /** 再スキャン。Host は裏のスレッドで列挙し終えてから result を返すので、それまでスキャン中を表示する(失敗は Host のエラー表示に出る) */
 export async function rescanDevices(setScanning:(scanning:boolean)=>void):Promise<void>{setScanning(true);try{await command("audio.refreshDevices",{direction:"capture"})}catch{/* 表示は Host 側 */}finally{setScanning(false)}}
 
-export function lastLtcText(status:string,lastReceived:string|null,now=Date.now()):string|null {
+export function lastLtcText(status:string,lastReceived:string|null|undefined,now=Date.now()):string|null {
   if(status!=="signalLost"&&status!=="freerun") return null;
   if(!lastReceived) return "最終受信なし";
   const received=Date.parse(lastReceived);

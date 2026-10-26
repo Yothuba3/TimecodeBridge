@@ -17,16 +17,17 @@ export type WebMessage =
 
 export type FrameRate = "24" | "25" | "29.97df" | "30";
 
+// Host は null の項目をキーごと省いて送る(Protocol.Json の WhenWritingNull)。null になりうる項目は `?: X | null` にして、
+// 届かない(undefined)ときも null と同じに扱う。`!== null` で判定すると undefined を素通りさせて描画が例外で止まる
 export interface AppState {
   sessionId: string;
-  project: { displayName: string; filePath: string | null; dirty: boolean; canUndo: boolean; canRedo: boolean; recentFiles: string[] };
+  project: { displayName: string; filePath?: string | null; dirty: boolean; canUndo: boolean; canRedo: boolean; recentFiles: string[] };
   mode: "ltc" | "generate";
-  transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMuteOnManualTrigger: boolean; autoMutedCueId: string | null; autoUnmuteAtUtc: string | null; lastLtcReceivedAtUtc: string | null };
-  receive: { selectedDeviceId: string | null; devices: AudioDevice[]; offset: string; triggerWindowFrames: number; freerunDurationSeconds: number };
-  // loopEndTime: ループ無しのとき Host は null の項目を省くので、キーごと届かない
-  generator: { running: boolean; startTime: string; loopEndTime?: string | null; frameRate: FrameRate; selectedOutputDeviceId: string | null; outputDevices: AudioDevice[]; volume: number; ltcOutputActive: boolean; settingsPendingReset: boolean };
+  transport: { status: "stopped" | "receiving" | "freerun" | "signalLost" | "error"; statusText: string; detailText: string; signalErrorRatePercent?: number | null; locked: boolean; triggerMuted: boolean; autoMuteEnabled: boolean; autoMuteOnManualTrigger: boolean; autoMutedCueId?: string | null; autoUnmuteAtUtc?: string | null; lastLtcReceivedAtUtc?: string | null };
+  receive: { selectedDeviceId?: string | null; devices: AudioDevice[]; offset: string; triggerWindowFrames: number; freerunDurationSeconds: number };
+  generator: { running: boolean; startTime: string; loopEndTime?: string | null; frameRate: FrameRate; selectedOutputDeviceId?: string | null; outputDevices: AudioDevice[]; volume: number; ltcOutputActive: boolean; settingsPendingReset: boolean };
   currentClock: ClockState;
-  nextCue: NextCueState | null;
+  nextCue?: NextCueState | null;
   cues: CueDto[];
   hosts: HostDto[];
   cueSync: { oscAddress: string; targetHostIds: string[] };
@@ -38,7 +39,7 @@ export interface AppState {
 export interface ClockState { raw: string; display: string; totalFrames: number; frameRate: FrameRate; dropFrame: boolean; receivedAtMonotonicMs: number; nextCueId?: string | null; framesUntilNextCue?: number | null }
 export interface NextCueState { id: string; name: string; triggerTime: string; effectiveTriggerTime: string; framesUntil: number }
 export interface AudioDevice { id: string; name: string; loopback: boolean }
-export interface CueDto { id: string; name: string; memo: string; triggerTime: string; effectiveTriggerTime: string; frameRate: FrameRate; oscAddress: string; additionalOscAddresses: string[]; arguments: OscArgumentDto[]; targetHostIds: string[]; enabled: boolean; sendTriggerTimeAsSeconds: boolean; sendTimecode: string | null; triggerOffset: string | null; autoMuteOnFire: boolean; autoUnmuteAfter: string | null; runtime: { lastTriggeredAtUtc: string | null; flashToken: number } }
+export interface CueDto { id: string; name: string; memo: string; triggerTime: string; effectiveTriggerTime: string; frameRate: FrameRate; oscAddress: string; additionalOscAddresses: string[]; arguments: OscArgumentDto[]; targetHostIds: string[]; enabled: boolean; sendTriggerTimeAsSeconds: boolean; sendTimecode?: string | null; triggerOffset?: string | null; autoMuteOnFire: boolean; autoUnmuteAfter?: string | null; runtime: { lastTriggeredAtUtc?: string | null; flashToken: number } }
 export type OscArgumentDto = { type: "int32"; value: number } | { type: "float32"; value: number } | { type: "string"; value: string };
 export interface CueDraft { name:string; memo?:string; triggerTime:string; frameRate?:FrameRate; oscAddress:string; additionalOscAddresses?:string[]; arguments?:OscArgumentDto[]|undefined; targetHostIds?:string[]; enabled?:boolean; sendTriggerTimeAsSeconds?:boolean; sendTimecode?:string|null; triggerOffset?:string|null; autoMuteOnFire?:boolean; autoUnmuteAfter?:string|null }
 export interface CueBatchDraft { oscAddress?:string; additionalOscAddresses?:string[]; arguments?:OscArgumentDto[]; targetHostIds?:string[]; memo?:string; enabled?:boolean; sendTriggerTimeAsSeconds?:boolean; autoMuteOnFire?:boolean; sendTimecode?:string|null; triggerOffset?:string|null; autoUnmuteAfter?:string|null }
@@ -67,7 +68,7 @@ export type CommandName =
   | "triggerPanel.configureGrid" | "triggerPanel.upsertButton" | "triggerPanel.removeButton" | "triggerPanel.fire"
   | "logs.clear";
 /** Waveform samples are normalized to -1..1. */
-export interface WaveState { sampleRate: number; windowMs: number; min: number[]; max: number[]; levelDbfs: number | null }
+export interface WaveState { sampleRate: number; windowMs: number; min: number[]; max: number[]; levelDbfs?: number | null }
 
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -78,7 +79,7 @@ export function isClockState(value: unknown): value is ClockState {
 export function isHostMessage(value: unknown): value is HostMessage {
   if (!object(value) || value.protocolVersion !== 1 || typeof value.type !== "string") return false;
   if (value.type === "clock") return finite(value.seq) && isClockState(value.clock);
-  if (value.type === "wave") return finite(value.seq) && object(value.wave) && finite(value.wave.sampleRate) && finite(value.wave.windowMs) && Array.isArray(value.wave.min) && Array.isArray(value.wave.max) && value.wave.min.every(finite) && value.wave.max.every(finite) && (value.wave.levelDbfs === null || finite(value.wave.levelDbfs));
+  if (value.type === "wave") return finite(value.seq) && object(value.wave) && finite(value.wave.sampleRate) && finite(value.wave.windowMs) && Array.isArray(value.wave.min) && Array.isArray(value.wave.max) && value.wave.min.every(finite) && value.wave.max.every(finite) && (value.wave.levelDbfs == null || finite(value.wave.levelDbfs));
   if (value.type === "snapshot") return finite(value.revision) && object(value.state) && typeof value.state.sessionId === "string" && Array.isArray(value.state.cues) && object(value.state.transport) && isClockState(value.state.currentClock);
   if (value.type === "patch") return finite(value.revision) && finite(value.baseRevision) && object(value.changes);
   if (value.type === "result") return typeof value.requestId === "string" && typeof value.ok === "boolean" && (value.ok || object(value.error));

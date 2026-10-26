@@ -1,5 +1,5 @@
 /** 自動解除までの残り時間。MUTE ボタンに出すので、本番で一目で読める短い表記にする。 */
-export function muteCountdown(untilUtc: string | null, nowMs: number): string {
+export function muteCountdown(untilUtc: string | null | undefined, nowMs: number): string {
   if (!untilUtc) return "";
   const until = Date.parse(untilUtc);
   if (Number.isNaN(until)) return "";

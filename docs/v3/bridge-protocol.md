@@ -28,16 +28,18 @@ C#→JSは `window.tcb.receive(<JSON>)` の一入口にする。JSONはSystem.Te
 
 enumは言語間で安定する文字列、IDは不変文字列とする。
 
+Host は値が `null` の項目を JSON からキーごと省く(`Protocol.Json` の `WhenWritingNull`)。そのため null になりうる項目は `?:X|null` と書き、Web は「キーが無い(undefined)」を `null` と同じに扱う。`!== null` だけで判定すると undefined を素通りさせ、描画が例外で止まる(v3.2.1 の内部生成フリーズ)。
+
 ```ts
 type FrameRate = "24"|"25"|"29.97df"|"30";
 interface AppState {
  sessionId:string;
- project:{displayName:string;filePath:string|null;dirty:boolean;canUndo:boolean;canRedo:boolean;recentFiles:string[]};
+ project:{displayName:string;filePath?:string|null;dirty:boolean;canUndo:boolean;canRedo:boolean;recentFiles:string[]};
  mode:"ltc"|"generate";
- transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent:number|null;locked:boolean;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId:string|null;autoUnmuteAtUtc:string|null;lastLtcReceivedAtUtc:string|null};
- receive:{selectedDeviceId:string|null;devices:AudioDevice[];offset:string;triggerWindowFrames:number;freerunDurationSeconds:number};
- generator:{running:boolean;startTime:string;loopEndTime?:string|null;frameRate:FrameRate;selectedOutputDeviceId:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
- currentClock:ClockState; nextCue:NextCueState|null; cues:CueDto[]; hosts:HostDto[];
+ transport:{status:"stopped"|"receiving"|"freerun"|"signalLost"|"error";statusText:string;detailText:string;signalErrorRatePercent?:number|null;locked:boolean;triggerMuted:boolean;autoMuteEnabled:boolean;autoMutedCueId?:string|null;autoUnmuteAtUtc?:string|null;lastLtcReceivedAtUtc?:string|null};
+ receive:{selectedDeviceId?:string|null;devices:AudioDevice[];offset:string;triggerWindowFrames:number;freerunDurationSeconds:number};
+ generator:{running:boolean;startTime:string;loopEndTime?:string|null;frameRate:FrameRate;selectedOutputDeviceId?:string|null;outputDevices:AudioDevice[];volume:number;ltcOutputActive:boolean;settingsPendingReset:boolean};
+ currentClock:ClockState; nextCue?:NextCueState|null; cues:CueDto[]; hosts:HostDto[];
  cueSync:{oscAddress:string;targetHostIds:string[]};
  triggerPanel:{rows:number;columns:number;buttons:TriggerButtonDto[]};
  logs:LogDto[];
@@ -46,7 +48,7 @@ interface AppState {
 interface ClockState {raw:string;display:string;totalFrames:number;frameRate:FrameRate;dropFrame:boolean;receivedAtMonotonicMs:number;nextCueId?:string|null;framesUntilNextCue?:number|null}
 interface NextCueState {id:string;name:string;triggerTime:string;effectiveTriggerTime:string;framesUntil:number}
 interface AudioDevice {id:string;name:string;loopback:boolean}
-interface CueDto {id:string;name:string;memo:string;triggerTime:string;effectiveTriggerTime:string;frameRate:FrameRate;oscAddress:string;additionalOscAddresses:string[];arguments:OscArgumentDto[];targetHostIds:string[];enabled:boolean;sendTriggerTimeAsSeconds:boolean;sendTimecode:string|null;triggerOffset:string|null;autoMuteOnFire:boolean;autoUnmuteAfter:string|null;runtime:{lastTriggeredAtUtc:string|null;flashToken:number;muteCountdownText:string}}
+interface CueDto {id:string;name:string;memo:string;triggerTime:string;effectiveTriggerTime:string;frameRate:FrameRate;oscAddress:string;additionalOscAddresses:string[];arguments:OscArgumentDto[];targetHostIds:string[];enabled:boolean;sendTriggerTimeAsSeconds:boolean;sendTimecode?:string|null;triggerOffset?:string|null;autoMuteOnFire:boolean;autoUnmuteAfter?:string|null;runtime:{lastTriggeredAtUtc?:string|null;flashToken:number;muteCountdownText:string}}
 type OscArgumentDto={type:"int32";value:number}|{type:"float32";value:number}|{type:"string";value:string};
 interface HostDto {id:string;name:string;ipAddress:string;port:number;enabled:boolean;reachability:"unknown"|"checking"|"reachable"|"unreachable"}
 interface TriggerButtonDto {id:string;row:number;column:number;label:string;oscAddress:string;arguments:OscArgumentDto[];targetHostIds:string[]}
@@ -131,9 +133,9 @@ Host はページ読込完了後、`window.tcb.hostAttached()` を 250ms 間隔�
 ## WaveState(確定)
 
 ```ts
-interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:number[]; levelDbfs:number|null }
+interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:number[]; levelDbfs?:number|null }
 ```
-`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。表示区間は UI 改修前(v2)と同じ約 0.1 フレーム分(30fps 基準で約 3.3ms、48kHz で 160 サンプル)なので、点数がサンプル数を上回るときは `min[i] == max[i]`(1 点 1 サンプル)になる。Web は塗りだけでなく線(stroke)で描くこと。
+`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。無音(ピーク 0)なら null なので、キーごと届かない。表示区間は UI 改修前(v2)と同じ約 0.1 フレーム分(30fps 基準で約 3.3ms、48kHz で 160 サンプル)なので、点数がサンプル数を上回るときは `min[i] == max[i]`(1 点 1 サンプル)になる。Web は塗りだけでなく線(stroke)で描くこと。
 
 ## M2b で確定した command の引数と結果(Host 実装済み, 2026-09-11)
 
