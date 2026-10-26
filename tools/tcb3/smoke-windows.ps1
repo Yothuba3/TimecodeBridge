@@ -134,6 +134,13 @@ try {
     if ($s.logs | Where-Object { $_.success -and $_.message -like '/smoke/manual*' }) { Ok '送信ログに成功が残る' } else { Ng '送信ログに /smoke/manual がありません' }
     if ((Eval $Port "document.body.innerText.includes('smoke-manual')") -eq 'true') { Ok 'キューが画面に出ている' } else { Ng 'キューが画面に出ていません' }
 
+    # 内部生成へ切り替えて生成パネルが描かれるか。v3.2.0〜v3.2.1 は生成パネルの描画が例外で止まり、以後画面が一切更新されなかった
+    [void](Cmd $Port mode.set @{ mode = 'generate' })
+    $deadline = (Get-Date).AddSeconds(5)
+    do { Start-Sleep -Milliseconds 250; $shown = Eval $Port "document.body.innerText.includes('内部生成設定') && document.body.innerText.includes('LTC GENERATOR')" } while ($shown -ne 'true' -and (Get-Date) -lt $deadline)
+    if ($shown -eq 'true') { Ok '内部生成に切り替えると生成パネルが出る' } else { Ng '内部生成に切り替えても生成パネルが出ない(画面が更新されていない)' }
+    [void](Cmd $Port mode.set @{ mode = 'ltc' })
+
     if ($LoopbackDevice) {
         # 2 つ目の Host で LTC を生成してその出力へ流し、1 つ目はその出力のループバック取り込みで受ける
         $gen = Start-Host ($Port + 1) 'gen'
