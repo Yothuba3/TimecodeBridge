@@ -138,7 +138,30 @@ public class HostStateTests
         Assert.NotNull(snap.LevelDbfs);
         Assert.InRange(snap.LevelDbfs!.Value, -6.1, -6.0);
 
+        // 届いたのが無音なら、すぐ null(-- dBFS)
+        w.Write(new float[160]);
         Assert.Null(w.Snapshot(16)!.Value.LevelDbfs);
+    }
+
+    [Fact]
+    public void WaveReducerHoldsLevelBrieflyWhenNoSamplesArrive()
+    {
+        var w = new WaveReducer();
+        var signal = new float[160];
+        for (int i = 0; i < signal.Length; i++) signal[i] = i % 20 < 10 ? 0.5f : -0.5f;
+        w.Write(signal);
+        Assert.InRange(w.Snapshot(16)!.Value.LevelDbfs!.Value, -6.1, -6.0);
+
+        // 受信中でも、音声バッファが届かない回はある。その回で -- dBFS に落ちないよう直前の値を保つ
+        for (int i = 0; i < WaveReducer.LevelHoldSnapshots; i++)
+            Assert.InRange(w.Snapshot(16)!.Value.LevelDbfs!.Value, -6.1, -6.0);
+
+        // 保ち切っても届かなければ、入力が途絶えたとして無音にする(最後の値のまま止めない)
+        Assert.Null(w.Snapshot(16)!.Value.LevelDbfs);
+
+        // また届けば、その値に戻る
+        w.Write(signal);
+        Assert.InRange(w.Snapshot(16)!.Value.LevelDbfs!.Value, -6.1, -6.0);
     }
 }
 

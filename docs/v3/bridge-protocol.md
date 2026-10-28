@@ -135,7 +135,7 @@ Host はページ読込完了後、`window.tcb.hostAttached()` を 250ms 間隔�
 ```ts
 interface WaveState { sampleRate:number; windowMs:number; min:number[]; max:number[]; levelDbfs?:number|null }
 ```
-`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は直近区間のピーク(dBFS)。無音(ピーク 0)なら null なので、キーごと届かない。表示区間は UI 改修前(v2)と同じ約 0.1 フレーム分(30fps 基準で約 3.3ms、48kHz で 160 サンプル)なので、点数がサンプル数を上回るときは `min[i] == max[i]`(1 点 1 サンプル)になる。Web は塗りだけでなく線(stroke)で描くこと。
+`min[i]`/`max[i]` は表示 i 点目の区間の最小/最大(−1..1)。点数は Web の `viewport.waveformWidth/2`(16..2048)。`levelDbfs` は前回の wave から届いたサンプルのピーク(dBFS)。無音(ピーク 0)なら null なので、キーごと届かない。前回からサンプルが 1 つも届かなかった回は、直前の値を約 200ms(`WaveReducer.LevelHoldSnapshots` 回)保ち、それでも届かなければ null にする(音声バッファは wave の間隔どおりには届かないので、届かない回を無音にすると受信中も表示が一瞬 `--` になる)。表示区間は UI 改修前(v2)と同じ約 0.1 フレーム分(30fps 基準で約 3.3ms、48kHz で 160 サンプル)なので、点数がサンプル数を上回るときは `min[i] == max[i]`(1 点 1 サンプル)になる。Web は塗りだけでなく線(stroke)で描くこと。
 
 ## M2b で確定した command の引数と結果(Host 実装済み, 2026-09-11)
 
