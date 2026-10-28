@@ -70,11 +70,11 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
 
     public void Stop()
     {
-        if (!_isRunning)
-            return;
-
-        _timerCts?.Cancel();
-        _isRunning = false;
+        lock (_lock)
+        {
+            _timerCts?.Cancel();
+            _isRunning = false;
+        }
     }
 
     public void Reset()
@@ -114,13 +114,20 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
 
     private void StartTimerLoop()
     {
-        _timerCts = new CancellationTokenSource();
-        var token = _timerCts.Token;
+        var cts = new CancellationTokenSource();
+        var token = cts.Token;
         var fps = _frameRate.FramesPerSecond();
+
+        // 動いている印はここで立てる。Task の中で立てると、開始の直後に来た Stop がまだ動いていないと見て素通りし、
+        // そのあと動き出したループが止まらなくなる(止めたまま FPS を変えてリセットすると「停止」のまま LTC が出続けた)
+        lock (_lock)
+        {
+            _timerCts = cts;
+            _isRunning = true;
+        }
 
         _ = Task.Run(async () =>
         {
-            _isRunning = true;
             _stopwatch = Stopwatch.StartNew();
             var baseFrames = _totalFramesGenerated;
             var timer = new PeriodicTimer(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / fps));
@@ -131,7 +138,8 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
                     double elapsedSeconds = _stopwatch.Elapsed.TotalSeconds;
                     long expectedFrames = baseFrames + (long)(elapsedSeconds * fps);
 
-                    while (_totalFramesGenerated < expectedFrames)
+                    // 止められたら、遅れを取り戻している途中でも残りのフレームは出さない
+                    while (!token.IsCancellationRequested && _totalFramesGenerated < expectedFrames)
                     {
                         _totalFramesGenerated++;
                         long advanced = _loopFrames > 0 ? _totalFramesGenerated % _loopFrames : _totalFramesGenerated;
@@ -149,7 +157,11 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
             finally
             {
                 timer.Dispose();
-                _isRunning = false;
+                // 止めてすぐ動かし直した(リセット・再開)なら、今動いているのは次のループなので印を下ろさない
+                lock (_lock)
+                {
+                    if (_timerCts == cts) _isRunning = false;
+                }
             }
         }, token);
     }

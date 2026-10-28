@@ -420,7 +420,7 @@ public class CommandRouterTests
         h.Run("generator.stop");
         h.Engine.FrameRate = FrameRate.Fps24;
         h.Run("generator.configure", """{"frameRate":"25"}""");
-        Assert.True(h.Run("generator.reset").Ok); // 一時停止中なら作り直したあと開始位置で止める
-        Assert.Equal(new[] { "StartGenerator:03:00:00:00", "StopGenerator" }, h.Engine.Calls.TakeLast(2));
+        Assert.True(h.Run("generator.reset").Ok); // 一時停止中なら作り直したあと開始位置で止め、時計を開始 TC に合わせる
+        Assert.Equal(new[] { "StartGenerator:03:00:00:00", "StopGenerator", "ResetGenerator:03:00:00:00" }, h.Engine.Calls.TakeLast(3));
     }
 }
