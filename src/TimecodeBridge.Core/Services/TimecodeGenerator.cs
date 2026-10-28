@@ -84,16 +84,27 @@ public class TimecodeGenerator : ITimecodeGenerator, IDisposable
 
     public void ResetTo(TimecodeValue startTime)
     {
+        // 別の位置へ飛ばすならループ範囲は無効になる。
+        // 元の範囲のまま回すと、頼まれていない区間を繰り返すことになる。
+        ResetCore(startTime, startTime.TotalFrames() != _startTime.TotalFrames() ? 0 : _loopFrames);
+    }
+
+    /// <summary>
+    /// 開始時刻とループ範囲を両方差し替えて頭へ戻す(レートはそのまま)。
+    /// 設定を変えたあとのリセットで、ループの入切や範囲の変更も反映するのに使う。
+    /// </summary>
+    public void ResetTo(TimecodeValue startTime, TimecodeValue? loopEndTime)
+        => ResetCore(startTime, LoopFramesFor(startTime, _frameRate, loopEndTime));
+
+    private void ResetCore(TimecodeValue startTime, long loopFrames)
+    {
         bool wasRunning = _isRunning;
         if (wasRunning)
         {
             _timerCts?.Cancel();
         }
 
-        // 別の位置へ飛ばすならループ範囲は無効になる。
-        // 元の範囲のまま回すと、頼まれていない区間を繰り返すことになる。
-        if (startTime.TotalFrames() != _startTime.TotalFrames()) _loopFrames = 0;
-
+        _loopFrames = loopFrames;
         _startTime = startTime;
         _totalFramesGenerated = 0;
         lock (_lock) { _currentTimecode = _startTime; }

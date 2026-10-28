@@ -27,6 +27,8 @@ public interface ITimecodeEngine
     void ResumeGenerator();
     void ResetGenerator();
     void ResetGenerator(TimecodeValue startTime);
+    /// <summary>開始 TC とループ範囲を差し替えて頭へ戻す(レートは変えない)。終端が null ならループしない。</summary>
+    void ResetGenerator(TimecodeValue startTime, TimecodeValue? loopEndTime) => ResetGenerator(startTime);
     void StopGenerator();
     /// <summary>生成中に出力デバイスを切り替える(なしなら出力を止める)。位置は保つ。</summary>
     void ApplyGeneratorOutput(GeneratorSettings settings) { }
