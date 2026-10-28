@@ -423,4 +423,25 @@ public class CommandRouterTests
         Assert.True(h.Run("generator.reset").Ok); // 一時停止中なら作り直したあと開始位置で止め、時計を開始 TC に合わせる
         Assert.Equal(new[] { "StartGenerator:03:00:00:00", "StopGenerator", "ResetGenerator:03:00:00:00" }, h.Engine.Calls.TakeLast(3));
     }
+
+    [AvaloniaFact]
+    public void GeneratorResetPassesLoopRange()
+    {
+        var h = new HostHarness();
+        h.Run("generator.configure", """{"startTime":"01:00:00:00","frameRate":"30"}""");
+        h.Run("generator.start");
+        h.Engine.ActiveSource = TimecodeSourceType.Generator;
+        h.Engine.FrameRate = FrameRate.Fps30;
+
+        // ループの入切や範囲だけを変えても、リセットで生成器へ渡す(開始 TC だけ渡すと保留が消えるのに反映されなかった)
+        h.Run("generator.configure", """{"loopEndTime":"01:00:10:00"}""");
+        Assert.True(h.State.GeneratorSettingsPending);
+        Assert.True(h.Run("generator.reset").Ok);
+        Assert.Equal("ResetGenerator:01:00:00:00-01:00:10:00", h.Engine.Calls[^1]);
+        Assert.False(h.State.GeneratorSettingsPending);
+
+        h.Run("generator.configure", """{"loopEndTime":""}""");
+        Assert.True(h.Run("generator.reset").Ok);
+        Assert.Equal("ResetGenerator:01:00:00:00", h.Engine.Calls[^1]);
+    }
 }

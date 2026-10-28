@@ -27,6 +27,7 @@ public sealed class FakeEngine : ITimecodeEngine
     public void ResumeGenerator() => Calls.Add("ResumeGenerator");
     public void ResetGenerator() => Calls.Add("ResetGenerator");
     public void ResetGenerator(TimecodeValue startTime) => Calls.Add($"ResetGenerator:{startTime}");
+    public void ResetGenerator(TimecodeValue startTime, TimecodeValue? loopEndTime) => Calls.Add(loopEndTime is { } end ? $"ResetGenerator:{startTime}-{end}" : $"ResetGenerator:{startTime}");
     public void StopGenerator() => Calls.Add("StopGenerator");
     public void ApplyGeneratorOutput(GeneratorSettings settings) => Calls.Add($"ApplyGeneratorOutput:{settings.OutputDeviceId}");
     public void SetGeneratorVolume(float level) => Calls.Add($"SetGeneratorVolume:{level}");

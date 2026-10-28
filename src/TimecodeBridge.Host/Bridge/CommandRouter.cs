@@ -296,7 +296,8 @@ public sealed class CommandRouter
                     _state.MarkDirty(Domain.Generator | Domain.Transport);
                     return Ok(id);
                 case "generator.reset":
-                    // ResetGenerator は開始 TC だけを差し替え、生成器は古いレートのまま数える。レートが変わっていれば作り直す
+                    // ResetGenerator は開始 TC とループ範囲を差し替え、生成器は古いレートのまま数える。レートが変わっていれば作り直す
+                    // (開始 TC だけ渡すと、保留中のループの入切や範囲が反映されないまま保留が消えていた)
                     if (_engine.ActiveSource == TimecodeSourceType.Generator && _engine.FrameRate != _state.Generator.FrameRate)
                     {
                         try
@@ -307,7 +308,7 @@ public sealed class CommandRouter
                                 // 一時停止中なら開始位置で止めておく。作り直した生成器はまだ 1 フレームも出していないので、
                                 // 開始 TC を 1 度出して時計を合わせる(レートが同じときのリセットと同じ見え方にする)
                                 _engine.StopGenerator();
-                                _engine.ResetGenerator(_state.Generator.StartTime);
+                                _engine.ResetGenerator(_state.Generator.StartTime, _state.Generator.LoopEndTime);
                             }
                         }
                         catch (Exception ex)
@@ -318,7 +319,7 @@ public sealed class CommandRouter
                     }
                     else
                     {
-                        _engine.ResetGenerator(_state.Generator.StartTime);
+                        _engine.ResetGenerator(_state.Generator.StartTime, _state.Generator.LoopEndTime);
                     }
                     _state.GeneratorSettingsPending = false;
                     _state.MarkDirty(Domain.Generator | Domain.NextCue);

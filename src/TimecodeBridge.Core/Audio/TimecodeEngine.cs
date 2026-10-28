@@ -321,6 +321,11 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
         _generator?.ResetTo(startTime);
     }
 
+    public void ResetGenerator(TimecodeValue startTime, TimecodeValue? loopEndTime)
+    {
+        _generator?.ResetTo(startTime, loopEndTime);
+    }
+
     public void Stop()
     {
         // 以降に処理される積み残しフレームを無効化してから状態を落とす
