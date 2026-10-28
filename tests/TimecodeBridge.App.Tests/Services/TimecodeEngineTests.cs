@@ -313,6 +313,20 @@ public class TimecodeEngineTests : IDisposable
         Assert.True(received.Wait(TimeSpan.FromSeconds(2)));
     }
 
+    [Fact]
+    public void Stop_生成器を破棄したらActiveSourceをGeneratorのまま残さない()
+    {
+        _engine.StartGenerator(new GeneratorSettings { FrameRate = FrameRate.Fps30 });
+        _engine.StopGenerator();
+        // 一時停止は生成器を残す(続きから再開できる)
+        Assert.Equal(TimecodeSourceType.Generator, _engine.ActiveSource);
+
+        _engine.Stop();
+
+        // Generator のままだと、Host は破棄済みの生成器を「続きから再開」しようとして時計が止まったままになる
+        Assert.Equal(TimecodeSourceType.Ltc, _engine.ActiveSource);
+    }
+
     private static float[] ReadAllAsFloat(LtcEncoder encoder, int frameCount, int sampleRate = 48000)
     {
         int samplesPerFrame = (int)Math.Round(sampleRate / 30.0);

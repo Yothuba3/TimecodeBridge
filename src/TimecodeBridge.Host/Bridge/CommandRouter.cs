@@ -302,7 +302,13 @@ public sealed class CommandRouter
                         try
                         {
                             _engine.StartGenerator(_state.Generator);
-                            if (!_state.GeneratorRunning) _engine.StopGenerator(); // 一時停止中なら開始位置で止めておく
+                            if (!_state.GeneratorRunning)
+                            {
+                                // 一時停止中なら開始位置で止めておく。作り直した生成器はまだ 1 フレームも出していないので、
+                                // 開始 TC を 1 度出して時計を合わせる(レートが同じときのリセットと同じ見え方にする)
+                                _engine.StopGenerator();
+                                _engine.ResetGenerator(_state.Generator.StartTime);
+                            }
                         }
                         catch (Exception ex)
                         {

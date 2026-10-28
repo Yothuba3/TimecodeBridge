@@ -1,4 +1,6 @@
 using System.Text.Json;
+using TimecodeBridge.Core.Audio;
+using TimecodeBridge.Core.Models;
 using TimecodeBridge.Core.Services;
 using TimecodeBridge.Core.Services.Interfaces;
 using TimecodeBridge.Host.Bridge;
@@ -21,15 +23,24 @@ public sealed class HostHarness
     public ProjectCoordinator Projects { get; }
     public CommandRouter Router { get; }
 
-    public HostHarness()
+    /// <param name="engine">本物のエンジンで通すときに渡す(そのときフェイクの <see cref="Engine"/> は使われない)</param>
+    public HostHarness(ITimecodeEngine? engine = null)
     {
+        engine ??= Engine;
         Osc.HostRegistry = Hosts;
-        Cues = new CueManager(Engine, Osc);
+        Cues = new CueManager(engine, Osc);
         Panel = new OscTriggerPanelManager(Osc, Hosts);
-        State = new HostState(Engine, Cues, Hosts, Osc, Panel, Project, new CachedAudioDeviceService(Devices), Recent); // 本番(App)と同じく一覧を使い回す
-        Projects = new ProjectCoordinator(State, Engine, Cues, Hosts, Panel, Project, Recent);
-        Router = new CommandRouter(State, Engine, Cues, Hosts, Panel, Projects);
+        State = new HostState(engine, Cues, Hosts, Osc, Panel, Project, new CachedAudioDeviceService(Devices), Recent); // 本番(App)と同じく一覧を使い回す
+        Projects = new ProjectCoordinator(State, engine, Cues, Hosts, Panel, Project, Recent);
+        Router = new CommandRouter(State, engine, Cues, Hosts, Panel, Projects);
     }
+
+    /// <summary>渡す用の本物のエンジン。入力デバイスは選ばず(LTC 受信は開かない)、内部生成の出力先も「なし」のまま回す</summary>
+    public static TimecodeEngine RealEngine() => new(
+        FrameRate.Fps30,
+        new FakeDeviceService(),
+        () => throw new NotSupportedException("このテストでは LTC 受信を開かない"),
+        () => throw new NotSupportedException("このテストでは出力デバイスを開かない"));
 
     public ResultMessage Run(string command, string argsJson = "{}", string requestId = "r1", long? expectedRevision = null) =>
         RunAsync(command, argsJson, requestId, expectedRevision).GetAwaiter().GetResult();

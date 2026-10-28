@@ -331,6 +331,9 @@ public class TimecodeEngine : ITimecodeEngine, IDisposable
 
         DisposeGenerator();
         StopLtcCapture();
+        // 生成器を破棄したので、起動直後と同じ既定値へ戻す。Generator のまま残すと、呼び出し側が
+        // 一時停止中の生成器があるとみなして ResumeGenerator を呼び、何も動かないまま止まってしまう
+        ActiveSource = TimecodeSourceType.Ltc;
         TransitionToNotReceiving();
     }
 
