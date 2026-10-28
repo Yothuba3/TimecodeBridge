@@ -8,11 +8,21 @@ public sealed class WaveReducer
     /// <summary>表示区間。UI 改修前(v2 の AudioWaveformView)と同じ約 0.1 フレーム分(30fps 基準、約 3.3ms)。LTC の矩形が数個見える幅。</summary>
     public const double WindowSeconds = 0.1 / 30.0;
 
+    /// <summary>
+    /// 前回からサンプルが届かなかった Snapshot で、直前のレベルを保つ回数(Snapshot は約 33ms ごとなので約 200ms)。
+    /// 音声バッファは Snapshot の間隔どおりには届かないので、届かない回を無音扱いにすると受信中もレベルが一瞬消える。
+    /// 保ち切っても届かなければ無音(null)にする(入力が途絶えたまま最後の値で止まらないように)。
+    /// </summary>
+    public const int LevelHoldSnapshots = 6;
+
     private readonly object _lock = new();
     private float[] _ring = new float[SamplesFor(48000)];
     private int _write;
     private int _count;
     private float _peak;
+    private bool _written;
+    private double? _level;
+    private int _idleSnapshots;
 
     public int WindowSamples => _ring.Length;
 
@@ -39,6 +49,7 @@ public sealed class WaveReducer
             foreach (var s in samples)
             {
                 if (!float.IsFinite(s)) continue;
+                _written = true;
                 _ring[_write] = s;
                 _write = (_write + 1) % _ring.Length;
                 if (_count < _ring.Length) _count++;
@@ -49,7 +60,10 @@ public sealed class WaveReducer
         }
     }
 
-    /// <summary>points 点に縮約した [min,max] を返し、ピークを消費(リセット)する。データが無ければ null。</summary>
+    /// <summary>
+    /// points 点に縮約した [min,max] を返し、ピークを消費(リセット)する。データが無ければ null。
+    /// レベルは前回から届いたサンプルのピークで、無音なら null。届かなかった回は <see cref="LevelHoldSnapshots"/> 回まで直前の値を返す。
+    /// </summary>
     public (float[] Min, float[] Max, double? LevelDbfs)? Snapshot(int points)
     {
         points = Math.Clamp(points, 16, 2048);
@@ -73,9 +87,18 @@ public sealed class WaveReducer
                 min[p] = lo;
                 max[p] = hi;
             }
-            double? level = _peak > 0 ? 20 * Math.Log10(_peak) : null;
+            if (_written)
+            {
+                _level = _peak > 0 ? 20 * Math.Log10(_peak) : null;
+                _idleSnapshots = 0;
+            }
+            else if (++_idleSnapshots > LevelHoldSnapshots)
+            {
+                _level = null;
+            }
             _peak = 0;
-            return (min, max, level);
+            _written = false;
+            return (min, max, _level);
         }
     }
 }
