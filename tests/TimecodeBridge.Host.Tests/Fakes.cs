@@ -21,15 +21,16 @@ public sealed class FakeEngine : ITimecodeEngine
     public event EventHandler<TimecodeStatusChangedEventArgs>? StatusChanged;
     public event EventHandler<AudioSamplesEventArgs>? AudioSamplesAvailable;
 
-    public void StartLtc(string audioDeviceId, bool isLoopback = false) => Calls.Add($"StartLtc:{audioDeviceId}:{isLoopback}");
-    public void StartGenerator(GeneratorSettings settings) => Calls.Add($"StartGenerator:{settings.StartTime}");
+    // ActiveSource は本物(Core の TimecodeEngine)と同じく、開始した側に切り替わる
+    public void StartLtc(string audioDeviceId, bool isLoopback = false) { Calls.Add($"StartLtc:{audioDeviceId}:{isLoopback}"); ActiveSource = TimecodeSourceType.Ltc; }
+    public void StartGenerator(GeneratorSettings settings) { Calls.Add($"StartGenerator:{settings.StartTime}"); ActiveSource = TimecodeSourceType.Generator; }
     public void ResumeGenerator() => Calls.Add("ResumeGenerator");
     public void ResetGenerator() => Calls.Add("ResetGenerator");
     public void ResetGenerator(TimecodeValue startTime) => Calls.Add($"ResetGenerator:{startTime}");
     public void StopGenerator() => Calls.Add("StopGenerator");
     public void ApplyGeneratorOutput(GeneratorSettings settings) => Calls.Add($"ApplyGeneratorOutput:{settings.OutputDeviceId}");
     public void SetGeneratorVolume(float level) => Calls.Add($"SetGeneratorVolume:{level}");
-    public void Stop() => Calls.Add("Stop");
+    public void Stop() { Calls.Add("Stop"); ActiveSource = TimecodeSourceType.Ltc; } // 本物も生成器を破棄して既定値へ戻す
 
     public void RaiseTimecode(TimecodeValue raw, TimecodeValue offset) => TimecodeUpdated?.Invoke(this, new TimecodeUpdatedEventArgs(raw, offset));
     public void RaiseStatus(TimecodeReceiveStatus status) => StatusChanged?.Invoke(this, new TimecodeStatusChangedEventArgs(status));
