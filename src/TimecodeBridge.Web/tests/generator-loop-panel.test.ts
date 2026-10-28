@@ -28,4 +28,13 @@ test("turning the loop on reveals the end field with the stored value",()=>{
   assert.match(html,/終了 TC/);
   assert.match(html,/value="08"/);
   assert.match(html,/value="30"/);
+  assert.doesNotMatch(html,/反映されません/);
+});
+
+// 開始 TC が終了 TC 以降の組み合わせは Host に送らない。画面で反映していないことを伝える
+test("an end at or before the start is flagged as not applied",()=>{
+  const state=fakeState();
+  appStore.value.host.state={...state,generator:{...state.generator,startTime:"03:45:11:20",loopEndTime:"01:03:10:00"}};
+  const html=render(h(GeneratorPanel,{notice:()=>{}}));
+  assert.match(html,/終了 TC を開始 TC より後にしてください/);
 });

@@ -72,6 +72,45 @@ public class GeneratorLoopCommandTests
         Assert.Null(h.State.Generator.LoopEndTime);
     }
 
+    // Web は入力のたびに開始 TC と終了 TC を両方送る。弾いたのに開始 TC だけ書き換わると、終了が開始より前のループが残っていた
+    [Fact]
+    public void 開始TCが終了TC以降になる組み合わせは弾いて何も変えない()
+    {
+        var h = new HostHarness();
+        h.Run("generator.configure", """{"startTime":"01:00:00:00","loopEndTime":"01:03:10:00","frameRate":"30"}""");
+
+        var result = h.Run("generator.configure", """{"startTime":"03:45:11:20","loopEndTime":"01:03:10:00","frameRate":"30"}""");
+
+        Assert.Equal(ErrorCode.Validation, result.Error!.Code);
+        Assert.Equal("01:00:00:00", h.State.Generator.StartTime.ToString());
+        Assert.Equal("01:03:10:00", h.State.Generator.LoopEndTime!.Value.ToString());
+    }
+
+    [Fact]
+    public void 新しいレートにない開始TCはレートごと弾く()
+    {
+        var h = Started();
+        h.Run("generator.configure", """{"startTime":"08:00:00:29"}""");
+
+        var result = h.Run("generator.configure", """{"startTime":"08:00:00:29","frameRate":"24"}""");
+
+        Assert.Equal(ErrorCode.Validation, result.Error!.Code);
+        Assert.Equal(FrameRate.Fps30, h.State.Generator.FrameRate);
+        Assert.Equal("08:00:00:29", h.State.Generator.StartTime.ToString());
+    }
+
+    [Fact]
+    public void 音量が範囲外なら一緒に送った開始TCとループも変えない()
+    {
+        var h = Started();
+
+        var result = h.Run("generator.configure", """{"startTime":"09:00:00:00","loopEndTime":"09:00:30:00","volume":2}""");
+
+        Assert.Equal(ErrorCode.Validation, result.Error!.Code);
+        Assert.Equal("08:00:00:00", h.State.Generator.StartTime.ToString());
+        Assert.Null(h.State.Generator.LoopEndTime);
+    }
+
     [Fact]
     public void フレームレートを下げると終了TCのフレーム番号を丸める()
     {

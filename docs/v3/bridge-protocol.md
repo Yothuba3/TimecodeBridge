@@ -101,7 +101,7 @@ M0合否目安（推測）: clock+wave、1000 cues表示を10分継続し、入�
 |`receive.setOffset`|`{value}`|`{normalized}` / `validation`|
 |`receive.setTriggerWindow`|`{frames}`|`{frames}` / `validation`|
 |`receive.setFreerunDuration`|`{seconds}`|`validation`|
-|`generator.configure`|`{startTime,frameRate,outputDeviceId,volume}`|`validation`,`deviceNotFound`|
+|`generator.configure`|`{startTime?,frameRate?,loopEndTime?,outputDeviceId?,volume?}`|`validation`,`deviceNotFound`。省いた項目は今の値のまま。`loopEndTime` は空文字か null でループ解除、開始 TC 以前なら `validation`。どれか 1 つでも `validation` になれば何も変えない|
 |`generator.start/stop/reset`|`{}`|`audioError`,`invalidState`|
 |`mute.set`, `autoMute.setEnabled`|`{muted? ,enabled?}`|`invalidState`|
 |`cue.add/update`|`{id?,cue:CueDraft}`|`{id?}` / `notFound`,`validation`,`conflict`|
